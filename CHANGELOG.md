@@ -11,6 +11,15 @@ pre-1.0.
 
 ## [Unreleased]
 
+- **Updating a file now suggests that file's own name.** When an update asks
+  where to save, the dialog is pre-filled with the name of the deck you have
+  open rather than one derived from its title — so a file called
+  `Q3-board.bento.html` no longer offers to save itself as
+  `Q3_Board_Review.bento.html`. The backup written alongside an in-place update
+  follows the same name. Where the save dialog opens is set by the browser and
+  can't be pointed at a folder by the page, but it now remembers the last place
+  you saved, so the second update onwards starts in the right directory.
+
 - **Table defaults can follow the deck theme.** A deck may now define table
   colours, typography, spacing, borders, and corner radius in `theme.table`.
   Tables inserted from the toolbar inherit those defaults, and switching back

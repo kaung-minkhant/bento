@@ -22,7 +22,7 @@
 import type { KernelDoc } from './doc.ts'
 import { appConfig } from './app.ts'
 import {
-  serializeDocInto, serializeAuto, suggestedFileName, downloadFile,
+  serializeDocInto, serializeAuto, suggestedFileName, downloadFile, openedFileName, fileBase,
   hasFileHandle, writeUpdatedFile, writeUpdatedFileAs,
 } from './save.ts'
 
@@ -174,9 +174,12 @@ export async function buildUpdatedFile(release: ReleaseInfo, doc: KernelDoc): Pr
   return serializeDocInto(shell, doc)
 }
 
-/** Build the updated file and hand it to the user as a fresh download. */
+/** Build the updated file and hand it to the user as a fresh download.
+ *  Named after the file they have open, not the deck title — an update
+ *  REPLACES that file, so "Q3-board.bento.html" is the answer even when the
+ *  deck is titled "Q3 Board Review". */
 export async function applyUpdate(release: ReleaseInfo, doc: KernelDoc): Promise<void> {
-  downloadFile(await buildUpdatedFile(release, doc), suggestedFileName(doc))
+  downloadFile(await buildUpdatedFile(release, doc), openedFileName() ?? suggestedFileName(doc))
 }
 
 /** Can we rewrite the open file directly (a FS Access handle is held)? */
@@ -190,18 +193,23 @@ export const canUpdateInPlace = hasFileHandle
  *
  * Without a handle (e.g. the file was double-clicked open — the browser grants
  * no handle on open): use a save picker AND KEEP the resulting handle, so this
- * update and every later one can rewrite the file in place. The picker can't
- * default to the open file's location without a handle, so the caller must tell
- * the user to overwrite the file they have open; once they do, it is a one-time
- * grant. Returns false if the picker was cancelled.
+ * update and every later one can rewrite the file in place. The picker is
+ * pre-filled with the open file's own NAME (taken from the document URL); its
+ * DIRECTORY still cannot be set — the API accepts a handle, never a path — so
+ * the caller must still tell the user to overwrite the file they have open.
+ * Once they do, it is a one-time grant. Returns false if cancelled.
  */
 export async function applyUpdateInPlace(release: ReleaseInfo, doc: KernelDoc): Promise<boolean> {
   const html = await buildUpdatedFile(release, doc)
+  // Both names below follow the OPEN FILE, not the deck title: the backup sits
+  // beside the original, and the picker opens pre-filled with the very file the
+  // user is being asked to overwrite.
+  const current = openedFileName()
   if (hasFileHandle()) {
-    const base = suggestedFileName(doc).replace(/\.bento\.html$/, '')
+    const base = fileBase(current ?? suggestedFileName(doc))
     downloadFile(await serializeAuto(doc), `${base}.v${APP_VERSION}-backup.bento.html`)
     await writeUpdatedFile(html)
     return true
   }
-  return writeUpdatedFileAs(html, doc, { keepHandle: true })
+  return writeUpdatedFileAs(html, doc, { keepHandle: true, suggestedName: current ?? undefined })
 }

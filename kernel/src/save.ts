@@ -195,10 +195,19 @@ let fileHandle: FsFileHandle | null = null
 
 const hasFsAccess = () => typeof (window as any).showSaveFilePicker === 'function'
 
-async function pickHandle(doc: KernelDoc, suffix = ''): Promise<FsFileHandle | null> {
+async function pickHandle(
+  doc: KernelDoc, suffix = '', suggestedName?: string,
+): Promise<FsFileHandle | null> {
   try {
     return await (window as any).showSaveFilePicker({
-      suggestedName: suggestedFileName(doc, suffix),
+      suggestedName: suggestedName ?? suggestedFileName(doc, suffix),
+      // startIn takes a HANDLE, never a path — the API gives no way to point a
+      // picker at an arbitrary directory, by design. With a handle we land in
+      // the open file's own folder; without one, `id` is the fallback: the
+      // browser remembers the last directory used under this id, so the second
+      // update onwards opens where the first one saved.
+      ...(fileHandle ? { startIn: fileHandle } : {}),
+      id: 'bento-doc',
       types: [{ description: appConfig().appName, accept: { 'text/html': ['.html'] } }],
     })
   } catch (err: any) {
@@ -245,6 +254,31 @@ export async function saveFile(doc: KernelDoc, forcePicker = false): Promise<Sav
 
 export const currentFileName = () => fileHandle?.name ?? null
 
+/**
+ * The name of the file this document is actually open AS, when knowable.
+ *
+ * Two sources, best first: a held FS Access handle, else this document's own
+ * URL. The URL case is the one that matters — a `.bento.html` double-clicked
+ * from disk grants no handle, which is exactly when a save picker appears with
+ * nothing useful in it.
+ *
+ * Only a name ending in `.bento.html` counts. That deliberately excludes the
+ * hosted demo (`/slides/`, `index.html`), so the anonymous try-it deck still
+ * falls back to naming itself after its title instead of "index".
+ */
+export function openedFileName(): string | null {
+  if (fileHandle?.name) return fileHandle.name
+  try {
+    const base = decodeURIComponent(new URL(location.href).pathname.split('/').pop() ?? '')
+    return /\.bento\.html$/i.test(base) ? base : null
+  } catch {
+    return null
+  }
+}
+
+/** Strip the document extension: "Q3-board.bento.html" -> "Q3-board". */
+export const fileBase = (name: string) => name.replace(/\.bento\.html$/i, '').replace(/\.html$/i, '')
+
 // --- self-update writing ----------------------------------------------------
 
 /** Whether we hold a writable handle to the file (in-place update possible). */
@@ -264,13 +298,13 @@ export async function writeUpdatedFile(html: string): Promise<void> {
 export async function writeUpdatedFileAs(
   html: string,
   doc: KernelDoc,
-  opts: { suffix?: string; keepHandle?: boolean } = {},
+  opts: { suffix?: string; keepHandle?: boolean; suggestedName?: string } = {},
 ): Promise<boolean> {
   if (!hasFsAccess()) {
-    downloadFile(html, suggestedFileName(doc, opts.suffix))
+    downloadFile(html, opts.suggestedName ?? suggestedFileName(doc, opts.suffix))
     return true
   }
-  const handle = await pickHandle(doc, opts.suffix)
+  const handle = await pickHandle(doc, opts.suffix, opts.suggestedName)
   if (!handle) return false
   // Share/export artifacts must NOT become the ⌘S target — otherwise the next
   // save would overwrite e.g. a view-only copy with the FULL document (owner
