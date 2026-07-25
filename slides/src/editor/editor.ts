@@ -1522,11 +1522,10 @@ export class Editor {
     probe.src = src
   }
 
-  /** A fresh table styled to read on the CURRENT slide — on a dark background the
-   *  default dark body text / hairline borders would be invisible, so flip them
-   *  light (the header keeps its own dark-bg + white text, which reads on both). */
+  /** A themed table adapted to the current slide. Dark backgrounds need light
+   *  body text and separators; the theme still owns the header treatment. */
   private newTable(): TableElement {
-    const tbl = defaultTable()
+    const tbl = defaultTable({}, this.store.doc.theme)
     if (!isLightBg(this.store.slide.background)) {
       tbl.style.color = readableInk(this.store.slide.background)
       tbl.style.zebra = 'rgba(255,255,255,0.06)'

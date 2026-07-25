@@ -381,6 +381,8 @@ export interface BentoDoc {
     fontFamily: string
     /** ordered series colours for new charts; derived from accent when absent */
     chartPalette?: string[]
+    /** defaults for newly inserted tables; omitted decks keep the standard look */
+    table?: Partial<TableStyle>
   }
   /** present-mode chrome; decks with built-in chrome can turn Reveal's off */
   present?: {
@@ -646,7 +648,28 @@ export function defaultChart(option: Record<string, unknown>, partial: Partial<C
   }
 }
 
-export function defaultTable(partial: Partial<TableElement> = {}): TableElement {
+const DEFAULT_TABLE_STYLE: TableStyle = {
+  headerBg: '#1E2A3A',
+  headerColor: '#FFFFFF',
+  zebra: 'rgba(30,42,58,0.05)',
+  borderColor: 'rgba(30,42,58,0.14)',
+  borderWidth: 1,
+  cellPadX: 16,
+  cellPadY: 11,
+  fontSize: 18,
+  color: '#1E2A3A',
+  radius: 10,
+}
+
+/** Resolve a new table's style from built-in defaults and optional deck overrides. */
+export function tableStyleFor(theme?: BentoDoc['theme']): TableStyle {
+  return { ...DEFAULT_TABLE_STYLE, ...(theme?.table ?? {}) }
+}
+
+export function defaultTable(
+  partial: Partial<TableElement> = {},
+  theme?: BentoDoc['theme'],
+): TableElement {
   const cell = (html: string): TableCell => ({ html })
   return {
     id: uid('tbl'),
@@ -660,18 +683,7 @@ export function defaultTable(partial: Partial<TableElement> = {}): TableElement 
       { cells: [cell('Row 1'), cell('—'), cell('—')] },
       { cells: [cell('Row 2'), cell('—'), cell('—')] },
     ],
-    style: {
-      headerBg: '#1E2A3A',
-      headerColor: '#FFFFFF',
-      zebra: 'rgba(30,42,58,0.05)',
-      borderColor: 'rgba(30,42,58,0.14)',
-      borderWidth: 1,
-      cellPadX: 16,
-      cellPadY: 11,
-      fontSize: 18,
-      color: '#1E2A3A',
-      radius: 10,
-    },
+    style: tableStyleFor(theme),
     ...partial,
   }
 }

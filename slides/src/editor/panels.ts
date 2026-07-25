@@ -5,7 +5,8 @@
 // into a single undo checkpoint.
 
 import type { Store } from '../store'
-import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, morphKey, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
+import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, internAsset, morphKey, tableStyleFor, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
+import { resolveAsset } from '../render'
 import { isMacOS } from '../screens'
 import { CHART_PRESETS } from '../charts'
 import { FONT_CHOICES, firstFamily, injectFonts } from '../fonts'
@@ -1399,14 +1400,18 @@ export class PropsPanel {
       : st.borderWidth ? 'Lined'
       : st.zebra ? 'Zebra'
       : 'Minimal'
+    const themed = tableStyleFor(this.store.doc.theme)
     this.section(t('Style'))
     this.row('Preset', this.select(['Lined', 'Zebra', 'Boxed', 'Minimal'], preset, (v) =>
       this.mutate(el.id, (e) => {
         const s = (e as TableElement).style
-        s.borderWidth = v === 'Lined' || v === 'Boxed' ? 1 : 0
-        s.zebra = v === 'Zebra' || v === 'Boxed' ? 'rgba(30,42,58,0.05)' : undefined
+        s.borderWidth = v === 'Lined' || v === 'Boxed' ? Math.max(themed.borderWidth, 1) : 0
+        s.zebra = v === 'Zebra' || v === 'Boxed' ? themed.zebra ?? 'rgba(30,42,58,0.05)' : undefined
         if (v === 'Minimal') { s.headerBg = 'transparent'; s.headerColor = s.color }
-        else if (s.headerBg === 'transparent') { s.headerBg = '#1E2A3A'; s.headerColor = '#FFFFFF' }
+        else if (s.headerBg === 'transparent') {
+          s.headerBg = themed.headerBg
+          s.headerColor = themed.headerColor
+        }
       }, true)))
 
     this.row('Header fill', this.colorAlpha(st.headerBg, (v, fin) =>

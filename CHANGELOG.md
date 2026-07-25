@@ -11,6 +11,67 @@ pre-1.0.
 
 ## [Unreleased]
 
+- **Table defaults can follow the deck theme.** A deck may now define table
+  colours, typography, spacing, borders, and corner radius in `theme.table`.
+  Tables inserted from the toolbar inherit those defaults, and switching back
+  from the Minimal preset restores the themed header treatment. Existing decks
+  without table defaults keep the same built-in appearance.
+
+## [1.0.10] — 2026-07-25
+
+- **Fix: deleting a slide could empty the deck entirely.** The "a deck needs at
+  least one slide" guard counted the slides you had rather than the ones that
+  would be left — and deleting a slide also deletes its interactive states. So
+  a deck holding one slide plus one state of it passed the check, lost both,
+  and left the editor with nothing to show. Deletion then appeared stuck. The
+  guard now checks what survives.
+
+- **Fix: setting a morph id by hand did nothing.** Pairing two elements across
+  slides via the Morph panel silently failed — the element matched up but never
+  animated, so morphing only worked through the duplicate-a-slide route. Both
+  ways work now.
+
+- **Photos and video now work in live collaboration.** This finishes what
+  1.0.9 could only warn you about: previously anything past about half a
+  megabyte was simply too big to send to your collaborators. Now a large image
+  is uploaded once, encrypted, and everyone else pulls it down in the
+  background — so you can drop a full-resolution photo into a shared deck the
+  same way you would in a deck you're editing alone. A 3MB photo used to
+  produce a message the relay refused outright; it now travels as a reference
+  of about a hundred bytes.
+
+  As always the server never sees the picture: it is encrypted before it
+  leaves your machine, and the relay stores bytes it cannot read. Collaborators
+  on the same computer don't involve the relay at all. Small images are still
+  carried inside the document exactly as before, so nothing changes for
+  ordinary decks, and a self-hosted relay without blob storage keeps working —
+  it just falls back to the old inline-only behaviour.
+
+## [1.0.9] — 2026-07-25
+
+- **Fix: large text could silently kill live collaboration.** A text box of
+  roughly 200KB or more crashed the change-differ — and because that runs on
+  every edit, *nothing* synced afterwards, on any slide, with no error shown.
+  Collaboration simply stopped. Fixed, and a failed diff can no longer wedge a
+  session either: it now recovers by sending a full snapshot, so a future bug
+  of that shape degrades instead of silently breaking.
+
+- **Fix: adding a large image while collaborating failed silently.** An image
+  over about half a megabyte was dropped on its way to your collaborators —
+  they saw a broken picture, and your editor kept retrying it forever. Bento
+  now tells you when something is too large to share live (and says so once,
+  instead of looping). The size limit itself roughly doubled. Larger media
+  still can't be added mid-session; that needs a deeper change, and it's next.
+
+- **The wordmark is lowercase.** `bento/slides`, matching what the file has
+  always called itself internally, and the website now uses the `bento/.`
+  platform mark.
+
+- Under the hood: shared machinery (saving, encryption, auto-save, updates,
+  animation, charts, translations) moved into a common kernel so the coming
+  apps use exactly the same document lifecycle as slides. No behaviour change
+  — the built file is byte-identical apart from the rebrand.
+
 ## [1.0.8] — 2026-07-24
 
 - **Reduce motion during a presentation.** A calmer show for motion sensitivity,
