@@ -24,7 +24,8 @@
 
 /** Plaintext bytes per chunk. Peak memory is ~5x this, not ~5x the asset. */
 const CHUNK = 4 * 1024 * 1024
-/** Must match the relay's MAX_BLOB; above this an asset needs several blobs. */
+/** Must match the relay's MAX_BLOB. NOTE this bounds the ENCODED blob, not the
+ *  plaintext — the relay measures what it receives. */
 export const MAX_BLOB = 8 * 1024 * 1024
 const MAGIC = 0x4242 // 'BB'
 const HEADER = 16
@@ -65,6 +66,21 @@ export function bytesToDataUri(bytes: Uint8Array, mime: string): string {
     s += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)))
   }
   return `data:${mime};base64,${btoa(s)}`
+}
+
+/** Encoded size for `n` plaintext bytes: header + per-chunk IV and GCM tag.
+ *  The client must check THIS against MAX_BLOB, not the plaintext length —
+ *  otherwise an asset just under the limit passes here and is refused 413 by
+ *  the relay, which measures the ciphertext. */
+export function encodedSize(n: number): number {
+  return HEADER + Math.max(1, Math.ceil(n / CHUNK)) * (IV_LEN + TAG_LEN) + n
+}
+
+/** Largest plaintext asset that still fits in one blob. */
+export function maxAssetBytes(): number {
+  let n = MAX_BLOB
+  while (n > 0 && encodedSize(n) > MAX_BLOB) n -= 1
+  return n
 }
 
 async function hmacKey(rawRoomKey: Uint8Array): Promise<CryptoKey> {
@@ -208,7 +224,7 @@ const url = (e: BlobEndpoint, key: string) =>
 
 export type PutResult =
   | { ok: true; key: string; deduped: boolean }
-  | { ok: false; reason: 'too-large' | 'unsupported' | 'network' | 'forbidden' }
+  | { ok: false; reason: 'too-large' | 'unsupported' | 'network' | 'forbidden' | 'room-full' }
 
 /**
  * Encrypt and upload. Returns the key to put in the op. Dedupe is a HEAD
@@ -219,7 +235,7 @@ export type PutResult =
  * caller should fall back to inlining, NOT treat it as an error.
  */
 export async function putBlob(e: BlobEndpoint, rawRoomKey: Uint8Array, bytes: Uint8Array): Promise<PutResult> {
-  if (bytes.length > MAX_BLOB) return { ok: false, reason: 'too-large' }
+  if (encodedSize(bytes.length) > MAX_BLOB) return { ok: false, reason: 'too-large' }
   const key = await blobKey(rawRoomKey, bytes)
   try {
     const head = await fetch(url(e, key), { method: 'HEAD' })
@@ -237,6 +253,9 @@ export async function putBlob(e: BlobEndpoint, rawRoomKey: Uint8Array, bytes: Ui
     if (res.status === 501) return { ok: false, reason: 'unsupported' }
     if (res.status === 403) return { ok: false, reason: 'forbidden' }
     if (res.status === 413) return { ok: false, reason: 'too-large' }
+    // 507: the room's total blob quota is exhausted. Permanent for this room
+    // until it expires — the caller must not retry in a loop.
+    if (res.status === 507) return { ok: false, reason: 'room-full' }
     if (!res.ok) return { ok: false, reason: 'network' }
     void cachePut(key, bytes)
     return { ok: true, key, deduped: false }

@@ -51,6 +51,12 @@ const ROOM_BYTE_CAP = 96 * 1024 * 1024
 // memory, so a browser encrypting a 64MB asset in one call would need ~320MB.
 // Chunking is a MEMORY requirement, not just resumability.
 const MAX_BLOB = 8 * 1024 * 1024
+// Total blob bytes one room may hold. Frames have ROOM_BYTE_CAP; without the
+// equivalent here, blob storage is an unmetered write endpoint behind nothing
+// but a trust-on-first-use token — the same unbounded-bill shape we closed for
+// frames. Counted in the DO, which is the only component that knows the room.
+const ROOM_BLOB_CAP = 256 * 1024 * 1024
+const BKEY = (k) => `b:${k}`
 const OP_KEY = (seq) => `op:${String(seq).padStart(10, '0')}`
 
 /** Tell the sender why a frame was refused. Clients MUST stop re-queueing an
@@ -142,12 +148,14 @@ async function blob(req, env, room, key) {
   if (!/^[A-Za-z0-9_-]{10,64}$/.test(tok)) return new Response('bad token', { status: 400 })
   // The DO owns the room's token; ask it rather than duplicating the check.
   const idc = env.ROOM.idFromName(room)
-  const okRes = await env.ROOM.get(idc).fetch(
-    new Request(`https://do/authz?tok=${encodeURIComponent(tok)}`),
-  )
-  if (okRes.status !== 200) return new Response('forbidden', { status: 403 })
+  const authzUrl = (extra = '') => `https://do/authz?tok=${encodeURIComponent(tok)}${extra}`
 
   const path = `${room}/${key}`
+  // reads: token only
+  if (req.method !== 'PUT') {
+    const ok = await env.ROOM.get(idc).fetch(new Request(authzUrl()))
+    if (ok.status !== 200) return new Response('forbidden', { status: 403 })
+  }
   if (req.method === 'HEAD') {
     const head = await env.BLOBS.head(path)
     return new Response(null, { status: head ? 200 : 404, headers: head ? { 'content-length': String(head.size) } : {} })
@@ -167,6 +175,16 @@ async function blob(req, env, room, key) {
         status: 413, headers: { 'content-type': 'application/json' },
       })
     }
+    // Reserve quota BEFORE writing — the DO checks the token and meters in one
+    // call, so a full room cannot be filled further even by a valid writer.
+    const res0 = await env.ROOM.get(idc).fetch(
+      new Request(authzUrl(`&size=${len}&bkey=${encodeURIComponent(key)}`)),
+    )
+    if (res0.status === 403) return new Response('forbidden', { status: 403 })
+    if (res0.status === 507) {
+      return new Response(await res0.text(), { status: 507, headers: { 'content-type': 'application/json' } })
+    }
+    if (res0.status !== 200) return new Response('room error', { status: 500 })
     // Content-addressed, so an existing key is the same bytes — skip the write
     // and let the client move on. This is the dedupe path.
     const existing = await env.BLOBS.head(path)
@@ -180,8 +198,9 @@ async function blob(req, env, room, key) {
 }
 
 export class Room {
-  constructor(state) {
+  constructor(state, env) {
     this.state = state
+    this.env = env
     this.verifyKey = null // imported writer pubkey, cached for this wake
     // Keepalive: auto-reply "pong" to a client "ping" WITHOUT waking the DO, so
     // idle connections aren't reaped by edge/proxy idle timeouts — the usual
@@ -231,7 +250,28 @@ export class Room {
     if (u0.pathname === '/authz') {
       const saved = await this.state.storage.get('tok')
       const given = u0.searchParams.get('tok') || ''
-      return new Response(null, { status: saved !== undefined && saved === given ? 200 : 403 })
+      if (saved === undefined || saved !== given) return new Response(null, { status: 403 })
+      // Blob accounting rides on the same call the blob route already makes.
+      // `size` present = a PUT asking to reserve quota; absent = a read.
+      const size = parseInt(u0.searchParams.get('size') || '0', 10) || 0
+      const bkey = u0.searchParams.get('bkey') || ''
+      if (!size || !bkey) return new Response(null, { status: 200 })
+      // Already counted? Then this is a re-upload of identical content
+      // (content-addressed keys) — admit it without double-charging.
+      if (await this.state.storage.get(BKEY(bkey))) {
+        return new Response(JSON.stringify({ deduped: true }), { status: 200 })
+      }
+      const used = (await this.state.storage.get('blobBytes')) || 0
+      if (used + size > ROOM_BLOB_CAP) {
+        return new Response(JSON.stringify({ error: 'room-blobs-full', cap: ROOM_BLOB_CAP, used }), {
+          status: 507, headers: { 'content-type': 'application/json' },
+        })
+      }
+      await this.state.storage.put(BKEY(bkey), size)
+      await this.state.storage.put('blobBytes', used + size)
+      // touch the expiry clock: blobs keep a room alive the same way ops do
+      await this.state.storage.setAlarm(Date.now() + IDLE_TTL_MS)
+      return new Response(JSON.stringify({ reserved: size }), { status: 200 })
     }
     if (req.headers.get('Upgrade') !== 'websocket') {
       return new Response('expected websocket', { status: 426 })
@@ -461,6 +501,21 @@ export class Room {
   async alarm() {
     // ~30 days idle: the room evaporates. Files reopen fine — the document
     // itself is the durable artifact; a fresh room re-forms on next join.
+    //
+    // Delete this room's BLOBS too. The DO is the only thing that knows which
+    // R2 objects belong to this room, so if it wipes its own state without
+    // clearing them, they are orphaned in the bucket forever and nobody is
+    // ever billed less. Best effort: if R2 errors we still wipe the DO rather
+    // than wedge the room, and the bucket lifecycle rule is the backstop.
+    try {
+      const name = await this.state.storage.get('name')
+      if (name && this.env?.BLOBS) {
+        const keys = [...(await this.state.storage.list({ prefix: 'b:' })).keys()]
+        for (const k of keys) {
+          try { await this.env.BLOBS.delete(`${name}/${k.slice(2)}`) } catch { /* best effort */ }
+        }
+      }
+    } catch { /* fall through to the wipe */ }
     await this.state.storage.deleteAll()
   }
 }
