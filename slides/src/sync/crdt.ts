@@ -1364,7 +1364,15 @@ function applyTxtToState(st: TxtState, op: TxtOp): boolean {
     // carry higher lamports than their anchors)
     while (idx < st.toks.length && tokCmp(st.toks[idx].id, newId) > 0) idx++
     const toks: TxtTok[] = grp.toks.map((t, i) => ({ id: `${op.l}.${op.a}.${i}`, t }))
-    st.toks.splice(idx, 0, ...toks)
+    // NOT splice(idx, 0, ...toks): tokenize is per-character, so a large text
+    // element is hundreds of thousands of tokens, and spreading them as call
+    // ARGUMENTS overflows the stack (~200KB of text was enough). That threw
+    // inside diff(), so session.flush() failed and NOTHING synced for the rest
+    // of the session — not just the oversized element. Splice in place without
+    // a spread instead; cost is one array copy.
+    st.toks = idx === st.toks.length
+      ? st.toks.concat(toks)
+      : st.toks.slice(0, idx).concat(toks, st.toks.slice(idx))
     if (st.pd?.length) {
       const pend = new Set(st.pd)
       for (const t of toks)
