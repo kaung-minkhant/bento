@@ -557,12 +557,40 @@ export class Editor {
       item(ICONS.globe, t('Open hosted documents…'),
         t('List hosted documents and open one in this editor.'),
         () => void this.openHostedPicker())
+      item(ICONS.template, t('Start from scratch…'),
+        t('Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.'),
+        () => this.startFromScratch())
     }
     wrap.append(trigger, menu)
     document.addEventListener('pointerdown', (ev) => {
       if (!wrap.contains(ev.target as Node)) wrap.classList.remove('open')
     })
     return wrap
+  }
+
+  /**
+   * Clear the deck back to a single blank slide (issue #31). Starting a fresh
+   * presentation meant deleting every slide by hand, then stripping the one
+   * the deck refuses to delete.
+   *
+   * CONTENT ONLY: docId, theme, size, layouts and the live session all stay.
+   * "Duplicate as new deck…" (above) is the action that changes IDENTITY, and
+   * conflating the two here would be the surprising choice — under collab this
+   * lands as an ordinary edit everyone sees, which is what "let's start over
+   * on this deck" means. One commit, so ⌘Z brings the whole deck back.
+   */
+  private startFromScratch() {
+    const n = this.store.doc.slides.length
+    if (!window.confirm(t('Replace all {n} slides with one blank slide? ⌘Z undoes this.', { n: String(n) }))) return
+    const blank = builtinLayouts().find((l) => l.id === 'layout-blank')
+    if (!blank) return
+    this.canvas.commitTextEdit() // a live text edit would commit ONTO the new slide
+    this.store.select([])
+    this.store.commit(() => {
+      this.store.doc.slides = [instantiateLayout(blank)]
+    }, 'slides')
+    this.store.goTo(0)
+    this.store.emit('current')
   }
 
   /** A sealed hand-out: present-only player file, no editor, no live session. */

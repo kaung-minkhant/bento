@@ -677,4 +677,7 @@ export const ja: Catalog = {
   'Remove this browser session’s hosted-document login.': 'このブラウザセッションのホストドキュメントログインを削除',
   'Zitadel sign-in failed': 'Zitadel のサインインに失敗しました',
   'Signed out of Zitadel': 'Zitadel からサインアウトしました',
+  "Start from scratch…": "最初から始める…",
+  "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "すべてのスライドを 1 枚の空白スライドに置き換えます。プレゼンテーションのテーマ、名前、ライブセッションはそのまま残ります — ⌘Z で元に戻せます。",
+  "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "{n} 枚すべてのスライドを 1 枚の空白スライドに置き換えますか？ ⌘Z で元に戻せます。",
 }

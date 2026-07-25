@@ -677,4 +677,7 @@ export const es: Catalog = {
   'Remove this browser session’s hosted-document login.': 'Quita el inicio de sesión de documentos alojados de esta sesión.',
   'Zitadel sign-in failed': 'No se pudo iniciar sesión con Zitadel',
   'Signed out of Zitadel': 'Sesión de Zitadel cerrada',
+  "Start from scratch…": "Empezar de cero…",
+  "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Reemplaza todas las diapositivas por una diapositiva en blanco. Conserva el tema, el nombre y la sesión en vivo de la presentación — ⌘Z lo deshace.",
+  "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "¿Reemplazar las {n} diapositivas por una diapositiva en blanco? ⌘Z lo deshace.",
 }

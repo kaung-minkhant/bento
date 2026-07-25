@@ -677,4 +677,7 @@ export const zhHans: Catalog = {
   'Remove this browser session’s hosted-document login.': '移除此浏览器会话的托管文档登录。',
   'Zitadel sign-in failed': 'Zitadel 登录失败',
   'Signed out of Zitadel': '已退出 Zitadel',
+  "Start from scratch…": "从头开始…",
+  "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "将所有幻灯片替换为一张空白幻灯片。演示文稿的主题、名称和实时协作会话都会保留 — ⌘Z 可撤销。",
+  "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "将全部 {n} 张幻灯片替换为一张空白幻灯片？⌘Z 可撤销。",
 }
