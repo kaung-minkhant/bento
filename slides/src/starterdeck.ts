@@ -55,6 +55,8 @@ const T_A = 'sd-tile-a' // amber
 const T_B = 'sd-tile-b' // blue
 const T_C = 'sd-tile-c' // paper/white
 const T_D = 'sd-tile-d' // ink panel / card
+/** The formula that rearranges across the morph beat — one id, two slides. */
+const EQ = 'sd-eq'
 const TITLE = 'sd-title'
 const KICKER = 'sd-kicker'
 const GLOW = 'sd-glow'
@@ -509,6 +511,58 @@ export function starterDoc(): BentoDoc {
         text({
           x: 340, y: 512, w: 600, h: 80,
           html: 'Shared ids animate between slides — position, size, color, <b>even gradients</b>.<br>Press ← then → to replay it.',
+          fontSize: 19, fontWeight: 500, color: MIST, align: 'center', lineHeight: 1.65,
+        }),
+        // Sits quietly here and becomes the point of the next slide: same id,
+        // so its SYMBOLS morph across rather than the formula crossfading.
+        text({
+          id: EQ, x: 340, y: 606, w: 600, h: 56, html: '$a + b = c$',
+          fontSize: 30, color: 'rgba(185,196,212,0.75)', align: 'center', valign: 'middle',
+        }),
+      ],
+    }),
+
+    // ── 3b · SYMBOL MORPH (the formula rearranges, term by term) ───────────
+    slide({
+      transition: 'morph',
+      notes:
+        'Watch b: it does not fade out on the left and fade in on the right — it TRAVELS across ' +
+        'the equals sign. Tokens pair by what they are and which occurrence they are, so a term ' +
+        'that moves is seen to move. Type it as $a + b = c$ in an ordinary text box; the document ' +
+        'stores that, not the rendered maths.',
+      elements: [
+        grain(),
+        glow(20, [
+          { at: 0, color: 'rgba(255,158,138,0.20)' },
+          { at: 0.6, color: 'rgba(15,23,36,0)' },
+          { at: 1, color: 'rgba(62,86,120,0.24)' },
+        ]),
+        shape('rect', {
+          id: T_A, x: 1000, y: 420, w: 300, h: 300, radius: 90, fill: PEACH,
+          fillGradient: { angle: 135, stops: [{ at: 0, color: PEACH }, { at: 1, color: PEACH_SOFT }] },
+        }),
+        shape('rect', {
+          id: T_B, x: -120, y: -110, w: 380, h: 380, radius: 100, fill: STEEL,
+          fillGradient: { angle: 225, stops: [{ at: 0, color: '#41597A' }, { at: 1, color: STEEL_SOFT }] },
+        }),
+        shape('rect', {
+          id: T_C, x: -80, y: 470, w: 300, h: 300, radius: 84, fill: TILE_PAPER, opacity: 0.85,
+          fillGradient: { angle: 315, stops: [{ at: 0, color: '#FFFFFF' }, { at: 1, color: '#D8D3C6' }] },
+        }),
+        shape('rect', {
+          id: T_D, x: 1030, y: -90, w: 250, h: 250, radius: 70, fill: 'transparent',
+          stroke: 'rgba(185,196,212,0.4)', strokeWidth: 2, strokeStyle: 'dashed',
+        }),
+        kicker('EVEN INSIDE A FORMULA', { x: 340, y: 190, w: 600, h: 26, align: 'center' }),
+        text({
+          id: EQ, x: 240, y: 268, w: 800, h: 180, html: '$a = c - b$',
+          fontSize: 88, color: '#FFFFFF', align: 'center', valign: 'middle',
+        }),
+        text({
+          x: 340, y: 500, w: 600, h: 80,
+          // \$ escapes the delimiter so this line SHOWS "$…$" instead of
+          // rendering it — the first thing anyone copying this deck will hit.
+          html: 'Maths is plain <b>\\$…\\$</b> in a text box — the terms morph, not the picture.',
           fontSize: 19, fontWeight: 500, color: MIST, align: 'center', lineHeight: 1.65,
         }),
       ],
