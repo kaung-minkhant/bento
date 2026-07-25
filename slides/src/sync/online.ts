@@ -153,12 +153,22 @@ export type OnlineStatus = 'connecting' | 'open' | 'closed'
 /** A frame written to (or parked for) the relay. `ops` is set for persisted op
  *  batches — the only frames the relay acks, and the only ones whose refusal
  *  has to reach the session (an unsendable op must leave the resend log). */
-type Outbound = { text: string; ops: Op[] | null; bytes: number; tries: number }
+type Outbound = { id: string; text: string; ops: Op[] | null; bytes: number; tries: number }
 
-/** `{ctl:'refused'}` from the relay. No frame id: the sizes are the only
- *  evidence of WHICH frame it names (see matchRefused). */
+let frameSeq = 0
+/** Short opaque per-frame id. Emitted FIRST in the envelope so the relay can
+ *  recover it with a bounded regex from an OVERSIZE frame — one it refuses
+ *  before parsing, since parsing an attacker-sized string is a CPU abuse
+ *  vector. Relay contract: docs/relay-design.md. */
+const nextFrameId = (): string => `f${(++frameSeq).toString(36)}${Math.random().toString(36).slice(2, 6)}`
+
+/** `{ctl:'refused'}` from the relay. Modern relays echo our frame id (`k`),
+ *  which is exact; older ones don't, and then the sizes are the only evidence
+ *  of WHICH frame it names (see matchRefused). */
 type RefusedEnv = {
   code?: string
+  /** our frame id, echoed back — authoritative when present */
+  k?: string
   /** too-large: the relay's ceiling and the frame length it measured */
   max?: number
   got?: number
@@ -386,6 +396,10 @@ export class OnlineTransport implements Transport {
    * because a wrong drop is silent permanent data divergence.
    */
   private matchRefused(env: RefusedEnv): Outbound | null {
+    // Exact when the relay echoed our id. Everything below is the legacy
+    // fallback for relays that don't (and a self-hoster's relay may be a year
+    // old) — inferential, so it stays deliberately conservative.
+    if (env.k) return this.awaitingAck.find((o) => o.id === env.k) ?? null
     // too-large measures the whole envelope; storage-failed measures i+d only
     const byText = typeof env.got === 'number'
     const want = byText ? env.got! : typeof env.bytes === 'number' ? env.bytes : null
@@ -553,14 +567,15 @@ export class OnlineTransport implements Transport {
       if (!enc) return
       let env: Record<string, unknown> = enc
       let ops: Op[] | null = null
+      const id = nextFrameId()
       if (frame.t === 'ops') {
-        env = { p: 1, ...enc }
+        env = { k: id, p: 1, ...enc }
         // sign the ciphertext so the relay verifies authorship while blind.
         if (this.signKey) env.g = await signFrame(this.signKey, enc.i, enc.d)
         ops = frame.ops
       }
-      // remember what rode in the frame: a refusal names it only by size
-      this.write({ text: JSON.stringify(env), ops, bytes: enc.i.length + enc.d.length, tries: 0 })
+      // remember what rode in the frame so a refusal can name it
+      this.write({ id, text: JSON.stringify(env), ops, bytes: enc.i.length + enc.d.length, tries: 0 })
     })()
   }
 
