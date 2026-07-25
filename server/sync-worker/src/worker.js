@@ -13,7 +13,7 @@
 //   - rooms expire after ~30 idle days (the FILE is the durable artifact;
 //     expiry costs convenience, never data)
 //
-// Envelope (JSON text frames, ≤ 1 MB):
+// Envelope (JSON text frames, ≤ MAX_FRAME):
 //   client → server:  { i, d }            ephemeral (presence, hello, need)
 //                     { p:1, i, d }       persist an op batch
 //                     { snap:1, q, i, d } encrypted snapshot covering seq ≤ q
@@ -22,10 +22,38 @@
 //                     { ctl:'ready', q: latest }
 
 const IDLE_TTL_MS = 30 * 24 * 60 * 60 * 1000
-const MAX_FRAME = 1_000_000
+// The binding constraint is DURABLE OBJECT STORAGE, not the WebSocket message
+// size. The platform raised WS messages to 32 MiB (2025-10-31), but a single
+// stored value still caps around 2 MB — measured against workerd: 2 MB stores,
+// 2.5 MB throws inside storage.put(). So a frame larger than the storage limit
+// is worse than useless: it passes every check, then disappears.
+//
+// 1.9 MB keeps "accepted" and "storable" the same thing, and still nearly
+// doubles the old 1 MB. An asset costs ~1.78x its binary size on the wire
+// (base64 twice — data URI, then the ciphertext), so this carries roughly
+// 1.05 MB of binary — photos, not video.
+//
+// MEDIA_EMBED_BUDGET is 8 MB, so media collaboration is NOT fixed by this
+// constant and cannot be: it needs chunked ops or content-addressed blobs
+// (docs/relay-design.md, "Wire efficiency").
+const MAX_FRAME = 1_900_000
 const RATE_BURST = 200 // frames per window per socket
 const RATE_WINDOW_MS = 10_000
+// Bytes a single socket may persist per window. Frame COUNT alone is not a
+// budget when a single frame can approach 2 MB.
+const RATE_BYTES = 8 * 1024 * 1024
+// Hard ceiling on persisted bytes per room (ops + snapshot). Bounds the cost
+// of any one room regardless of frame size — the actual protection against an
+// unbounded bill, since room creation is unauthenticated by design.
+const ROOM_BYTE_CAP = 96 * 1024 * 1024
 const OP_KEY = (seq) => `op:${String(seq).padStart(10, '0')}`
+
+/** Tell the sender why a frame was refused. Clients MUST stop re-queueing an
+ *  op that comes back 'too-large' / 'room-full' — silently dropping is what
+ *  turned an oversize asset into a permanent resend loop. */
+function refuse(ws, code, detail) {
+  try { ws.send(JSON.stringify({ ctl: 'refused', code, ...detail })) } catch { /* gone */ }
+}
 
 // --- signed writes (see docs/collab-design.md) ------------------------------
 // A room whose name starts with 'w' is SIGNED: the name commits to an ECDSA
@@ -223,20 +251,29 @@ export class Room {
   }
 
   async onMessage(ws, data) {
-    if (typeof data !== 'string' || data.length > MAX_FRAME) return
+    if (typeof data !== 'string') return
+    // Oversize is REFUSED, not dropped: a silent drop leaves the sender with no
+    // ack, the peer permanently behind, and the need/vv catch-up re-sending the
+    // same doomed frame forever.
+    if (data.length > MAX_FRAME) {
+      return refuse(ws, 'too-large', { max: MAX_FRAME, got: data.length })
+    }
     // keepalive fallback: if the runtime auto-response isn't active this reaches
     // us — reply "pong" so a pinging client never mistakes a live socket for dead.
     if (data === 'ping') { try { ws.send('pong') } catch { /* gone */ } return }
     // rate-limit window lives on the socket attachment (survives hibernation)
-    const meta = ws.deserializeAttachment() || { count: 0, windowStart: Date.now() }
+    const meta = ws.deserializeAttachment() || { count: 0, windowStart: Date.now(), bytes: 0 }
     const now = Date.now()
     if (now - meta.windowStart > RATE_WINDOW_MS) {
       meta.windowStart = now
       meta.count = 0
+      meta.bytes = 0
     }
     meta.count++
+    meta.bytes = (meta.bytes || 0) + data.length
     ws.serializeAttachment(meta)
     if (meta.count > RATE_BURST) return
+    if (meta.bytes > RATE_BYTES) return refuse(ws, 'rate-limited', { retryInMs: RATE_WINDOW_MS })
     let f
     try {
       f = JSON.parse(data)
@@ -276,10 +313,27 @@ export class Room {
     }
 
     const out = { i: f.i, d: f.d }
+    const weight = (f.i?.length || 0) + (f.d?.length || 0)
     if (f.p === 1) {
+      // Per-room storage ceiling. Room creation is unauthenticated by design
+      // (the token is trust-on-first-use), so this — not the frame size — is
+      // what bounds what one room can cost. Refuse loudly: a client that keeps
+      // retrying into a full room is the resend loop all over again.
+      const used = (await this.state.storage.get('bytes')) || 0
+      if (used + weight > ROOM_BYTE_CAP) {
+        return refuse(ws, 'room-full', { cap: ROOM_BYTE_CAP, used })
+      }
       const seq = ((await this.state.storage.get('seq')) || 0) + 1
+      // Storage can still refuse (platform value limits move); surface it
+      // instead of letting webSocketMessage's catch swallow it into a frame
+      // the sender believes was accepted.
+      try {
+        await this.state.storage.put(OP_KEY(seq), { i: f.i, d: f.d })
+      } catch (e) {
+        return refuse(ws, 'storage-failed', { bytes: weight, detail: String(e && e.message || e).slice(0, 120) })
+      }
       await this.state.storage.put('seq', seq)
-      await this.state.storage.put(OP_KEY(seq), { i: f.i, d: f.d })
+      await this.state.storage.put('bytes', used + weight)
       out.q = seq
       // the sender needs its ack too (snapshot cadence keys off q)
       try {
@@ -291,9 +345,22 @@ export class Room {
       // client-produced encrypted snapshot: keep the newest, prune covered ops
       const cur = await this.state.storage.get('snap')
       if (!cur || f.q > cur.q) {
-        await this.state.storage.put('snap', { q: f.q, i: f.i, d: f.d })
+        // A snapshot supersedes every op it covers, so it RELIEVES pressure —
+        // admit it even in a full room (bounded: one snapshot ≤ MAX_FRAME),
+        // otherwise a room that fills up can never prune its way out.
+        try {
+          await this.state.storage.put('snap', { q: f.q, i: f.i, d: f.d })
+        } catch (e) {
+          return refuse(ws, 'storage-failed', { bytes: weight, detail: String(e && e.message || e).slice(0, 120) })
+        }
         const dead = await this.state.storage.list({ start: OP_KEY(1), end: OP_KEY(f.q + 1) })
+        // Give the pruned bytes back, or the cap becomes a one-way ratchet and
+        // a long-lived healthy room eventually wedges itself shut.
+        let freed = 0
+        for (const [, v] of dead) freed += (v?.i?.length || 0) + (v?.d?.length || 0)
         await this.state.storage.delete([...dead.keys()])
+        const used = (await this.state.storage.get('bytes')) || 0
+        await this.state.storage.put('bytes', Math.max(0, used - freed))
       }
       return // snapshots are storage-only, never fanned out
     }
