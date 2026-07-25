@@ -46,6 +46,11 @@ const RATE_BYTES = 8 * 1024 * 1024
 // of any one room regardless of frame size — the actual protection against an
 // unbounded bill, since room creation is unauthenticated by design.
 const ROOM_BYTE_CAP = 96 * 1024 * 1024
+// Ceiling for one uploaded blob. Clients chunk above this: WebCrypto has NO
+// streaming AES-GCM (one-shot only) and a round trip costs ~5x the payload in
+// memory, so a browser encrypting a 64MB asset in one call would need ~320MB.
+// Chunking is a MEMORY requirement, not just resumability.
+const MAX_BLOB = 8 * 1024 * 1024
 const OP_KEY = (seq) => `op:${String(seq).padStart(10, '0')}`
 
 /** Tell the sender why a frame was refused. Clients MUST stop re-queueing an
@@ -84,6 +89,17 @@ async function sha256b64u(bytes) {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url)
+    // --- encrypted asset blobs (docs/blob-offload.md) ----------------------
+    // Assets are too big for the op log: a DO storage value caps near 2MB, so
+    // an 8MB video can never travel as an op. They go here instead, and the op
+    // carries only a reference. The relay pipes ciphertext straight through —
+    // it never buffers a blob (verified: 32MB streams with no memory growth)
+    // and cannot read one. Keys are opaque to us: the client derives them as
+    // HMAC(roomKey, sha256(plaintext)), so the same image in two rooms yields
+    // different keys and nothing correlates.
+    const b = url.pathname.match(/^\/b\/([A-Za-z0-9._-]{1,80})\/([A-Za-z0-9_-]{16,64})$/)
+    if (b) return await blob(req, env, b[1], b[2])
+
     const m = url.pathname.match(/^\/d\/([A-Za-z0-9._-]{1,80})$/)
     if (!m) {
       return new Response('bento-sync relay — see https://bento.page', {
@@ -104,6 +120,63 @@ export default {
       })
     }
   },
+}
+
+/** Blob store: PUT to upload, GET to fetch, HEAD to test existence (which is
+ *  how a client skips re-uploading an asset a peer already sent — content
+ *  addressing means an identical asset has an identical key).
+ *
+ *  Auth is the room token, same possession proof as the socket. That is
+ *  deliberately no stronger than the room itself: anyone who can read the
+ *  room's frames can already read its assets, and the bytes are ciphertext
+ *  either way.
+ *
+ *  R2 is OPTIONAL. Without the binding these routes answer 501 and clients
+ *  keep inlining small assets, so a self-hoster who hasn't set up a bucket
+ *  still has a working relay. */
+async function blob(req, env, room, key) {
+  if (!env.BLOBS) {
+    return new Response('blob storage not configured on this relay', { status: 501 })
+  }
+  const tok = new URL(req.url).searchParams.get('tok') || ''
+  if (!/^[A-Za-z0-9_-]{10,64}$/.test(tok)) return new Response('bad token', { status: 400 })
+  // The DO owns the room's token; ask it rather than duplicating the check.
+  const idc = env.ROOM.idFromName(room)
+  const okRes = await env.ROOM.get(idc).fetch(
+    new Request(`https://do/authz?tok=${encodeURIComponent(tok)}`),
+  )
+  if (okRes.status !== 200) return new Response('forbidden', { status: 403 })
+
+  const path = `${room}/${key}`
+  if (req.method === 'HEAD') {
+    const head = await env.BLOBS.head(path)
+    return new Response(null, { status: head ? 200 : 404, headers: head ? { 'content-length': String(head.size) } : {} })
+  }
+  if (req.method === 'GET') {
+    const obj = await env.BLOBS.get(path)
+    if (!obj) return new Response('not found', { status: 404 })
+    // streamed, never materialised in the worker
+    return new Response(obj.body, {
+      headers: { 'content-type': 'application/octet-stream', 'cache-control': 'private, max-age=31536000, immutable' },
+    })
+  }
+  if (req.method === 'PUT') {
+    const len = parseInt(req.headers.get('content-length') || '0', 10)
+    if (!len || len > MAX_BLOB) {
+      return new Response(JSON.stringify({ error: 'too-large', max: MAX_BLOB, got: len }), {
+        status: 413, headers: { 'content-type': 'application/json' },
+      })
+    }
+    // Content-addressed, so an existing key is the same bytes — skip the write
+    // and let the client move on. This is the dedupe path.
+    const existing = await env.BLOBS.head(path)
+    if (existing) return new Response(JSON.stringify({ deduped: true, size: existing.size }), { headers: { 'content-type': 'application/json' } })
+    await env.BLOBS.put(path, req.body, {
+      httpMetadata: { cacheControl: 'private, max-age=31536000, immutable' },
+    })
+    return new Response(JSON.stringify({ stored: len }), { headers: { 'content-type': 'application/json' } })
+  }
+  return new Response('method not allowed', { status: 405 })
 }
 
 export class Room {
@@ -150,6 +223,16 @@ export class Room {
   }
 
   async fetch(req) {
+    // Token check for the blob routes — the DO is the only holder of the
+    // room's token, so blob auth asks it rather than duplicating the rule.
+    // Never CREATES a room: an unknown room 403s instead of claiming a token,
+    // otherwise blob PUTs would become a way to squat room names.
+    const u0 = new URL(req.url)
+    if (u0.pathname === '/authz') {
+      const saved = await this.state.storage.get('tok')
+      const given = u0.searchParams.get('tok') || ''
+      return new Response(null, { status: saved !== undefined && saved === given ? 200 : 403 })
+    }
     if (req.headers.get('Upgrade') !== 'websocket') {
       return new Response('expected websocket', { status: 426 })
     }

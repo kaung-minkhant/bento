@@ -11,6 +11,14 @@ routes = [
   { pattern = "sync.bento.page", custom_domain = true }
 ]
 
+# Encrypted asset blobs (docs/blob-offload.md). The relay pipes ciphertext
+# straight through — it never buffers a blob and cannot read one. OPTIONAL: if
+# the binding is absent the /b/ routes answer 501 and clients fall back to
+# inlining small assets, so a self-hoster without R2 still works.
+[[r2_buckets]]
+binding = "BLOBS"
+bucket_name = "bento-blobs"
+
 [[durable_objects.bindings]]
 name = "ROOM"
 class_name = "Room"
