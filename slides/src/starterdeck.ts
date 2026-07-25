@@ -516,7 +516,7 @@ export function starterDoc(): BentoDoc {
         // Sits quietly here and becomes the point of the next slide: same id,
         // so its SYMBOLS morph across rather than the formula crossfading.
         text({
-          id: EQ, x: 340, y: 606, w: 600, h: 56, html: '$a + b = c$',
+          id: EQ, x: 340, y: 600, w: 600, h: 60, html: '$ax^2 + bx + c = 0$',
           fontSize: 30, color: 'rgba(185,196,212,0.75)', align: 'center', valign: 'middle',
         }),
       ],
@@ -526,10 +526,13 @@ export function starterDoc(): BentoDoc {
     slide({
       transition: 'morph',
       notes:
-        'Watch b: it does not fade out on the left and fade in on the right — it TRAVELS across ' +
-        'the equals sign. Tokens pair by what they are and which occurrence they are, so a term ' +
-        'that moves is seen to move. Type it as $a + b = c$ in an ordinary text box; the document ' +
-        'stores that, not the rendered maths.',
+        'The quadratic on the last slide did not crossfade into this one — a, b and c TRAVELLED, ' +
+        'out of ax² + bx + c = 0 and into the fraction, the radical and the discriminant. Tokens ' +
+        'pair by what they are and which occurrence they are, so a term that moves is seen to move. ' +
+        'Everything here is one ordinary text box: type the LaTeX between dollar signs (two for a ' +
+        'display equation like this one) and the document stores exactly that — not a picture, not ' +
+        'a font, no library fetched at runtime. Backslash-escape a dollar to show one literally, ' +
+        'as the caption does.',
       elements: [
         grain(),
         glow(20, [
@@ -553,10 +556,13 @@ export function starterDoc(): BentoDoc {
           id: T_D, x: 1030, y: -90, w: 250, h: 250, radius: 70, fill: 'transparent',
           stroke: 'rgba(185,196,212,0.4)', strokeWidth: 2, strokeStyle: 'dashed',
         }),
-        kicker('EVEN INSIDE A FORMULA', { x: 340, y: 190, w: 600, h: 26, align: 'center' }),
+        kicker('EVEN INSIDE A FORMULA', { x: 340, y: 176, w: 600, h: 26, align: 'center' }),
+        // Display mode ($$) so the fraction, radical and ± set at full size.
+        // a, b and c fly out of the quadratic and into their places here.
         text({
-          id: EQ, x: 240, y: 268, w: 800, h: 180, html: '$a = c - b$',
-          fontSize: 88, color: '#FFFFFF', align: 'center', valign: 'middle',
+          id: EQ, x: 190, y: 240, w: 900, h: 230,
+          html: '$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$',
+          fontSize: 62, color: '#FFFFFF', align: 'center', valign: 'middle',
         }),
         text({
           x: 340, y: 500, w: 600, h: 80,
