@@ -1641,8 +1641,10 @@ export class Editor {
       const place = (w: number, h: number) => {
         const { width, height } = this.store.doc.size
         const el = defaultImage(src, { x: Math.round((width - w) / 2), y: Math.round((height - h) / 2), w, h, fit: 'contain' })
-        this.store.commit(() => this.store.slide.elements.push(el))
-        this.store.select([el.id])
+        // via canvas.insert, so a pasted photo is interned into doc.assets on
+        // the same path as every other embed — otherwise it stays inline and
+        // live collab can never send it.
+        this.canvas.insert(el)
         this.toast(t('Image pasted'))
       }
       const img = new Image()

@@ -92,6 +92,16 @@ async function sha256b64u(bytes) {
   return b64uEnc(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
 }
 
+/** CORS for the blob routes. A PUT with a content-type is not a "simple"
+ *  request, so browsers preflight it — OPTIONS must answer before any upload
+ *  can start. max-age keeps the preflight off the hot path for repeat uploads. */
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, HEAD, PUT, OPTIONS',
+  'access-control-allow-headers': 'content-type',
+  'access-control-max-age': '86400',
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url)
@@ -104,7 +114,21 @@ export default {
     // HMAC(roomKey, sha256(plaintext)), so the same image in two rooms yields
     // different keys and nothing correlates.
     const b = url.pathname.match(/^\/b\/([A-Za-z0-9._-]{1,80})\/([A-Za-z0-9_-]{16,64})$/)
-    if (b) return await blob(req, env, b[1], b[2])
+    if (b) {
+      // A .bento.html runs from file:// or from ANY origin someone serves it
+      // on, so blob fetches are always cross-origin and need CORS — without it
+      // the browser rejects them before the request is even sent, and the
+      // offload silently never happens. (WebSockets aren't subject to CORS,
+      // which is why live sync worked while only blobs failed.)
+      // Allowing any origin is safe here: the token is the capability, the
+      // bytes are ciphertext, and there are no cookies or credentials to ride
+      // along on a fetch the relay never treats as authenticated by origin.
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
+      const res = await blob(req, env, b[1], b[2])
+      const h = new Headers(res.headers)
+      for (const [k, v] of Object.entries(CORS)) h.set(k, v)
+      return new Response(res.body, { status: res.status, headers: h })
+    }
 
     const m = url.pathname.match(/^\/d\/([A-Za-z0-9._-]{1,80})$/)
     if (!m) {

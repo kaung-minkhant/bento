@@ -730,6 +730,28 @@ export function defaultImage(src: string, partial: Partial<ImageElement> = {}): 
   }
 }
 
+/** Park an embedded data URI in `doc.assets` and return an `asset:` ref.
+ *
+ *  Every embed goes through here so there is exactly ONE place binary content
+ *  lives. That matters beyond tidiness: live collab offloads large `assets`
+ *  entries to the relay's blob store, so an image written straight onto
+ *  `el.src` was invisible to the offload and rode inline in an op batch far
+ *  too big for a frame — it reached collaborators as nothing at all.
+ *
+ *  Identical bytes reuse the same key, so duplicating an image (or pasting the
+ *  same photo twice) costs one copy in the file and one upload on the wire.
+ *  A URL or an existing `asset:` ref passes straight through — only `data:`
+ *  is interned. Callers MUST run this inside a `store.commit` so the assets
+ *  write is part of the same undo step and the same sync batch. */
+export function internAsset(doc: BentoDoc, src: string): string {
+  if (!src.startsWith('data:')) return src
+  const assets = (doc.assets ??= {})
+  for (const k in assets) if (assets[k] === src) return `asset:${k}`
+  const key = uid('a')
+  assets[key] = src
+  return `asset:${key}`
+}
+
 /** Soft ceiling for embedding media as a data URI (bytes). Above this the
  *  editor warns — a big embed makes the .bento.html slow to open and save. */
 export const MEDIA_EMBED_BUDGET = 8 * 1024 * 1024 // 8 MB

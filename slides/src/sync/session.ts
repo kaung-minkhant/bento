@@ -279,7 +279,7 @@ export class SyncSession {
   private async offloadAssets() {
     const doc = this.store.doc
     const assets = doc.assets ?? {}
-    const creds = this.blobCreds?.() ?? null
+    const creds = this.blobCreds()
     for (const [k, v] of Object.entries(assets)) {
       if (typeof v !== 'string' || v.length <= BLOB_INLINE_MAX) continue
       if (doc.blobs?.[k]) continue // already published
@@ -319,7 +319,7 @@ export class SyncSession {
   private async resolveBlobs() {
     const doc = this.store.doc
     const refs = doc.blobs ?? {}
-    const creds = this.blobCreds?.() ?? null
+    const creds = this.blobCreds()
     for (const [k, ref] of Object.entries(refs)) {
       if (doc.assets?.[k]) continue // already have the bytes
       if (this.fetching.has(ref.key)) continue
@@ -342,7 +342,25 @@ export class SyncSession {
 
   private fetching = new Set<string>()
   /** set by the editor when an online transport exists */
-  blobCreds: (() => { base: string; room: string; tok: string; rawKey: Uint8Array } | null) | null = null
+  /** Credentials the blob layer needs, taken from whichever transport can
+   *  reach a relay.
+   *
+   *  Resolved ON DEMAND, deliberately. The obvious shape — a hook assigned when
+   *  the online transport connects — is what shipped broken: nothing ever
+   *  assigned it, so `creds` was always null, every upload was skipped by the
+   *  `if (!creds) continue` guard, and the whole offload was inert with no
+   *  error anywhere. Transports are also torn down and rebuilt on reconnect and
+   *  on rejoin, so even a correctly-assigned hook goes stale. Asking the live
+   *  transport list each time cannot drift. */
+  private blobCreds(): { base: string; room: string; tok: string; rawKey: Uint8Array } | null {
+    for (const tr of this.transports) {
+      const f = (tr as { blobCreds?: () => { base: string; room: string; tok: string; rawKey: Uint8Array } | null }).blobCreds
+      if (typeof f !== 'function') continue
+      const c = f.call(tr)
+      if (c) return c
+    }
+    return null
+  }
   private notify(code: string, detail?: string) {
     // routed through the existing notice channel so the editor can toast it
     try { (this as unknown as { noticeFn?: (c: string, d?: string) => void }).noticeFn?.(code, detail) } catch { /* none */ }
