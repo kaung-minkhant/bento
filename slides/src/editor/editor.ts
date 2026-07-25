@@ -1348,11 +1348,19 @@ export class Editor {
   }
 
   private deleteSlide(i: number) {
-    if (this.store.doc.slides.length <= 1) return this.toast(t('A deck needs at least one slide'))
     const target = this.store.doc.slides[i]
+    if (!target) return
     // dependents: states of this slide, and element links pointing at it
     const states = this.store.doc.slides.filter((s) => s.stateOf === target.id)
     const doomedIds = new Set([target.id, ...states.map((s) => s.id)])
+    // "A deck needs at least one slide" has to be checked against what will
+    // SURVIVE, not against the current count: deleting a parent takes its
+    // interactive states with it, so one slide + one state (length 2) sailed
+    // past a `length <= 1` test and then deleted BOTH — leaving a deck with
+    // zero slides and an editor with nothing to render (issue #30). States
+    // don't count as survivors: they're unreachable except through a parent.
+    const survivesLinear = this.store.doc.slides.some((s) => !s.stateOf && !doomedIds.has(s.id))
+    if (!survivesLinear) return this.toast(t('A deck needs at least one slide'))
     let linkCount = 0
     for (const s of this.store.doc.slides) {
       if (doomedIds.has(s.id)) continue
