@@ -245,6 +245,17 @@ export class OnlineTransport implements Transport {
   /** (actor,seq) pairs seen in the current connection's replay */
   private replaySeen = new Set<string>()
 
+  /** Credentials the blob layer needs: the relay origin, the room name, the
+   *  possession-proof token, and the raw room key it encrypts blobs with.
+   *  Null until init() has derived the token. */
+  blobCreds(): { base: string; room: string; tok: string; rawKey: Uint8Array } | null {
+    if (!this.roomName || !this.tokValue) return null
+    return { base: this.originValue, room: this.roomName, tok: this.tokValue, rawKey: b64u.dec(this.keyB64) }
+  }
+  private roomName = ''
+  private tokValue = ''
+  private originValue = ''
+
   private async init(room: string) {
     const raw = b64u.dec(this.keyB64)
     this.key = await crypto.subtle.importKey('raw', raw as BufferSource, 'AES-GCM', false, [
@@ -253,6 +264,14 @@ export class OnlineTransport implements Transport {
     ])
     const tokDigest = new Uint8Array(await crypto.subtle.digest('SHA-256', raw as BufferSource))
     const tok = b64u.enc(tokDigest.slice(0, 18))
+    // Blob endpoints live on the same origin as the socket and use the same
+    // room + token, so derive them here rather than duplicating the rule.
+    try {
+      const u = new URL(room.replace(/^ws/, 'http'))
+      this.originValue = u.origin
+      this.roomName = u.pathname.replace(/^\/d\//, '')
+      this.tokValue = tok
+    } catch { /* malformed room url — blobs simply stay unavailable */ }
     // Writers sign op frames; readers omit auth and the relay drops their
     // writes. Two writer shapes: DIRECT (the presented `w` key hash-matches the
     // room commitment — the owner, or a legacy shared-writer copy) and CHAIN

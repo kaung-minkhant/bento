@@ -20,7 +20,8 @@
 import type { Store } from '../store'
 import type { BentoDoc, Slide } from '../model'
 import { uid } from '../model'
-import { SyncState, SYNC_V, type Op } from './crdt'
+import { SyncState, SYNC_V, BLOB_INLINE_MAX, type Op } from './crdt'
+import { putBlob, getBlob, dataUriToBytes, bytesToDataUri, encodedSize, MAX_BLOB } from './blobs'
 import { mintCollab } from './online'
 
 export interface PresenceInfo {
@@ -265,6 +266,88 @@ export class SyncSession {
   }
 
   /** diff now (also called before presence-relevant transitions) */
+  /**
+   * Assets too large for an op (docs/blob-offload.md) are uploaded to the
+   * relay's blob store and published as a small `blobs.<key>` reference, which
+   * IS small enough to sync. Runs after a local edit; the reference lands on
+   * the next flush like any other change.
+   *
+   * The bytes are always cached locally even when the upload fails, because
+   * the cache is per-ORIGIN: same-machine tabs syncing over BroadcastChannel
+   * resolve from it with no relay involved at all.
+   */
+  private async offloadAssets() {
+    const doc = this.store.doc
+    const assets = doc.assets ?? {}
+    const creds = this.blobCreds?.() ?? null
+    for (const [k, v] of Object.entries(assets)) {
+      if (typeof v !== 'string' || v.length <= BLOB_INLINE_MAX) continue
+      if (doc.blobs?.[k]) continue // already published
+      const parsed = dataUriToBytes(v)
+      if (!parsed) continue // raw SVG markup, not binary — leave it inline
+      if (encodedSize(parsed.bytes.length) > MAX_BLOB) {
+        this.notify('blob-too-large', k)
+        continue
+      }
+      if (!creds) continue // no relay yet; retry on the next edit
+      const res = await putBlob(
+        { base: creds.base, room: creds.room, tok: creds.tok }, creds.rawKey, parsed.bytes,
+      )
+      if (!res.ok) {
+        // 'unsupported' = relay has no blob storage. Not an error: small assets
+        // still inline, and same-origin tabs resolve from the local cache.
+        if (res.reason !== 'unsupported') this.notify(`blob-${res.reason}`, k)
+        continue
+      }
+      this.store.commit(() => {
+        const d = this.store.doc
+        ;(d.blobs ??= {})[k] = { key: res.key, mime: parsed.mime, size: parsed.bytes.length }
+      })
+    }
+  }
+
+  /**
+   * The other direction: a peer published a reference we have no bytes for.
+   * Fetch, decrypt and materialise it into `assets` so the renderer can use it
+   * exactly as if it had arrived inline.
+   *
+   * A blob that never arrives leaves the asset ABSENT rather than blank —
+   * `assetRef()` in render.ts resolves a missing key to '', which the UI shows
+   * as a visibly empty element. Silent-but-wrong is the failure mode we are
+   * avoiding everywhere in this system.
+   */
+  private async resolveBlobs() {
+    const doc = this.store.doc
+    const refs = doc.blobs ?? {}
+    const creds = this.blobCreds?.() ?? null
+    for (const [k, ref] of Object.entries(refs)) {
+      if (doc.assets?.[k]) continue // already have the bytes
+      if (this.fetching.has(ref.key)) continue
+      this.fetching.add(ref.key)
+      try {
+        // cache-first, so same-origin tabs need no relay at all
+        const bytes = creds
+          ? await getBlob({ base: creds.base, room: creds.room, tok: creds.tok }, creds.rawKey, ref.key)
+          : null
+        if (!bytes) { this.notify('blob-unavailable', k); continue }
+        this.store.commit(() => {
+          const d = this.store.doc
+          ;(d.assets ??= {})[k] = bytesToDataUri(bytes, ref.mime)
+        })
+      } finally {
+        this.fetching.delete(ref.key)
+      }
+    }
+  }
+
+  private fetching = new Set<string>()
+  /** set by the editor when an online transport exists */
+  blobCreds: (() => { base: string; room: string; tok: string; rawKey: Uint8Array } | null) | null = null
+  private notify(code: string, detail?: string) {
+    // routed through the existing notice channel so the editor can toast it
+    try { (this as unknown as { noticeFn?: (c: string, d?: string) => void }).noticeFn?.(code, detail) } catch { /* none */ }
+  }
+
   flush() {
     if (this.applying) return
     const before = JSON.parse(this.shadow) as BentoDoc
@@ -276,6 +359,9 @@ export class SyncSession {
       return
     }
     this.shadow = JSON.stringify(this.store.doc)
+    // Any large asset the differ just skipped needs its bytes offloaded; the
+    // resulting reference syncs on the next flush like an ordinary change.
+    void this.offloadAssets()
     if (!ops.length) return
     this.log.push(...ops)
     this.broadcast({ t: 'ops', a: this.actor, ops })
@@ -378,6 +464,7 @@ export class SyncSession {
   }
 
   private afterRemoteChange(structure: boolean) {
+    void this.resolveBlobs()
     const store = this.store
     // an all-slides-deleted race leaves an empty deck — heal with a blank
     if (store.doc.slides.length === 0) {
