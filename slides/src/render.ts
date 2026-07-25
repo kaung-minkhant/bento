@@ -356,13 +356,39 @@ function decodeEntities(s: string): string {
   return ta.value
 }
 
+/**
+ * Tag each MathML token with a key that identifies "the same symbol" across
+ * two slides, so present.ts can morph a formula symbol by symbol instead of
+ * crossfading it — a term crossing the equals sign visibly travels there.
+ *
+ * The key is the token's own text plus its occurrence index (`x#0`, `x#1`),
+ * which is what makes rearrangement work: the second `x` in one formula pairs
+ * with the second `x` in the next, wherever each has moved to. Purely a
+ * RENDER-time attribute — nothing about it enters the document.
+ */
+function tagSymbols(mathml: string): string {
+  const tpl = document.createElement('template')
+  tpl.innerHTML = mathml
+  const seen = new Map<string, number>()
+  for (const leaf of Array.from(tpl.content.querySelectorAll('mi, mn, mo'))) {
+    const txt = (leaf.textContent ?? '').trim()
+    if (!txt) continue
+    const n = seen.get(txt) ?? 0
+    seen.set(txt, n + 1)
+    ;(leaf as HTMLElement).dataset.sym = `${txt}#${n}`
+  }
+  return tpl.innerHTML
+}
+
 function renderMath(src: string, display: boolean): string | null {
   const key = (display ? 'D' : 'I') + src
   const hit = mathCache.get(key)
   if (hit !== undefined) return hit || null
   let out: string | null = null
   try {
-    out = temml.renderToString(decodeEntities(src), { displayMode: display, throwOnError: true, trust: false })
+    out = tagSymbols(
+      temml.renderToString(decodeEntities(src), { displayMode: display, throwOnError: true, trust: false }),
+    )
   } catch {
     out = null // not valid TeX — leave the author's text exactly as typed
   }

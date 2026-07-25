@@ -468,6 +468,9 @@ export function startPresentation(
   const exit = () => {
     if (exited) return
     exited = true
+    // measurements are keyed by slide INDEX, so they'd be wrong for the next
+    // show if the deck was edited in between — never carry them across
+    symCache.clear()
     pauseMediaIn(slidesEl) // stop any playing clip before teardown
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
     const last = deck.getIndices().h
@@ -602,6 +605,13 @@ export function startPresentation(
     mountLiveCharts(doc.slides[toIdx], to, morphing ? doc.slides[fromIdx] : undefined)
     if (from) pauseMediaIn(from)
     startMediaIn(to)
+    // Capture where this slide's formula symbols sit WHILE it is on screen —
+    // once it becomes the outgoing slide there is no layout left to measure.
+    // Synchronously, not in rAF: a backgrounded tab never runs animation
+    // frames, and a slide whose symbols were never captured simply doesn't
+    // symbol-morph on the way out. symbolOffsets normalises by the element's
+    // own box, so measuring mid-morph is safe.
+    cacheSlideSymbols(doc, to, toIdx)
     updateSpeaker()
   }) as any)
 
@@ -635,6 +645,9 @@ export function startPresentation(
         restartSvgAnimations(first)
       }
       wireHoverFocus(doc.slides[startIndex], first)
+      // the opening slide never gets a slidechanged, so capture its symbols
+      // here or the very first morph would have no from-side to travel from
+      cacheSlideSymbols(doc, first, startIndex)
       mountLiveCharts(doc.slides[startIndex], first)
       startMediaIn(first)
     }
@@ -936,6 +949,124 @@ function modelByMorphKey(doc: BentoDoc, index: number): Map<string, SlideElement
   return map
 }
 
+/**
+ * Where a symbol sits INSIDE its element, in model units.
+ *
+ * The engine's rule is "geometry from the model, never the DOM" — because the
+ * outgoing section carries Reveal's own transforms, so absolute measurement
+ * lies. A symbol inside a formula has no model entry to read: it is produced
+ * at render time from a raw `$…$` string, so there is nothing to look up.
+ *
+ * The way through is to measure only what is INVARIANT under those transforms:
+ * the symbol's offset from its own element's box, divided by that element's
+ * measured width over its MODEL width. Any uniform scale an ancestor applies
+ * hits numerator and denominator alike and cancels. Box geometry stays fully
+ * model-driven; only the rearrangement WITHIN a box is measured.
+ */
+/**
+ * Symbol offsets measured while a slide was ON SCREEN, keyed `slideIdx ␟ flipId`.
+ *
+ * Necessary because the outgoing section has NO LAYOUT by the time runMorph
+ * runs — its elements measure zero width, which is the same fact that made
+ * "geometry from the model, never the DOM" the rule in the first place. A
+ * formula's symbols have no model entry to fall back on, so the only honest
+ * source for where a symbol WAS is a measurement taken while it was visible.
+ * Captured on slide entry; read on slide exit.
+ */
+const symCache = new Map<string, Map<string, { x: number; y: number }>>()
+const symKey = (idx: number, flipId: string) => `${idx}${flipId}`
+
+/** Measure and cache every formula on a slide that is currently displayed. */
+function cacheSlideSymbols(doc: BentoDoc, section: HTMLElement, idx: number) {
+  const slide = doc.slides[idx]
+  if (!slide) return
+  const byKey = modelByMorphKey(doc, idx)
+  for (const host of Array.from(section.querySelectorAll<HTMLElement>('[data-flip-id]'))) {
+    if (!host.querySelector('[data-sym]')) continue
+    const model = byKey.get(host.dataset.flipId!)
+    if (!model) continue
+    const offsets = symbolOffsets(host, model.w, model.h)
+    if (offsets.size) symCache.set(symKey(idx, host.dataset.flipId!), offsets)
+  }
+}
+
+function symbolOffsets(host: HTMLElement, modelW: number, modelH: number): Map<string, { x: number; y: number }> {
+  const out = new Map<string, { x: number; y: number }>()
+  const box = host.getBoundingClientRect()
+  if (!box.width || !box.height) return out // no layout (hidden slide) — nothing to measure
+  // Normalise per axis: the box morph can scale x and y differently, and one
+  // shared factor would skew every vertical offset when it does.
+  const sx = box.width / Math.max(modelW, 0.01)
+  const sy = box.height / Math.max(modelH, 0.01)
+  for (const sym of Array.from(host.querySelectorAll<HTMLElement>('[data-sym]'))) {
+    const r = sym.getBoundingClientRect()
+    out.set(sym.dataset.sym!, { x: (r.left - box.left) / sx, y: (r.top - box.top) / sy })
+  }
+  return out
+}
+
+/**
+ * Morph a formula symbol by symbol: each token travels from where it sat on
+ * the previous slide to where it sits on this one, so a term moving across the
+ * equals sign is SEEN to move rather than crossfading.
+ *
+ * Composes with the element box morph rather than replacing it: that tween
+ * already carries the element's gross position and scale, so what is animated
+ * here is only each symbol's offset RELATIVE to its box. The delta is divided
+ * by the box's current scale because a transform on a child inside a scaled
+ * parent is scaled too — without it, symbols overshoot whenever the formula
+ * changes size between slides.
+ *
+ * Symbols on only one side are left alone: they simply appear with their
+ * element, which is what the box morph already does for them.
+ */
+function morphMathSymbols(
+  fromAt: Map<string, { x: number; y: number }> | undefined,
+  to: HTMLElement,
+  a: SlideElement,
+  b: SlideElement,
+): boolean {
+  if (!fromAt?.size || !to.querySelector('[data-sym]')) return false
+  const toAt = symbolOffsets(to, b.w, b.h)
+  if (!toAt.size) return false
+
+  const pairs: Array<{ node: HTMLElement; dx: number; dy: number }> = []
+  for (const sym of Array.from(to.querySelectorAll<HTMLElement>('[data-sym]'))) {
+    const src = fromAt.get(sym.dataset.sym!)
+    const dst = toAt.get(sym.dataset.sym!)
+    if (!src || !dst) continue
+    const dx = src.x - dst.x
+    const dy = src.y - dst.y
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue // sits still — don't tween it
+    pairs.push({ node: sym, dx, dy })
+  }
+  if (!pairs.length) return false
+
+  const state = { p: 0 }
+  for (const { node } of pairs) node.style.willChange = 'transform'
+  anim.to(state, {
+    p: 1,
+    duration: MORPH_DURATION,
+    ease: MORPH_EASE,
+    onUpdate() {
+      const p = state.p
+      // undo the box tween's scale so the symbol delta stays in model units
+      const sx = (a.w + (b.w - a.w) * p) / Math.max(b.w, 0.01)
+      const sy = (a.h + (b.h - a.h) * p) / Math.max(b.h, 0.01)
+      for (const { node, dx, dy } of pairs) {
+        node.style.transform = `translate(${(dx * (1 - p)) / sx}px, ${(dy * (1 - p)) / sy}px)`
+      }
+    },
+    onComplete() {
+      for (const { node } of pairs) {
+        node.style.transform = ''
+        node.style.willChange = ''
+      }
+    },
+  })
+  return true
+}
+
 function runMorph(
   doc: BentoDoc,
   fromSection: HTMLElement,
@@ -1027,6 +1158,17 @@ function runMorph(
         resetXform(node)
       },
     })
+  }
+
+  // Symbol-level math morph, layered on top of the box morph above. The
+  // from-side offsets come from the cache captured while that slide was
+  // visible — measuring it now would read zeros (it has no layout).
+  for (const to of matchedTo) {
+    const id = to.dataset.flipId!
+    const a = fromModel.get(id)
+    const b = toModel.get(id)
+    if (!a || !b) continue
+    morphMathSymbols(symCache.get(symKey(fromIdx, id)), to, a, b)
   }
 
   // Styles morph straight from the model — exact values, no DOM sniffing.
