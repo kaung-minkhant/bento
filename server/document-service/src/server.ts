@@ -8,10 +8,12 @@ const db = new Pool({ connectionString: config.databaseUrl })
 const blobs = new BlobStore(config)
 const app = Fastify({ logger: true })
 
-app.get('/healthz', async (_request, reply) => {
-  await db.query('SELECT 1')
-  return reply.send({ ok: true, service: 'bento-document-service' })
-})
+for (const path of ['/healthz', '/api/healthz']) {
+  app.get(path, async (_request, reply) => {
+    await db.query('SELECT 1')
+    return reply.send({ ok: true, service: 'bento-document-service' })
+  })
+}
 
 app.get('/api/v1/documents', async (_request, reply) => {
   return reply.code(501).send({ error: 'not_implemented', message: 'Document listing is the next service slice.' })
