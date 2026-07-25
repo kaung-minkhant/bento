@@ -48,6 +48,15 @@ export const DOC_NODE = '@doc'
  */
 export const SYNC_V = 2
 
+/**
+ * Largest asset value that may travel INSIDE an op, in characters of its data
+ * URI. Above this the session offloads the bytes to the relay's blob store and
+ * syncs a `blobs.<key>` reference instead — a Durable Object storage value
+ * caps near 2MB, so a big asset simply cannot be an op at any frame size.
+ * Small assets stay inline: the round trip is not worth it for an icon.
+ */
+export const BLOB_INLINE_MAX = 64 * 1024
+
 /** composite element node key: slide id + separator + element id. U+001F
  * never appears in model ids (uid() emits [a-z0-9-]; generators use ASCII). */
 const SEP = '\u001f'
@@ -344,13 +353,20 @@ export class SyncState {
     const a = after as unknown as Record<string, unknown>
     for (const k of new Set([...Object.keys(b), ...Object.keys(a)])) {
       if (SKIP_DOC.has(k)) continue
-      if (k === 'assets') {
-        const ba = (b.assets ?? {}) as Record<string, unknown>
-        const aa = (a.assets ?? {}) as Record<string, unknown>
+      // `assets` and `blobs` are per-KEY registers, not whole-map ones, so two
+      // people adding different assets concurrently both keep theirs.
+      if (k === 'assets' || k === 'blobs') {
+        const ba = (b[k] ?? {}) as Record<string, unknown>
+        const aa = (a[k] ?? {}) as Record<string, unknown>
         for (const ak of new Set([...Object.keys(ba), ...Object.keys(aa)])) {
           if (JSON.stringify(ba[ak]) === JSON.stringify(aa[ak])) continue
-          const o = push<SetOp>({ ...this.stamp(), op: 'set', k: `assets.${ak}`, v: clone(aa[ak]) })
-          this.regs[`${DOC_NODE} assets.${ak}`] = [o.l, o.a]
+          // An asset too big to ride in an op is skipped here and travels as a
+          // blob instead: the session uploads it and publishes a reference
+          // under `blobs.<key>`, which IS small enough. Deletions still sync
+          // (v === undefined), so removing an asset is never stranded.
+          if (k === 'assets' && typeof aa[ak] === 'string' && (aa[ak] as string).length > BLOB_INLINE_MAX) continue
+          const o = push<SetOp>({ ...this.stamp(), op: 'set', k: `${k}.${ak}`, v: clone(aa[ak]) })
+          this.regs[`${DOC_NODE} ${k}.${ak}`] = [o.l, o.a]
         }
         continue
       }
@@ -693,11 +709,13 @@ export class SyncState {
     }
     if (nodeId === DOC_NODE) {
       this.regs[rk] = [op.l, op.a]
-      if (op.k.startsWith('assets.')) {
-        const assets = ((doc.assets ??= {}) as Record<string, string>)
-        const ak = op.k.slice(7)
-        if (op.v === undefined) delete assets[ak]
-        else assets[ak] = op.v as string
+      if (op.k.startsWith('assets.') || op.k.startsWith('blobs.')) {
+        const isBlob = op.k.startsWith('blobs.')
+        const field = isBlob ? 'blobs' : 'assets'
+        const map = ((doc as unknown as Record<string, Record<string, unknown>>)[field] ??= {})
+        const ak = op.k.slice(field.length + 1)
+        if (op.v === undefined) delete map[ak]
+        else map[ak] = clone(op.v)
       } else {
         const d = doc as unknown as Record<string, unknown>
         if (op.v === undefined) delete d[op.k]
@@ -1225,12 +1243,13 @@ export class SyncState {
         if (gen && cmpReg(rr, gen.sd) < 0) continue // generation outranks the set
         if (gen) delete this.txt[nodeId]
       }
-      if (nodeId === DOC_NODE && key.startsWith('assets.')) {
-        const ak = key.slice(7)
-        const ra = (rdoc.assets ?? {}) as Record<string, string>
-        const la = ((doc.assets ??= {}) as Record<string, string>)
-        if (ra[ak] === undefined) delete la[ak]
-        else la[ak] = ra[ak]
+      if (nodeId === DOC_NODE && (key.startsWith('assets.') || key.startsWith('blobs.'))) {
+        const field = key.startsWith('blobs.') ? 'blobs' : 'assets'
+        const ak = key.slice(field.length + 1)
+        const rm = ((rdoc as unknown as Record<string, Record<string, unknown>>)[field] ?? {})
+        const lm = ((doc as unknown as Record<string, Record<string, unknown>>)[field] ??= {})
+        if (rm[ak] === undefined) delete lm[ak]
+        else lm[ak] = clone(rm[ak])
       } else if (src[key] === undefined) delete dst[key]
       else dst[key] = clone(src[key])
       res.changed = true

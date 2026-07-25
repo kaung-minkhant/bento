@@ -393,6 +393,20 @@ export interface BentoDoc {
   /** shared assets (raw SVG markup or data URIs), referenced by key */
   assets?: Record<string, string>
   /**
+   * Live-collab blob references for LARGE assets (docs/blob-offload.md).
+   *
+   * An asset over BLOB_INLINE_MAX cannot travel as a CRDT op — a Durable
+   * Object storage value caps near 2MB — so its bytes go to the relay's blob
+   * store and only this tiny reference is synced. Receiving peers fetch,
+   * decrypt and materialise the asset into `assets` themselves.
+   *
+   * NOT part of the document at rest in any meaningful sense: a saved file
+   * carries the real bytes in `assets`, and opening it standalone ignores this
+   * map entirely. It is additive and optional — older builds simply preserve
+   * it as an unknown field.
+   */
+  blobs?: Record<string, { key: string; mime: string; size: number }>
+  /**
    * embedded fonts: each entry becomes an @font-face at boot, with the font
    * data living in assets (data: URI). Elements then use `family` normally.
    */
