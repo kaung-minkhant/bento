@@ -10,6 +10,7 @@ Engineering and format documentation for bento/slides. Start here.
 | [collab-design.md](collab-design.md) | The live-collaboration design: the in-house CRDT, the E2EE blind relay, signed-write RBAC, and the threat model. |
 | [document-session-protocol.md](document-session-protocol.md) | The document/session boundary for hosted documents and future agent clients. |
 | [document-service.md](document-service.md) | The self-hosted SeaweedFS + Postgres storage schema and API contract. |
+| [ROADMAP.md](ROADMAP.md) | The implementation phases for hosted documents, sessions, MCP, and the library workflow. |
 | [self-hosted-deployment.md](self-hosted-deployment.md) | Kubernetes/Flux deployment flow for the frontend and document service. |
 | [RELEASING.md](RELEASING.md) | How a signed release is cut locally, the two-repo site publish, and deploying the sync relay. |
 
