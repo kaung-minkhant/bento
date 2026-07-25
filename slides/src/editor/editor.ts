@@ -111,6 +111,10 @@ export class Editor {
       }
       known = now
     })
+    // the relay refused something (too big, room full, throttled) — the user
+    // needs to know, because for the permanent codes their change stays in
+    // this copy and never reaches anyone else
+    session.onNotice((n) => this.toast(syncNoticeText(n)))
     this.canvas.onTextEditChange = (elId) => session.setEditing(elId)
     this.store.on('current', () => this.canvas.setRemotePeers(session.peers()))
     // a document that carries collab config joins its relay session — at
@@ -2354,6 +2358,27 @@ export class Editor {
       t.classList.remove('show')
       setTimeout(() => t.remove(), 300)
     }, 2200)
+  }
+}
+
+/**
+ * Turn a relay refusal into a sentence. Honest about the consequence: for the
+ * permanent codes the change lives on in THIS copy only — collaborators will
+ * never receive it, and no later sync repairs that. Built at display time
+ * because t() must never be frozen into a module-level const.
+ */
+function syncNoticeText(n: import('../sync/session').SyncNotice): string {
+  switch (n.code) {
+    case 'too-large':
+      return n.media
+        ? t('That image is too large to share live (about 1 MB max). It’s saved in your copy, but collaborators won’t see it.')
+        : t('That change is too large to share live (about 1 MB max). It’s saved in your copy, but collaborators won’t see it.')
+    case 'room-full':
+      return t('This live session has run out of room. Your change is saved in your copy, but collaborators won’t see it.')
+    case 'storage-failed':
+      return t('The live session couldn’t store that change. It’s saved in your copy, but collaborators won’t see it.')
+    case 'rate-limited':
+      return t('Too many changes at once — live sync is catching up.')
   }
 }
 

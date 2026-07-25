@@ -68,6 +68,28 @@ export interface Transport {
   close(): void
 }
 
+/**
+ * Why the relay refused a frame (`{ctl:'refused', code, …}` — see
+ * server/sync-worker). Everything but 'rate-limited' is PERMANENT for the
+ * frame that drew it: retrying can only reproduce the refusal.
+ */
+export type RefusalCode = 'too-large' | 'storage-failed' | 'room-full' | 'rate-limited'
+
+/**
+ * Something the user deserves to know about the live session. The transport
+ * detects it, the session records the consequence, the editor renders the
+ * sentence (t() must run at display time, so no text crosses this boundary).
+ */
+export interface SyncNotice {
+  code: RefusalCode
+  /** true = the change will never reach collaborators; false = retrying */
+  permanent: boolean
+  /** how many ops were abandoned (0 when the refused frame wasn't ours to name) */
+  ops: number
+  /** the abandoned ops carried embedded media — lets the UI say "that image" */
+  media?: boolean
+}
+
 /** Same-machine transport: every open tab/window of this document. */
 class BroadcastTransport implements Transport {
   readonly kind = 'local'
@@ -118,6 +140,7 @@ export class SyncSession {
   private diffTimer: number | null = null
   private heartbeat: number | null = null
   private peerListeners = new Set<() => void>()
+  private noticeListeners = new Set<(n: SyncNotice) => void>()
   private editingEl: string | undefined
   /** extra transports (the online relay) get plugged in here */
   private makeExtraTransports: Array<(docId: string, onFrame: (f: Frame) => void) => Transport> = []
@@ -462,6 +485,46 @@ export class SyncSession {
     this.peerListeners.forEach((fn) => fn())
   }
 
+  // --- relay refusals -------------------------------------------------------
+
+  /** the editor subscribes here to toast what the relay refused */
+  onNotice(fn: (n: SyncNotice) => void): () => void {
+    this.noticeListeners.add(fn)
+    return () => this.noticeListeners.delete(fn)
+  }
+
+  private emitNotice(n: SyncNotice) {
+    this.noticeListeners.forEach((fn) => fn(n))
+  }
+
+  /**
+   * A transport reports that the relay refused a frame. For the PERMANENT
+   * codes the named ops can never be delivered, so they leave the resend log.
+   *
+   * Why dropping is the right call, and why it is narrow: `missingFor` answers
+   * every peer `need` (and `onRelayReady`) out of `log`, so an op the relay
+   * will always refuse would be re-offered, re-sent, re-refused — forever.
+   * That loop is the bug this exists to break. The price is real and cannot be
+   * undone: the local document KEEPS the change, remote replicas never see it,
+   * and nothing reconciles it later (short of the file being re-opened, which
+   * re-adopts the doc wholesale). Because it is a permanent divergence we drop
+   * ONLY the exact ops the refused frame carried — never a range, never the
+   * rest of the log, and never anything when the frame couldn't be identified.
+   */
+  refused(code: RefusalCode, ops: Op[] | null) {
+    const doomed = ops ?? []
+    if (doomed.length) {
+      const keys = new Set(doomed.map((o) => `${o.a}:${o.s}`))
+      this.log = this.log.filter((o) => !keys.has(`${o.a}:${o.s}`))
+    }
+    this.emitNotice({
+      code,
+      permanent: code !== 'rate-limited',
+      ops: doomed.length,
+      ...(carriesMedia(doomed) ? { media: true } : {}),
+    })
+  }
+
   // --- snapshots (online catch-up + file-fork merge) ------------------------
 
   /** current (doc, sync-state) pair for an encrypted relay snapshot */
@@ -532,4 +595,27 @@ export class SyncSession {
   private broadcast(frame: Frame) {
     this.send(frame)
   }
+}
+
+/**
+ * Does a refused op batch carry embedded media? A frame big enough to be
+ * refused is nearly always a pasted photo or clip, and naming it is the
+ * difference between a message the user can act on and one they can't.
+ * Structural probe only — a refused batch can be megabytes, so nothing here
+ * re-serializes or walks deep into it.
+ */
+function carriesMedia(ops: Op[]): boolean {
+  const isData = (v: unknown): boolean => typeof v === 'string' && v.startsWith('data:')
+  const inEl = (n: unknown): boolean => {
+    const el = n as { type?: string; src?: unknown } | null
+    return !!el && (el.type === 'image' || el.type === 'media') && isData(el.src)
+  }
+  return ops.some((o) => {
+    if (o.op === 'set') return isData(o.v) // element src, or a doc-level assets.<k>
+    if (o.op === 'ins') {
+      const node = o.node as { elements?: unknown[] }
+      return inEl(o.node) || !!node.elements?.some(inEl)
+    }
+    return false
+  })
 }

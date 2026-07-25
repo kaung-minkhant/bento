@@ -12,8 +12,8 @@
 
 import type { Store } from '../store'
 import type { BentoDoc } from '../model'
-import type { SyncStateJSON } from './crdt'
-import type { Frame, SyncSession, Transport } from './session'
+import type { Op, SyncStateJSON } from './crdt'
+import type { Frame, RefusalCode, SyncSession, Transport } from './session'
 import { offlineEnabled } from '../update'
 
 export const DEFAULT_SYNC_HOST = 'wss://sync.bento.page'
@@ -150,6 +150,24 @@ export function syncHost(): string {
 
 export type OnlineStatus = 'connecting' | 'open' | 'closed'
 
+/** A frame written to (or parked for) the relay. `ops` is set for persisted op
+ *  batches — the only frames the relay acks, and the only ones whose refusal
+ *  has to reach the session (an unsendable op must leave the resend log). */
+type Outbound = { text: string; ops: Op[] | null; bytes: number; tries: number }
+
+/** `{ctl:'refused'}` from the relay. No frame id: the sizes are the only
+ *  evidence of WHICH frame it names (see matchRefused). */
+type RefusedEnv = {
+  code?: string
+  /** too-large: the relay's ceiling and the frame length it measured */
+  max?: number
+  got?: number
+  /** storage-failed: i.length + d.length of the frame it tried to store */
+  bytes?: number
+  /** rate-limited: how long until the socket's byte window rolls over */
+  retryInMs?: number
+}
+
 export class OnlineTransport implements Transport {
   readonly kind = 'online'
   status: OnlineStatus = 'connecting'
@@ -158,7 +176,19 @@ export class OnlineTransport implements Transport {
   private key: CryptoKey | null = null
   /** writer signing key — null for readers (they can decrypt but not author). */
   private signKey: CryptoKey | null = null
-  private queue: string[] = []
+  private queue: Outbound[] = []
+  /** persisted frames written but not yet acked. The relay handles one
+   *  socket's frames in order and acks every stored one, so the head of this
+   *  list is the frame a `refused` reply is talking about. Purely a
+   *  correlation window — delivery is still guaranteed by the log + `need`. */
+  private awaitingAck: Outbound[] = []
+  /** rate-limit backoff deadline: sending into a refusing relay only burns the
+   *  next window too, so frames park until it passes */
+  private paused = false
+  private pauseTimer: ReturnType<typeof setTimeout> | null = null
+  private lastLimitNotice = 0
+  private static readonly ACK_WINDOW = 64
+  private static readonly MAX_RETRIES = 4
   private closed = false
   private backoff = 800
   private url = ''
@@ -190,6 +220,9 @@ export class OnlineTransport implements Transport {
       onOpen: () => void
       /** replay done: (actor,seq) pairs the room holds; return true to upload a snapshot */
       onReady: (seen: Set<string>, seq: number) => boolean
+      /** the relay refused a frame; `ops` are the ones it will never accept
+       *  (null when the refusal couldn't be pinned to a frame we sent) */
+      onRefused?: (code: RefusalCode, ops: Op[] | null) => void
     },
     private auth?: AuthSpec,
   ) {
@@ -262,8 +295,12 @@ export class OnlineTransport implements Transport {
       this.backoff = 800
       this.inReplay = true
       this.replaySeen = new Set()
+      // acks don't survive the socket: whatever was un-acked is unknowable now,
+      // and a stale entry would mis-name a later refusal. Delivery of those ops
+      // is the log's job anyway (session.onRelayReady re-sends what the room lacks).
+      this.awaitingAck = []
       this.setStatus('open')
-      for (const text of this.queue.splice(0)) ws.send(text)
+      for (const out of this.queue.splice(0)) this.write(out)
       this.startHeartbeat(ws)
       this.hooks.onOpen()
     }
@@ -310,8 +347,105 @@ export class OnlineTransport implements Transport {
     this.backoff = Math.min(this.backoff * 1.8, 30000)
   }
 
+  // --- refusals -------------------------------------------------------------
+
+  /**
+   * The relay refused a frame. Handling this is not optional politeness: when
+   * the relay dropped oversize/over-quota frames SILENTLY, the sender got no
+   * ack, the peer stayed behind, its `need`/vv catch-up asked for the very
+   * same op, and the sender re-sent the identical doomed frame forever.
+   *
+   * 'rate-limited' is transient — back off and retry. Everything else is
+   * permanent for that frame: it goes up to the session, which forgets the ops
+   * so the loop cannot restart, and tells the user what they just lost.
+   */
+  private handleRefusal(env: RefusedEnv) {
+    if (env.code === 'rate-limited') {
+      this.throttle(typeof env.retryInMs === 'number' ? env.retryInMs : 10_000)
+      return
+    }
+    if (env.code !== 'too-large' && env.code !== 'storage-failed' && env.code !== 'room-full') {
+      // a code from a newer relay: no recovery we can invent is better than
+      // leaving the op in the log, where `need` will retry it honestly
+      console.warn('[bento-sync] relay refused a frame:', env.code)
+      return
+    }
+    const culprit = this.matchRefused(env)
+    if (culprit) this.awaitingAck = this.awaitingAck.filter((o) => o !== culprit)
+    console.warn(`[bento-sync] relay refused a frame (${env.code})`, env)
+    this.hooks.onRefused?.(env.code, culprit?.ops ?? null)
+  }
+
+  /**
+   * Which frame does this refusal name? The relay quotes no id, so: head of
+   * the ack queue by protocol order, CONFIRMED against the size it reported.
+   * A mismatch means the refusal was for a frame we don't track — snapshots
+   * are never acked, so they never enter the queue — and we must not hand the
+   * session somebody else's ops to drop on a guess. Ambiguity → null → the
+   * ops stay in the log (retried, at worst refused again and reported again),
+   * because a wrong drop is silent permanent data divergence.
+   */
+  private matchRefused(env: RefusedEnv): Outbound | null {
+    // too-large measures the whole envelope; storage-failed measures i+d only
+    const byText = typeof env.got === 'number'
+    const want = byText ? env.got! : typeof env.bytes === 'number' ? env.bytes : null
+    const size = (o: Outbound) => (byText ? o.text.length : o.bytes)
+    const head = this.awaitingAck[0] ?? null
+    if (want === null) return head // room-full carries no size — order is all we have
+    if (head && size(head) === want) return head
+    return this.awaitingAck.find((o) => size(o) === want) ?? null
+  }
+
+  /** Rate limited: hold everything for the window, then replay what we sent
+   *  into it. Un-acked frames may or may not have landed — re-sending is safe
+   *  (the CRDT dedups by actor:seq) and losing them silently is not. */
+  private throttle(ms: number) {
+    const wait = Math.min(Math.max(ms, 1000), 60_000)
+    const retryable = this.awaitingAck.filter((o) => ++o.tries <= OnlineTransport.MAX_RETRIES)
+    // past the retry cap we stop re-sending, but the op is NOT dropped: it
+    // stays in the session log for the next `need`/reconnect to carry.
+    this.awaitingAck = []
+    this.queue = [...retryable, ...this.queue]
+    if (this.pauseTimer) clearTimeout(this.pauseTimer)
+    this.paused = true
+    this.pauseTimer = setTimeout(() => {
+      this.pauseTimer = null
+      this.paused = false
+      for (const out of this.queue.splice(0)) this.write(out)
+    }, wait)
+    // transient and self-healing, so say it at most once a minute
+    const now = Date.now()
+    if (now - this.lastLimitNotice > 60_000) {
+      this.lastLimitNotice = now
+      this.hooks.onRefused?.('rate-limited', null)
+    }
+  }
+
+  /** write now, or park it (disconnected, or inside a rate-limit backoff) */
+  private write(out: Outbound) {
+    if (!this.paused && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(out.text)
+      } catch {
+        this.park(out) // send threw → onclose will reconnect and flush
+        return
+      }
+      if (out.ops) {
+        this.awaitingAck.push(out)
+        if (this.awaitingAck.length > OnlineTransport.ACK_WINDOW) this.awaitingAck.shift()
+      }
+      return
+    }
+    this.park(out)
+  }
+
+  private park(out: Outbound) {
+    this.queue.push(out)
+    if (this.queue.length > 500) this.queue.shift()
+  }
+
   private async onEnvelope(text: string) {
-    let env: { i?: string; d?: string; q?: number; snap?: number; ctl?: string; p?: string }
+    let env: { i?: string; d?: string; q?: number; snap?: number; ctl?: string; p?: string } & RefusedEnv
     try {
       env = JSON.parse(text)
     } catch {
@@ -326,7 +460,15 @@ export class OnlineTransport implements Transport {
       }
       return
     }
+    // the relay would not take a frame and said so (v1.0.9 relay and later;
+    // older relays never send this, which is why every path here is additive)
+    if (env.ctl === 'refused') {
+      this.handleRefusal(env)
+      return
+    }
     if (env.ctl === 'ack' || env.ctl === 'ready') {
+      // one ack = the oldest un-acked persisted frame landed
+      if (env.ctl === 'ack') this.awaitingAck.shift()
       if (typeof env.q === 'number') {
         this.saveSeq(env.q)
         this.maybeSnapshot(env.q)
@@ -410,22 +552,21 @@ export class OnlineTransport implements Transport {
       const enc = await this.encrypt(JSON.stringify(frame))
       if (!enc) return
       let env: Record<string, unknown> = enc
+      let ops: Op[] | null = null
       if (frame.t === 'ops') {
         env = { p: 1, ...enc }
         // sign the ciphertext so the relay verifies authorship while blind.
         if (this.signKey) env.g = await signFrame(this.signKey, enc.i, enc.d)
+        ops = frame.ops
       }
-      const text = JSON.stringify(env)
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(text)
-      else {
-        this.queue.push(text)
-        if (this.queue.length > 500) this.queue.shift()
-      }
+      // remember what rode in the frame: a refusal names it only by size
+      this.write({ text: JSON.stringify(env), ops, bytes: enc.i.length + enc.d.length, tries: 0 })
     })()
   }
 
   close() {
     this.closed = true
+    if (this.pauseTimer) { clearTimeout(this.pauseTimer); this.pauseTimer = null }
     this.stopHeartbeat()
     this.ws?.close()
     this.ws = null
@@ -497,6 +638,7 @@ export function joinFromDoc(session: SyncSession, store: Store): OnlineTransport
       getSnapshot: () => session.snapshot(),
       onOpen: () => session.hello(),
       onReady: (seen) => session.onRelayReady(seen),
+      onRefused: (code, ops) => session.refused(code, ops),
     }, auth)
     return active
   })
