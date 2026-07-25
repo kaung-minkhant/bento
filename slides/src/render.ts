@@ -4,6 +4,7 @@
 // editor canvas, sidebar thumbnails, and Reveal.js sections.
 
 import type { BentoDoc, ShapeElement, Slide, SlideElement, SvgElement, TableElement } from './model'
+import { morphKey } from './model'
 import { chartSnapshotSvg } from './charts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -412,7 +413,7 @@ export function renderElement(el: SlideElement, doc: BentoDoc, opts: RenderOpts 
   const node = document.createElement('div')
   node.className = `bento-el bento-el-${el.type}`
   node.dataset.elId = el.id
-  node.dataset.flipId = el.morphId || el.id
+  node.dataset.flipId = morphKey(el)
   if (el.link) node.dataset.link = el.link
   if (el.group) node.dataset.group = el.group
   if (el.showOnHover) node.dataset.showOnHover = el.showOnHover

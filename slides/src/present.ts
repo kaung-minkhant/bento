@@ -9,6 +9,7 @@ import 'reveal.js/dist/reveal.css'
 import { anim, resetXform } from './anim'
 import { chartSnapshotSvg, mountChart } from './charts'
 import type { BentoDoc, GradientFill, ShapeElement, Slide, SlideElement } from './model'
+import { morphKey } from './model'
 import { applyElementFrame, gradientLineCoords, renderSlide } from './render'
 import { paintSpeaker, setSpeakerWindow, speakerIdleBody, speakerWindow } from './screens'
 import { t } from './i18n'
@@ -921,9 +922,17 @@ function elementsById(root: HTMLElement): Map<string, HTMLElement> {
   return map
 }
 
-function modelById(doc: BentoDoc, index: number): Map<string, SlideElement> {
+/**
+ * Model frames keyed by MORPH KEY, not by `id` — every caller looks these up
+ * with a `data-flip-id`, which is `morphId || id`. Keying by `id` meant any
+ * element carrying a `morphId` missed its own model entry, so `runMorph` hit
+ * `if (!a || !b) continue` and skipped the tween: the DOM paired correctly and
+ * then nothing animated (issue #54). Same-slide keys are unique — the panel
+ * rejects a `morphId` that collides on the slide — so this stays 1:1.
+ */
+function modelByMorphKey(doc: BentoDoc, index: number): Map<string, SlideElement> {
   const map = new Map<string, SlideElement>()
-  for (const el of doc.slides[index]?.elements ?? []) map.set(el.id, el)
+  for (const el of doc.slides[index]?.elements ?? []) map.set(morphKey(el), el)
   return map
 }
 
@@ -936,8 +945,8 @@ function runMorph(
 ) {
   const fromEls = elementsById(fromSection)
   const toEls = elementsById(toSection)
-  const fromModel = modelById(doc, fromIdx)
-  const toModel = modelById(doc, toIdx)
+  const fromModel = modelByMorphKey(doc, fromIdx)
+  const toModel = modelByMorphKey(doc, toIdx)
 
   const matchedFrom: HTMLElement[] = []
   const matchedTo: HTMLElement[] = []

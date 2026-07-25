@@ -479,6 +479,19 @@ export const uid = (prefix = 'el') =>
 export const FONT_STACK =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 
+/**
+ * An element's effective morph key: the `morphId` override when set, else its
+ * own `id`. THE single definition — render.ts stamps it into `data-flip-id`,
+ * present.ts pairs and looks up model frames by it, and the panel uses it for
+ * collision checks. Computing it inline in more than one place is exactly how
+ * issue #54 happened: present.ts's model map keyed by `id` while every lookup
+ * passed a flip id, so any element carrying a `morphId` silently missed and
+ * never morphed. Route every morph-key read through here.
+ */
+export function morphKey(el: Pick<ElementBase, 'id' | 'morphId'>): string {
+  return el.morphId || el.id
+}
+
 /** True when a background reads as light (so it wants dark text on top). Accepts
  *  a #rrggbb hex; for a gradient/CSS string it samples the first hex it finds and
  *  falls back to "light" (the safe assumption for the model's dark default ink). */
