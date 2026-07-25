@@ -63,6 +63,14 @@ defensible — files stay authoritative, server loss is survivable — and keeps
 the name an honest promise. Any sync tier is E2EE and optional (DO for
 coordination + R2 for encrypted blobs; never D1/plaintext), and self-hostable.
 
+## 2026-07-25 — Self-hosted document storage uses SeaweedFS and Postgres
+The first self-hosted document-service target uses SeaweedFS through its
+S3-compatible API for encrypted document blobs and Postgres for the encrypted
+library index, ownership, permissions, versions, recovery checkpoints, and
+session metadata. Durable versions are immutable; autosave checkpoints are
+replaceable and expire. The service never stores document plaintext, document
+passwords, or collaboration keys.
+
 ## 2026-07-24 — Suite expansion: bento/spaces and bento/dash
 Two new apps begin: **bento/spaces** (Notion/notes-like) and **bento/dash**
 (spreadsheet + tables). Development fans out across parallel

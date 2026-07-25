@@ -1,0 +1,56 @@
+# Build deployable images. Flux in the GitOps repository detects the pushed
+# tags and updates the Kubernetes manifests; this workflow does not deploy.
+
+name: Container images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'slides/**'
+      - 'server/document-service/**'
+      - '.github/workflows/images.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: registry.gitlab.com
+  IMAGE_PREFIX: registry.gitlab.com/james-homelab/bento
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitLab Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GITLAB_REGISTRY_USERNAME }}
+          password: ${{ secrets.GITLAB_REGISTRY_PASSWORD }}
+
+      - name: Set image tag
+        id: tag
+        run: echo "value=build-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push document service
+        uses: docker/build-push-action@v6
+        with:
+          context: server/document-service
+          file: server/document-service/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/document-service:${{ steps.tag.outputs.value }}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: slides
+          file: slides/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.value }}
