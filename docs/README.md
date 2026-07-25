@@ -8,6 +8,9 @@ Engineering and format documentation for bento/slides. Start here.
 | [format.md](format.md) | **Normative reference for the `bento/slides` JSON document model** — every element type, slide/state/layout shape, `fx`, and the collab fields. The format IS the product. |
 | [agents.md](agents.md) | The AI-agent guide: how to author a *great* deck (mapping content to the right feature), the schema, and copy-paste recipes. Also published at `bento.page/agents.md`. |
 | [collab-design.md](collab-design.md) | The live-collaboration design: the in-house CRDT, the E2EE blind relay, signed-write RBAC, and the threat model. |
+| [document-session-protocol.md](document-session-protocol.md) | The document/session boundary for hosted documents and future agent clients. |
+| [document-service.md](document-service.md) | The self-hosted SeaweedFS + Postgres storage schema and API contract. |
+| [self-hosted-deployment.md](self-hosted-deployment.md) | Kubernetes/Flux deployment flow for the frontend and document service. |
 | [RELEASING.md](RELEASING.md) | How a signed release is cut locally, the two-repo site publish, and deploying the sync relay. |
 
 Related, outside `docs/`:

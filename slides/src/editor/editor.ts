@@ -8,7 +8,7 @@ import {
   FORMAT_VERSION,
   MEDIA_EMBED_BUDGET,
   applyChartPalette, applyLayout, builtinLayouts, defaultChart, defaultImage, defaultMedia, defaultShape, defaultTable, defaultText,
-  instantiateLayout, isLightBg, layoutElementIds, newDocId, readableInk, syncLinkedChart, uid,
+  emptySlide, instantiateLayout, isLightBg, layoutElementIds, newDocId, readableInk, syncLinkedChart, uid,
   type ChartElement, type ShapeKind, type Slide, type SlideElement, type TableElement,
 } from '../model'
 import { APP_VERSION, applyUpdate, applyUpdateInPlace, autoCheckEnabled, canUpdateInPlace, checkForUpdates, offlineEnabled, setAutoCheck, setOffline } from '../update'
@@ -1023,6 +1023,9 @@ export class Editor {
     // smaller, indented, dimmed — so the structure reads at a glance.
     const scroll = this.sidebar.scrollTop
     this.sidebar.innerHTML = ''
+    const clear = btn(ICONS.trash, t('Clear all'), () => this.clearAllSlides(), t('Clear all slides'))
+    clear.classList.add('ed-clear-slides')
+    this.sidebar.appendChild(clear)
     const slides = this.store.doc.slides
     slides.forEach((slide, i) => {
       // hover gap = insert here; never between a parent and its states
@@ -1212,6 +1215,15 @@ export class Editor {
       this.store.doc.slides.splice(i + 1, 0, clone)
     }, 'slides')
     this.store.goTo(i + 1)
+  }
+
+  private clearAllSlides() {
+    if (!window.confirm(t('Clear all slides? This keeps one blank slide.'))) return
+    this.store.commit(() => {
+      this.store.doc.slides = [emptySlide()]
+    }, 'slides')
+    this.store.goTo(0)
+    this.store.select([])
   }
 
   private deleteSlide(i: number) {
