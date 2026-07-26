@@ -5,8 +5,7 @@
 // into a single undo checkpoint.
 
 import type { Store } from '../store'
-import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, internAsset, morphKey, tableStyleFor, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
-import { resolveAsset } from '../render'
+import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, morphKey, tableStyleFor, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
 import { isMacOS } from '../screens'
 import { CHART_PRESETS } from '../charts'
 import { FONT_CHOICES, firstFamily, injectFonts } from '../fonts'
