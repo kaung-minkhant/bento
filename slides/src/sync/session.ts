@@ -20,7 +20,8 @@
 import type { Store } from '../store'
 import type { BentoDoc, Slide } from '../model'
 import { uid } from '../model'
-import { SyncState, SYNC_V, type Op } from './crdt'
+import { SyncState, SYNC_V, BLOB_INLINE_MAX, type Op } from './crdt'
+import { putBlob, getBlob, dataUriToBytes, bytesToDataUri, encodedSize, MAX_BLOB } from './blobs'
 import { mintCollab } from './online'
 
 export interface PresenceInfo {
@@ -66,6 +67,28 @@ export interface Transport {
   readonly kind: string
   send(frame: Frame): void
   close(): void
+}
+
+/**
+ * Why the relay refused a frame (`{ctl:'refused', code, …}` — see
+ * server/sync-worker). Everything but 'rate-limited' is PERMANENT for the
+ * frame that drew it: retrying can only reproduce the refusal.
+ */
+export type RefusalCode = 'too-large' | 'storage-failed' | 'room-full' | 'rate-limited'
+
+/**
+ * Something the user deserves to know about the live session. The transport
+ * detects it, the session records the consequence, the editor renders the
+ * sentence (t() must run at display time, so no text crosses this boundary).
+ */
+export interface SyncNotice {
+  code: RefusalCode
+  /** true = the change will never reach collaborators; false = retrying */
+  permanent: boolean
+  /** how many ops were abandoned (0 when the refused frame wasn't ours to name) */
+  ops: number
+  /** the abandoned ops carried embedded media — lets the UI say "that image" */
+  media?: boolean
 }
 
 /** Same-machine transport: every open tab/window of this document. */
@@ -118,6 +141,7 @@ export class SyncSession {
   private diffTimer: number | null = null
   private heartbeat: number | null = null
   private peerListeners = new Set<() => void>()
+  private noticeListeners = new Set<(n: SyncNotice) => void>()
   private editingEl: string | undefined
   /** extra transports (the online relay) get plugged in here */
   private makeExtraTransports: Array<(docId: string, onFrame: (f: Frame) => void) => Transport> = []
@@ -242,6 +266,115 @@ export class SyncSession {
   }
 
   /** diff now (also called before presence-relevant transitions) */
+  /**
+   * Assets too large for an op (docs/blob-offload.md) are uploaded to the
+   * relay's blob store and published as a small `blobs.<key>` reference, which
+   * IS small enough to sync. Runs after a local edit; the reference lands on
+   * the next flush like any other change.
+   *
+   * The bytes are always cached locally even when the upload fails, because
+   * the cache is per-ORIGIN: same-machine tabs syncing over BroadcastChannel
+   * resolve from it with no relay involved at all.
+   */
+  private async offloadAssets() {
+    const doc = this.store.doc
+    const assets = doc.assets ?? {}
+    const creds = this.blobCreds()
+    for (const [k, v] of Object.entries(assets)) {
+      if (typeof v !== 'string' || v.length <= BLOB_INLINE_MAX) continue
+      if (doc.blobs?.[k]) continue // already published
+      const parsed = dataUriToBytes(v)
+      if (!parsed) continue // raw SVG markup, not binary — leave it inline
+      if (encodedSize(parsed.bytes.length) > MAX_BLOB) {
+        this.notify('blob-too-large', k)
+        continue
+      }
+      if (!creds) continue // no relay yet; retry on the next edit
+      const res = await putBlob(
+        { base: creds.base, room: creds.room, tok: creds.tok }, creds.rawKey, parsed.bytes,
+      )
+      if (!res.ok) {
+        // 'unsupported' = relay has no blob storage. Not an error: small assets
+        // still inline, and same-origin tabs resolve from the local cache.
+        if (res.reason !== 'unsupported') this.notify(`blob-${res.reason}`, k)
+        continue
+      }
+      this.store.commit(() => {
+        const d = this.store.doc
+        ;(d.blobs ??= {})[k] = { key: res.key, mime: parsed.mime, size: parsed.bytes.length }
+      })
+    }
+  }
+
+  /**
+   * The other direction: a peer published a reference we have no bytes for.
+   * Fetch, decrypt and materialise it into `assets` so the renderer can use it
+   * exactly as if it had arrived inline.
+   *
+   * A blob that never arrives leaves the asset ABSENT rather than blank —
+   * `assetRef()` in render.ts resolves a missing key to '', which the UI shows
+   * as a visibly empty element. Silent-but-wrong is the failure mode we are
+   * avoiding everywhere in this system.
+   */
+  private async resolveBlobs() {
+    const doc = this.store.doc
+    const refs = doc.blobs ?? {}
+    const creds = this.blobCreds()
+    for (const [k, ref] of Object.entries(refs)) {
+      if (doc.assets?.[k]) continue // already have the bytes
+      if (this.fetching.has(ref.key)) continue
+      this.fetching.add(ref.key)
+      try {
+        // cache-first, so same-origin tabs need no relay at all
+        const bytes = creds
+          ? await getBlob({ base: creds.base, room: creds.room, tok: creds.tok }, creds.rawKey, ref.key)
+          : null
+        if (!bytes) { this.notify('blob-unavailable', k); continue }
+        this.store.commit(() => {
+          const d = this.store.doc
+          ;(d.assets ??= {})[k] = bytesToDataUri(bytes, ref.mime)
+        })
+      } finally {
+        this.fetching.delete(ref.key)
+      }
+    }
+  }
+
+  private fetching = new Set<string>()
+  /** set by the editor when an online transport exists */
+  /** Credentials the blob layer needs, taken from whichever transport can
+   *  reach a relay.
+   *
+   *  Resolved ON DEMAND, deliberately. The obvious shape — a hook assigned when
+   *  the online transport connects — is what shipped broken: nothing ever
+   *  assigned it, so `creds` was always null, every upload was skipped by the
+   *  `if (!creds) continue` guard, and the whole offload was inert with no
+   *  error anywhere. Transports are also torn down and rebuilt on reconnect and
+   *  on rejoin, so even a correctly-assigned hook goes stale. Asking the live
+   *  transport list each time cannot drift. */
+  private blobCreds(): { base: string; room: string; tok: string; rawKey: Uint8Array } | null {
+    for (const tr of this.transports) {
+      const f = (tr as { blobCreds?: () => { base: string; room: string; tok: string; rawKey: Uint8Array } | null }).blobCreds
+      if (typeof f !== 'function') continue
+      const c = f.call(tr)
+      if (c) return c
+    }
+    return null
+  }
+  private notify(code: string, detail?: string) {
+    // Blob failures use the same user-facing channel as relay refusals. The
+    // local document remains intact; this only reports that live sharing of
+    // the affected media did not complete.
+    void detail
+    const mapped: RefusalCode | null =
+      code === 'blob-too-large' ? 'too-large' :
+      code === 'blob-room-full' ? 'room-full' :
+      code === 'blob-network' || code === 'blob-forbidden' || code === 'blob-unavailable' ? 'storage-failed' :
+      null
+    if (!mapped) return
+    this.emitNotice({ code: mapped, permanent: true, ops: 0, media: true })
+  }
+
   flush() {
     if (this.applying) return
     const before = JSON.parse(this.shadow) as BentoDoc
@@ -253,6 +386,9 @@ export class SyncSession {
       return
     }
     this.shadow = JSON.stringify(this.store.doc)
+    // Any large asset the differ just skipped needs its bytes offloaded; the
+    // resulting reference syncs on the next flush like an ordinary change.
+    void this.offloadAssets()
     if (!ops.length) return
     this.log.push(...ops)
     this.broadcast({ t: 'ops', a: this.actor, ops })
@@ -355,6 +491,7 @@ export class SyncSession {
   }
 
   private afterRemoteChange(structure: boolean) {
+    void this.resolveBlobs()
     const store = this.store
     // an all-slides-deleted race leaves an empty deck — heal with a blank
     if (store.doc.slides.length === 0) {
@@ -462,6 +599,46 @@ export class SyncSession {
     this.peerListeners.forEach((fn) => fn())
   }
 
+  // --- relay refusals -------------------------------------------------------
+
+  /** the editor subscribes here to toast what the relay refused */
+  onNotice(fn: (n: SyncNotice) => void): () => void {
+    this.noticeListeners.add(fn)
+    return () => this.noticeListeners.delete(fn)
+  }
+
+  private emitNotice(n: SyncNotice) {
+    this.noticeListeners.forEach((fn) => fn(n))
+  }
+
+  /**
+   * A transport reports that the relay refused a frame. For the PERMANENT
+   * codes the named ops can never be delivered, so they leave the resend log.
+   *
+   * Why dropping is the right call, and why it is narrow: `missingFor` answers
+   * every peer `need` (and `onRelayReady`) out of `log`, so an op the relay
+   * will always refuse would be re-offered, re-sent, re-refused — forever.
+   * That loop is the bug this exists to break. The price is real and cannot be
+   * undone: the local document KEEPS the change, remote replicas never see it,
+   * and nothing reconciles it later (short of the file being re-opened, which
+   * re-adopts the doc wholesale). Because it is a permanent divergence we drop
+   * ONLY the exact ops the refused frame carried — never a range, never the
+   * rest of the log, and never anything when the frame couldn't be identified.
+   */
+  refused(code: RefusalCode, ops: Op[] | null) {
+    const doomed = ops ?? []
+    if (doomed.length) {
+      const keys = new Set(doomed.map((o) => `${o.a}:${o.s}`))
+      this.log = this.log.filter((o) => !keys.has(`${o.a}:${o.s}`))
+    }
+    this.emitNotice({
+      code,
+      permanent: code !== 'rate-limited',
+      ops: doomed.length,
+      ...(carriesMedia(doomed) ? { media: true } : {}),
+    })
+  }
+
   // --- snapshots (online catch-up + file-fork merge) ------------------------
 
   /** current (doc, sync-state) pair for an encrypted relay snapshot */
@@ -532,4 +709,27 @@ export class SyncSession {
   private broadcast(frame: Frame) {
     this.send(frame)
   }
+}
+
+/**
+ * Does a refused op batch carry embedded media? A frame big enough to be
+ * refused is nearly always a pasted photo or clip, and naming it is the
+ * difference between a message the user can act on and one they can't.
+ * Structural probe only — a refused batch can be megabytes, so nothing here
+ * re-serializes or walks deep into it.
+ */
+function carriesMedia(ops: Op[]): boolean {
+  const isData = (v: unknown): boolean => typeof v === 'string' && v.startsWith('data:')
+  const inEl = (n: unknown): boolean => {
+    const el = n as { type?: string; src?: unknown } | null
+    return !!el && (el.type === 'image' || el.type === 'media') && isData(el.src)
+  }
+  return ops.some((o) => {
+    if (o.op === 'set') return isData(o.v) // element src, or a doc-level assets.<k>
+    if (o.op === 'ins') {
+      const node = o.node as { elements?: unknown[] }
+      return inEl(o.node) || !!node.elements?.some(inEl)
+    }
+    return false
+  })
 }

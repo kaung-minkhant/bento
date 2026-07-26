@@ -8,7 +8,7 @@ import Moveable from 'moveable'
 import Selecto from 'selecto'
 import type { Store } from '../store'
 import { t } from '../i18n'
-import { defaultShape, readableInk, uid, type ShapeElement, type SlideElement, type TableElement } from '../model'
+import { defaultShape, internAsset, readableInk, uid, type ShapeElement, type SlideElement, type TableElement } from '../model'
 import { renderSlide, sanitizeHtml } from '../render'
 import { autoformatAtCaret, clearAutoformat, markdownToHtml, undoAutoformat } from './markdown'
 import { PathEditor } from './patheditor'
@@ -1340,7 +1340,16 @@ export class SlideCanvas {
     if (preview && slide.hover?.type === 'reveal' && preview !== slide.hover.default) {
       el.showOnHover = preview
     }
-    this.store.commit(() => this.store.slide.elements.push(el))
+    this.store.commit(() => {
+      // Embedded binary belongs in doc.assets, never inline on the element —
+      // that is what makes it reachable by the live-collab blob offload. Done
+      // INSIDE the commit so the asset and the element land as one undo step
+      // and one sync batch.
+      if ((el.type === 'image' || el.type === 'media') && typeof el.src === 'string') {
+        el.src = internAsset(this.store.doc, el.src)
+      }
+      this.store.slide.elements.push(el)
+    })
     this.store.select([el.id])
     if (startEditing && el.type === 'text') {
       const node = this.surface?.querySelector<HTMLElement>(`[data-el-id="${CSS.escape(el.id)}"]`)

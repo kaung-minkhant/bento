@@ -443,6 +443,26 @@ export function startPresentation(
   // element is what goes fullscreen, so the speaker popup stays independent.
   // Requests can be denied (iframes, no user activation) — tab-fill mode is
   // the graceful floor, and stays the mode for testing/sharing via F.
+  type WakeLock = { release(): Promise<void>; addEventListener?(type: 'release', listener: () => void): void }
+  let wakeLock: WakeLock | null = null
+  const acquireWakeLock = async () => {
+    const api = (navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<WakeLock> } }).wakeLock
+    if (!api || wakeLock || document.visibilityState !== 'visible') return
+    try {
+      const held = await api.request('screen')
+      wakeLock = held
+      held.addEventListener?.('release', () => { if (wakeLock === held) wakeLock = null })
+    } catch { /* unsupported or denied */ }
+  }
+  const releaseWakeLock = () => {
+    const held = wakeLock
+    wakeLock = null
+    void held?.release?.().catch(() => {})
+  }
+  const onVisibility = () => { if (document.visibilityState === 'visible') void acquireWakeLock() }
+  document.addEventListener('visibilitychange', onVisibility)
+  void acquireWakeLock()
+
   const enterFullscreen = () => {
     overlay.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {})
   }
@@ -483,6 +503,8 @@ export function startPresentation(
     window.removeEventListener('resize', onResize)
     document.removeEventListener('keydown', onKeydown, true)
     document.removeEventListener('fullscreenchange', onFsChange)
+    document.removeEventListener('visibilitychange', onVisibility)
+    releaseWakeLock()
     reduceQuery.removeEventListener?.('change', onMotionQuery)
     clearInterval(speakerTimer)
     if (speaker && !speaker.closed) {

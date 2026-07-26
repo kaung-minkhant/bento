@@ -4,6 +4,17 @@
 import type { Catalog } from '../i18n'
 
 export const zhHant: Catalog = {
+  "Backed up in this browser": "已備份到此瀏覽器",
+  "Unsaved changes — kept in this browser at {when} and offered back if you reopen. ⌘S downloads an updated copy.": "未儲存的變更 — 已於 {when} 保存在此瀏覽器中，重新開啟時可以還原。⌘S 會下載更新後的副本。",
+  "Unsaved changes — ⌘S downloads an updated copy (this browser can’t rewrite the file)": "未儲存的變更 — ⌘S 會下載更新後的副本（此瀏覽器無法改寫檔案）",
+  "Save — download an updated copy (⌘S). This browser can’t rewrite the open file.": "儲存 — 下載更新後的副本（⌘S）。此瀏覽器無法改寫已開啟的檔案。",
+  "This browser can’t rewrite files in place. ⌘S will download an updated copy instead — your work is also kept in this browser and offered back if you reopen.": "此瀏覽器無法就地改寫檔案。⌘S 會改為下載更新後的副本 — 你的工作也會保存在此瀏覽器中，重新開啟時可以還原。",
+  "Got it": "知道了",
+  "That image is too large to share live (about 1 MB max). It’s saved in your copy, but collaborators won’t see it.": "此圖片太大，無法即時共用（上限約 1 MB）。它已儲存在你的副本中，但協作者不會看到。",
+  "That change is too large to share live (about 1 MB max). It’s saved in your copy, but collaborators won’t see it.": "此變更太大，無法即時共用（上限約 1 MB）。它已儲存在你的副本中，但協作者不會看到。",
+  "This live session has run out of room. Your change is saved in your copy, but collaborators won’t see it.": "此即時工作階段空間已滿。你的變更已儲存在你的副本中，但協作者不會看到。",
+  "The live session couldn’t store that change. It’s saved in your copy, but collaborators won’t see it.": "即時工作階段無法儲存此變更。它已儲存在你的副本中，但協作者不會看到。",
+  "Too many changes at once — live sync is catching up.": "變更太多 — 即時同步正在追趕。",
   "Backdrop": "背景模糊",
   "Blend": "混合模式",
   "Outline": "外框",
@@ -677,4 +688,5 @@ export const zhHant: Catalog = {
   "Start from scratch…": "從頭開始…",
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "將所有投影片取代為一張空白投影片。簡報的主題、名稱與即時協作工作階段都會保留 — ⌘Z 可復原。",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "將全部 {n} 張投影片取代為一張空白投影片？⌘Z 可復原。",
+  "Don’t pair — use its own id": "不配對 — 使用自身 id",
 }

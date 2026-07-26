@@ -393,6 +393,20 @@ export interface BentoDoc {
   /** shared assets (raw SVG markup or data URIs), referenced by key */
   assets?: Record<string, string>
   /**
+   * Live-collab blob references for LARGE assets (docs/blob-offload.md).
+   *
+   * An asset over BLOB_INLINE_MAX cannot travel as a CRDT op — a Durable
+   * Object storage value caps near 2MB — so its bytes go to the relay's blob
+   * store and only this tiny reference is synced. Receiving peers fetch,
+   * decrypt and materialise the asset into `assets` themselves.
+   *
+   * NOT part of the document at rest in any meaningful sense: a saved file
+   * carries the real bytes in `assets`, and opening it standalone ignores this
+   * map entirely. It is additive and optional — older builds simply preserve
+   * it as an unknown field.
+   */
+  blobs?: Record<string, { key: string; mime: string; size: number }>
+  /**
    * embedded fonts: each entry becomes an @font-face at boot, with the font
    * data living in assets (data: URI). Elements then use `family` normally.
    */
@@ -714,6 +728,28 @@ export function defaultImage(src: string, partial: Partial<ImageElement> = {}): 
     radius: 0,
     ...partial,
   }
+}
+
+/** Park an embedded data URI in `doc.assets` and return an `asset:` ref.
+ *
+ *  Every embed goes through here so there is exactly ONE place binary content
+ *  lives. That matters beyond tidiness: live collab offloads large `assets`
+ *  entries to the relay's blob store, so an image written straight onto
+ *  `el.src` was invisible to the offload and rode inline in an op batch far
+ *  too big for a frame — it reached collaborators as nothing at all.
+ *
+ *  Identical bytes reuse the same key, so duplicating an image (or pasting the
+ *  same photo twice) costs one copy in the file and one upload on the wire.
+ *  A URL or an existing `asset:` ref passes straight through — only `data:`
+ *  is interned. Callers MUST run this inside a `store.commit` so the assets
+ *  write is part of the same undo step and the same sync batch. */
+export function internAsset(doc: BentoDoc, src: string): string {
+  if (!src.startsWith('data:')) return src
+  const assets = (doc.assets ??= {})
+  for (const k in assets) if (assets[k] === src) return `asset:${k}`
+  const key = uid('a')
+  assets[key] = src
+  return `asset:${key}`
 }
 
 /** Soft ceiling for embedding media as a data URI (bytes). Above this the

@@ -5,12 +5,16 @@
 // into a single undo checkpoint.
 
 import type { Store } from '../store'
-import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, morphKey, tableStyleFor, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
+import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, internAsset, morphKey, tableStyleFor, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
+import { resolveAsset } from '../render'
 import { isMacOS } from '../screens'
 import { CHART_PRESETS } from '../charts'
 import { FONT_CHOICES, firstFamily, injectFonts } from '../fonts'
 import { ICONS } from '../icons'
 import { t } from '../i18n'
+
+/** Sentinel for clearing a manually assigned morph key. */
+const UNPAIR = '#unpair'
 
 // Hover help for panel rows, keyed by the RAW English label (translated at
 // render). A missing entry means no tooltip — better silence than an echo.
@@ -476,12 +480,18 @@ export class PropsPanel {
     this.row('Morph id', input)
 
     const targets = this.morphTargets(el)
-    if (targets.length) {
+    if (targets.length || el.morphId) {
       const sel = document.createElement('select')
       const none = document.createElement('option')
       none.value = ''
       none.textContent = t('(pick an element)')
       sel.appendChild(none)
+      if (el.morphId) {
+        const un = document.createElement('option')
+        un.value = UNPAIR
+        un.textContent = t('Don’t pair — use its own id')
+        sel.appendChild(un)
+      }
       for (const tgt of targets) {
         const o = document.createElement('option')
         o.value = tgt.key
@@ -491,7 +501,7 @@ export class PropsPanel {
       }
       sel.addEventListener('change', () => {
         if (!sel.value) return
-        const err = this.setMorphId(el, sel.value)
+        const err = this.setMorphId(el, sel.value === UNPAIR ? el.id : sel.value)
         if (err) { warn.textContent = err; warn.style.display = '' }
       })
       this.row('Pair with', sel)
@@ -1532,9 +1542,12 @@ export class PropsPanel {
     // source status: embedded (with size) / linked / none
     const status = document.createElement('p')
     status.className = 'ed-hint'
+    // Resolve first: an embed is stored as an `asset:` ref, so testing el.src
+    // directly would report an embedded clip as "linked".
+    const resolved = el.src ? resolveAsset(this.store.doc, el.src) : ''
     if (!el.src) status.textContent = t('No source yet — choose a file or paste a URL.')
-    else if (el.src.startsWith('data:')) {
-      const kb = Math.round((el.src.length * 3) / 4 / 1024)
+    else if (resolved.startsWith('data:')) {
+      const kb = Math.round((resolved.length * 3) / 4 / 1024)
       status.innerHTML = t('Embedded in the file') + ` · <b>${kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB'}</b>`
     } else status.textContent = t('Linked — the deck stays small but needs this URL to play.')
     this.host.appendChild(status)
@@ -1555,7 +1568,11 @@ export class PropsPanel {
           if (!confirm(t('This file is {mb} MB. Embedding makes the .bento.html large and slow to open and save. Embed anyway?', { mb }))) return
         }
         const reader = new FileReader()
-        reader.onload = () => this.mutate(el.id, (e) => { (e as MediaElement).src = String(reader.result) }, true)
+        // interned, not inline — same reason as every other embed site: only
+        // doc.assets entries are reachable by the live-collab blob offload.
+        reader.onload = () => this.mutate(el.id, (e) => {
+          (e as MediaElement).src = internAsset(this.store.doc, String(reader.result))
+        }, true)
         reader.readAsDataURL(file)
       })
       input.click()
@@ -1566,7 +1583,7 @@ export class PropsPanel {
     const url = document.createElement('input')
     url.type = 'text'
     url.placeholder = t('…or paste a media URL')
-    url.value = el.src && !el.src.startsWith('data:') ? el.src : ''
+    url.value = el.src && !el.src.startsWith('data:') && !el.src.startsWith('asset:') ? el.src : ''
     url.addEventListener('change', () =>
       this.mutate(el.id, (e) => { (e as MediaElement).src = url.value.trim() }, true))
     this.row('URL', url)

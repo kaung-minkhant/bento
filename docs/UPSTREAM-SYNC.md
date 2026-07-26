@@ -40,11 +40,31 @@ reviewed and classified as ported, intentionally skipped, or deferred.
   failure recovery.
 - Theme-aware table defaults, blank-deck reset, and save-picker naming.
 - Temml math rendering, symbol-level math morphing, and starter-deck examples.
+- Explicit morph unpairing, truthful save capability messaging and browser
+  recovery feedback, and best-effort screen wake lock while presenting.
+- Encrypted media blob offload, relay refusal signaling, frame-ID correlation,
+  per-room quotas, expiry cleanup, and client-side blob caching/deduplication.
+- Large asset CRDT references and image/media insertion integration.
 
-## Deferred
+## Deployment note
 
-- Encrypted media blob offload and relay refusal protocol changes. These require
-  coordinated sync-client and relay work and must be ported as one tested batch.
+- The ported relay implementation expects its `BLOBS` binding to an R2-style
+  object store. Without that binding it returns `501` and the client falls back
+  to inline assets. SeaweedFS support for the sync relay is separate from the
+  document service's existing SeaweedFS integration and is not implied by this
+  client port.
+
+## Intentionally not ported
+
+- Release automation, updater UI, and release-note changes. The updater is
+  disabled while the hosted deployment is stabilized, and releases remain
+  maintainer-owned.
+- i18n packing and new language-pack infrastructure. This fork keeps authored
+  catalogs bundled while its hosted/OIDC strings are still evolving.
+- Upstream starter-title and broad rebrand changes. They conflict with the
+  repository's lowercase naming contract and the fork's product copy.
+- Upstream relay/vault design documents and CI/site changes that describe or
+  deploy the upstream service topology rather than this fork's deployment.
 
 ## Review record
 

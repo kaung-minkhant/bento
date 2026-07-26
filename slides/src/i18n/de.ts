@@ -4,6 +4,17 @@
 import type { Catalog } from '../i18n'
 
 export const de: Catalog = {
+  "Backed up in this browser": "In diesem Browser gesichert",
+  "Unsaved changes — kept in this browser at {when} and offered back if you reopen. ⌘S downloads an updated copy.": "Nicht gespeicherte Änderungen — um {when} in diesem Browser gesichert und beim erneuten Öffnen angeboten. ⌘S lädt eine aktualisierte Kopie herunter.",
+  "Unsaved changes — ⌘S downloads an updated copy (this browser can’t rewrite the file)": "Nicht gespeicherte Änderungen — ⌘S lädt eine aktualisierte Kopie herunter (dieser Browser kann die Datei nicht überschreiben)",
+  "Save — download an updated copy (⌘S). This browser can’t rewrite the open file.": "Speichern — aktualisierte Kopie herunterladen (⌘S). Dieser Browser kann die geöffnete Datei nicht überschreiben.",
+  "This browser can’t rewrite files in place. ⌘S will download an updated copy instead — your work is also kept in this browser and offered back if you reopen.": "Dieser Browser kann Dateien nicht direkt überschreiben. ⌘S lädt stattdessen eine aktualisierte Kopie herunter — deine Arbeit wird außerdem in diesem Browser gespeichert und beim erneuten Öffnen angeboten.",
+  "Got it": "Verstanden",
+  "That image is too large to share live (about 1 MB max). It’s saved in your copy, but collaborators won’t see it.": "Dieses Bild ist zu groß für die Live-Freigabe (max. etwa 1 MB). Es ist in deiner Kopie gespeichert, aber Mitarbeitende sehen es nicht.",
+  "That change is too large to share live (about 1 MB max). It’s saved in your copy, but collaborators won’t see it.": "Diese Änderung ist zu groß für die Live-Freigabe (max. etwa 1 MB). Sie ist in deiner Kopie gespeichert, aber Mitarbeitende sehen sie nicht.",
+  "This live session has run out of room. Your change is saved in your copy, but collaborators won’t see it.": "Diese Live-Sitzung hat keinen Platz mehr. Deine Änderung ist in deiner Kopie gespeichert, aber Mitarbeitende sehen sie nicht.",
+  "The live session couldn’t store that change. It’s saved in your copy, but collaborators won’t see it.": "Die Live-Sitzung konnte diese Änderung nicht speichern. Sie ist in deiner Kopie gespeichert, aber Mitarbeitende sehen sie nicht.",
+  "Too many changes at once — live sync is catching up.": "Zu viele Änderungen auf einmal — die Live-Synchronisierung holt auf.",
   "Backdrop": "Hintergrund",
   "Blend": "Mischmodus",
   "Outline": "Kontur",
@@ -677,4 +688,5 @@ export const de: Catalog = {
   "Start from scratch…": "Von vorne beginnen…",
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Ersetzt alle Folien durch eine einzige leere Folie. Design, Name und Live-Sitzung der Präsentation bleiben erhalten — ⌘Z macht es rückgängig.",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "Alle {n} Folien durch eine leere Folie ersetzen? ⌘Z macht dies rückgängig.",
+  "Don’t pair — use its own id": "Nicht verknüpfen — eigene ID verwenden",
 }
