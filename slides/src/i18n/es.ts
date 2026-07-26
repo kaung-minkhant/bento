@@ -4,6 +4,12 @@
 import type { Catalog } from '../i18n'
 
 export const es: Catalog = {
+  "Backed up in this browser": "Copia guardada en este navegador",
+  "Unsaved changes — kept in this browser at {when} and offered back if you reopen. ⌘S downloads an updated copy.": "Cambios sin guardar — conservados en este navegador a las {when} y se te ofrecerán al reabrir. ⌘S descarga una copia actualizada.",
+  "Unsaved changes — ⌘S downloads an updated copy (this browser can’t rewrite the file)": "Cambios sin guardar — ⌘S descarga una copia actualizada (este navegador no puede reescribir el archivo)",
+  "Save — download an updated copy (⌘S). This browser can’t rewrite the open file.": "Guardar — descargar una copia actualizada (⌘S). Este navegador no puede reescribir el archivo abierto.",
+  "This browser can’t rewrite files in place. ⌘S will download an updated copy instead — your work is also kept in this browser and offered back if you reopen.": "Este navegador no puede reescribir archivos en su sitio. ⌘S descargará una copia actualizada — tu trabajo también se guarda en este navegador y se te ofrecerá si vuelves a abrirlo.",
+  "Got it": "Entendido",
   "Backdrop": "Fondo",
   "Blend": "Fusión",
   "Outline": "Contorno",
@@ -677,4 +683,5 @@ export const es: Catalog = {
   "Start from scratch…": "Empezar de cero…",
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Reemplaza todas las diapositivas por una diapositiva en blanco. Conserva el tema, el nombre y la sesión en vivo de la presentación — ⌘Z lo deshace.",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "¿Reemplazar las {n} diapositivas por una diapositiva en blanco? ⌘Z lo deshace.",
+  "Don’t pair — use its own id": "No emparejar — usar su propio id",
 }

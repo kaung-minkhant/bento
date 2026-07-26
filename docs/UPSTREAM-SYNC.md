@@ -40,11 +40,25 @@ reviewed and classified as ported, intentionally skipped, or deferred.
   failure recovery.
 - Theme-aware table defaults, blank-deck reset, and save-picker naming.
 - Temml math rendering, symbol-level math morphing, and starter-deck examples.
+- Explicit morph unpairing, truthful save capability messaging and browser
+  recovery feedback, and best-effort screen wake lock while presenting.
 
 ## Deferred
 
 - Encrypted media blob offload and relay refusal protocol changes. These require
   coordinated sync-client and relay work and must be ported as one tested batch.
+
+## Intentionally not ported
+
+- Release automation, updater UI, and release-note changes. The updater is
+  disabled while the hosted deployment is stabilized, and releases remain
+  maintainer-owned.
+- i18n packing and new language-pack infrastructure. This fork keeps authored
+  catalogs bundled while its hosted/OIDC strings are still evolving.
+- Upstream starter-title and broad rebrand changes. They conflict with the
+  repository's lowercase naming contract and the fork's product copy.
+- Upstream relay/vault design documents and CI/site changes that describe or
+  deploy the upstream service topology rather than this fork's deployment.
 
 ## Review record
 

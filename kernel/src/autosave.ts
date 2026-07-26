@@ -67,9 +67,9 @@ function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) 
   })
 }
 
-export async function putRecovery(doc: KernelDoc): Promise<void> {
-  await tx(RECOVERY, 'readwrite', (s) =>
-    s.put({ docId: doc.docId, at: Date.now(), title: doc.title, json: JSON.stringify(doc) } as Snapshot))
+export async function putRecovery(doc: KernelDoc): Promise<boolean> {
+  return (await tx(RECOVERY, 'readwrite', (s) =>
+    s.put({ docId: doc.docId, at: Date.now(), title: doc.title, json: JSON.stringify(doc) } as Snapshot))) !== null
 }
 
 export async function getRecovery(docId: string): Promise<Snapshot | null> {

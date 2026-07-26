@@ -4,6 +4,12 @@
 import type { Catalog } from '../i18n'
 
 export const zhHans: Catalog = {
+  "Backed up in this browser": "已备份到此浏览器",
+  "Unsaved changes — kept in this browser at {when} and offered back if you reopen. ⌘S downloads an updated copy.": "未保存的更改 — 已于 {when} 保存在此浏览器中，重新打开时可以恢复。⌘S 将下载更新后的副本。",
+  "Unsaved changes — ⌘S downloads an updated copy (this browser can’t rewrite the file)": "未保存的更改 — ⌘S 将下载更新后的副本（此浏览器无法改写文件）",
+  "Save — download an updated copy (⌘S). This browser can’t rewrite the open file.": "保存 — 下载更新后的副本（⌘S）。此浏览器无法改写已打开的文件。",
+  "This browser can’t rewrite files in place. ⌘S will download an updated copy instead — your work is also kept in this browser and offered back if you reopen.": "此浏览器无法就地改写文件。⌘S 将改为下载更新后的副本 — 你的工作也会保存在此浏览器中，重新打开时可以恢复。",
+  "Got it": "知道了",
   "Backdrop": "背景模糊",
   "Blend": "混合模式",
   "Outline": "描边",
@@ -677,4 +683,5 @@ export const zhHans: Catalog = {
   "Start from scratch…": "从头开始…",
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "将所有幻灯片替换为一张空白幻灯片。演示文稿的主题、名称和实时协作会话都会保留 — ⌘Z 可撤销。",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "将全部 {n} 张幻灯片替换为一张空白幻灯片？⌘Z 可撤销。",
+  "Don’t pair — use its own id": "不配对 — 使用自身 id",
 }

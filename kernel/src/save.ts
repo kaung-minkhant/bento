@@ -195,6 +195,9 @@ let fileHandle: FsFileHandle | null = null
 
 const hasFsAccess = () => typeof (window as any).showSaveFilePicker === 'function'
 
+/** Whether this browser can rewrite the currently opened file in place. */
+export const canWriteInPlace = () => hasFsAccess()
+
 async function pickHandle(
   doc: KernelDoc, suffix = '', suggestedName?: string,
 ): Promise<FsFileHandle | null> {

@@ -12,6 +12,9 @@ import { FONT_CHOICES, firstFamily, injectFonts } from '../fonts'
 import { ICONS } from '../icons'
 import { t } from '../i18n'
 
+/** Sentinel for clearing a manually assigned morph key. */
+const UNPAIR = '#unpair'
+
 // Hover help for panel rows, keyed by the RAW English label (translated at
 // render). A missing entry means no tooltip — better silence than an echo.
 // i18n NOTE: both the keys (row labels) and the values here reach t() as
@@ -476,12 +479,18 @@ export class PropsPanel {
     this.row('Morph id', input)
 
     const targets = this.morphTargets(el)
-    if (targets.length) {
+    if (targets.length || el.morphId) {
       const sel = document.createElement('select')
       const none = document.createElement('option')
       none.value = ''
       none.textContent = t('(pick an element)')
       sel.appendChild(none)
+      if (el.morphId) {
+        const un = document.createElement('option')
+        un.value = UNPAIR
+        un.textContent = t('Don’t pair — use its own id')
+        sel.appendChild(un)
+      }
       for (const tgt of targets) {
         const o = document.createElement('option')
         o.value = tgt.key
@@ -491,7 +500,7 @@ export class PropsPanel {
       }
       sel.addEventListener('change', () => {
         if (!sel.value) return
-        const err = this.setMorphId(el, sel.value)
+        const err = this.setMorphId(el, sel.value === UNPAIR ? el.id : sel.value)
         if (err) { warn.textContent = err; warn.style.display = '' }
       })
       this.row('Pair with', sel)

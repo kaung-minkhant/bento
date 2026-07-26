@@ -4,6 +4,12 @@
 import type { Catalog } from '../i18n'
 
 export const fr: Catalog = {
+  "Backed up in this browser": "Sauvegardé dans ce navigateur",
+  "Unsaved changes — kept in this browser at {when} and offered back if you reopen. ⌘S downloads an updated copy.": "Modifications non enregistrées — conservées dans ce navigateur à {when} et proposées à la réouverture. ⌘S télécharge une copie à jour.",
+  "Unsaved changes — ⌘S downloads an updated copy (this browser can’t rewrite the file)": "Modifications non enregistrées — ⌘S télécharge une copie à jour (ce navigateur ne peut pas réécrire le fichier)",
+  "Save — download an updated copy (⌘S). This browser can’t rewrite the open file.": "Enregistrer — télécharger une copie à jour (⌘S). Ce navigateur ne peut pas réécrire le fichier ouvert.",
+  "This browser can’t rewrite files in place. ⌘S will download an updated copy instead — your work is also kept in this browser and offered back if you reopen.": "Ce navigateur ne peut pas réécrire les fichiers sur place. ⌘S téléchargera plutôt une copie à jour — votre travail est aussi conservé dans ce navigateur et vous sera proposé si vous rouvrez le fichier.",
+  "Got it": "Compris",
   "Backdrop": "Arrière-plan",
   "Blend": "Fusion",
   "Outline": "Contour",
@@ -677,4 +683,5 @@ export const fr: Catalog = {
   "Start from scratch…": "Repartir de zéro…",
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Remplace toutes les diapositives par une seule diapositive vierge. Conserve le thème, le nom et la session en direct de la présentation — ⌘Z annule.",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "Remplacer les {n} diapositives par une diapositive vierge ? ⌘Z annule cette action.",
+  "Don’t pair — use its own id": "Ne pas associer — utiliser son propre id",
 }
