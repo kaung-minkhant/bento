@@ -22,5 +22,4 @@ working/
 .dev.vars
 
 # local agent/browser tooling
-.agents/
 .playwright-cli/
