@@ -381,6 +381,8 @@ export interface BentoDoc {
     fontFamily: string
     /** ordered series colours for new charts; derived from accent when absent */
     chartPalette?: string[]
+    /** defaults for newly inserted tables; omitted decks keep the standard look */
+    table?: Partial<TableStyle>
   }
   /** present-mode chrome; decks with built-in chrome can turn Reveal's off */
   present?: {
@@ -478,6 +480,19 @@ export const uid = (prefix = 'el') =>
 
 export const FONT_STACK =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+
+/**
+ * An element's effective morph key: the `morphId` override when set, else its
+ * own `id`. THE single definition — render.ts stamps it into `data-flip-id`,
+ * present.ts pairs and looks up model frames by it, and the panel uses it for
+ * collision checks. Computing it inline in more than one place is exactly how
+ * issue #54 happened: present.ts's model map keyed by `id` while every lookup
+ * passed a flip id, so any element carrying a `morphId` silently missed and
+ * never morphed. Route every morph-key read through here.
+ */
+export function morphKey(el: Pick<ElementBase, 'id' | 'morphId'>): string {
+  return el.morphId || el.id
+}
 
 /** True when a background reads as light (so it wants dark text on top). Accepts
  *  a #rrggbb hex; for a gradient/CSS string it samples the first hex it finds and
@@ -633,7 +648,28 @@ export function defaultChart(option: Record<string, unknown>, partial: Partial<C
   }
 }
 
-export function defaultTable(partial: Partial<TableElement> = {}): TableElement {
+const DEFAULT_TABLE_STYLE: TableStyle = {
+  headerBg: '#1E2A3A',
+  headerColor: '#FFFFFF',
+  zebra: 'rgba(30,42,58,0.05)',
+  borderColor: 'rgba(30,42,58,0.14)',
+  borderWidth: 1,
+  cellPadX: 16,
+  cellPadY: 11,
+  fontSize: 18,
+  color: '#1E2A3A',
+  radius: 10,
+}
+
+/** Resolve a new table's style from built-in defaults and optional deck overrides. */
+export function tableStyleFor(theme?: BentoDoc['theme']): TableStyle {
+  return { ...DEFAULT_TABLE_STYLE, ...(theme?.table ?? {}) }
+}
+
+export function defaultTable(
+  partial: Partial<TableElement> = {},
+  theme?: BentoDoc['theme'],
+): TableElement {
   const cell = (html: string): TableCell => ({ html })
   return {
     id: uid('tbl'),
@@ -647,18 +683,7 @@ export function defaultTable(partial: Partial<TableElement> = {}): TableElement 
       { cells: [cell('Row 1'), cell('—'), cell('—')] },
       { cells: [cell('Row 2'), cell('—'), cell('—')] },
     ],
-    style: {
-      headerBg: '#1E2A3A',
-      headerColor: '#FFFFFF',
-      zebra: 'rgba(30,42,58,0.05)',
-      borderColor: 'rgba(30,42,58,0.14)',
-      borderWidth: 1,
-      cellPadX: 16,
-      cellPadY: 11,
-      fontSize: 18,
-      color: '#1E2A3A',
-      radius: 10,
-    },
+    style: tableStyleFor(theme),
     ...partial,
   }
 }

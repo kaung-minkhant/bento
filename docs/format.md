@@ -78,6 +78,7 @@ the string `</script>` can never appear and terminate the block.
 | `accent` | `string` | Single accent color; also seeds derived chart palettes. |
 | `fontFamily` | `string` | Default font stack. |
 | `chartPalette?` | `string[]` | Ordered series colors for new charts. Absent = derived from `accent`. |
+| `table?` | `Partial<TableStyle>` | Defaults for newly inserted tables. Omitted properties use the standard table style; existing tables retain their own `style`. |
 
 ---
 

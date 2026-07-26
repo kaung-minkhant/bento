@@ -44,9 +44,6 @@ export const ja: Catalog = {
   "Change the name used for your new comments and replies": "新しいコメントと返信に使う名前を変更",
   "Chart": "グラフ",
   "Check for updates": "更新を確認",
-  "Clear all": "すべてクリア",
-  "Clear all slides": "すべてのスライドをクリア",
-  "Clear all slides? This keeps one blank slide.": "すべてのスライドをクリアしますか？ 空白のスライドを1枚残します。",
   "Check for updates automatically at launch": "起動時に自動で更新を確認",
   "Checked automatically at launch — you're on the latest version (v{v}).": "起動時に自動確認済み — 最新バージョンです (v{v})。",
   "Checking…": "確認中…",
@@ -677,4 +674,7 @@ export const ja: Catalog = {
   'Remove this browser session’s hosted-document login.': 'このブラウザセッションのホストドキュメントログインを削除',
   'Zitadel sign-in failed': 'Zitadel のサインインに失敗しました',
   'Signed out of Zitadel': 'Zitadel からサインアウトしました',
+  "Start from scratch…": "最初から始める…",
+  "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "すべてのスライドを 1 枚の空白スライドに置き換えます。プレゼンテーションのテーマ、名前、ライブセッションはそのまま残ります — ⌘Z で元に戻せます。",
+  "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "{n} 枚すべてのスライドを 1 枚の空白スライドに置き換えますか？ ⌘Z で元に戻せます。",
 }

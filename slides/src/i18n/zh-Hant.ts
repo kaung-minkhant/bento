@@ -44,9 +44,6 @@ export const zhHant: Catalog = {
   "Change the name used for your new comments and replies": "變更新註解與回覆所用的名字",
   "Chart": "圖表",
   "Check for updates": "檢查更新",
-  "Clear all": "全部清除",
-  "Clear all slides": "清除所有投影片",
-  "Clear all slides? This keeps one blank slide.": "要清除所有投影片嗎？將保留一張空白投影片。",
   "Check for updates automatically at launch": "啟動時自動檢查更新",
   "Checked automatically at launch — you're on the latest version (v{v}).": "已於啟動時自動檢查 — 您已是最新版本 (v{v})。",
   "Checking…": "檢查中…",
@@ -677,4 +674,7 @@ export const zhHant: Catalog = {
   'Remove this browser session’s hosted-document login.': '移除此瀏覽器工作階段的託管文件登入。',
   'Zitadel sign-in failed': 'Zitadel 登入失敗',
   'Signed out of Zitadel': '已登出 Zitadel',
+  "Start from scratch…": "從頭開始…",
+  "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "將所有投影片取代為一張空白投影片。簡報的主題、名稱與即時協作工作階段都會保留 — ⌘Z 可復原。",
+  "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "將全部 {n} 張投影片取代為一張空白投影片？⌘Z 可復原。",
 }

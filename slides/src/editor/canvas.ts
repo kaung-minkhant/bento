@@ -914,10 +914,10 @@ export class SlideCanvas {
     this.commitTextEdit()
     const inner = node.querySelector<HTMLElement>('.bento-text-inner')
     if (!inner) return
-    // fields ({{page}} etc.) render resolved; while editing, show the RAW token
-    // so the author edits the field, not the computed value
+    // fields ({{page}} etc.) and math ($…$) render RESOLVED; while editing,
+    // show the raw source so the author edits the token, not the computed value
     const model = this.store.element(node.dataset.elId ?? '')
-    if (model?.type === 'text' && typeof model.html === 'string' && model.html.includes('{{')) {
+    if (model?.type === 'text' && typeof model.html === 'string' && /\{\{|\$/.test(model.html)) {
       inner.innerHTML = model.html
     }
     this.editing = node

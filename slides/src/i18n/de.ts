@@ -44,9 +44,6 @@ export const de: Catalog = {
   "Change the name used for your new comments and replies": "Namen für neue Kommentare und Antworten ändern",
   "Chart": "Diagramm",
   "Check for updates": "Nach Updates suchen",
-  "Clear all": "Alles leeren",
-  "Clear all slides": "Alle Folien leeren",
-  "Clear all slides? This keeps one blank slide.": "Alle Folien leeren? Eine leere Folie bleibt erhalten.",
   "Check for updates automatically at launch": "Beim Start automatisch nach Updates suchen",
   "Checked automatically at launch — you're on the latest version (v{v}).": "Beim Start automatisch geprüft — Sie haben die neueste Version (v{v}).",
   "Checking…": "Prüfe…",
@@ -677,4 +674,7 @@ export const de: Catalog = {
   'Remove this browser session’s hosted-document login.': 'Die Anmeldung für gehostete Dokumente aus dieser Browsersitzung entfernen.',
   'Zitadel sign-in failed': 'Zitadel-Anmeldung fehlgeschlagen',
   'Signed out of Zitadel': 'Von Zitadel abgemeldet',
+  "Start from scratch…": "Von vorne beginnen…",
+  "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Ersetzt alle Folien durch eine einzige leere Folie. Design, Name und Live-Sitzung der Präsentation bleiben erhalten — ⌘Z macht es rückgängig.",
+  "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "Alle {n} Folien durch eine leere Folie ersetzen? ⌘Z macht dies rückgängig.",
 }

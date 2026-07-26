@@ -245,11 +245,58 @@ export class SyncSession {
   flush() {
     if (this.applying) return
     const before = JSON.parse(this.shadow) as BentoDoc
-    const ops = this.state.diff(before, this.store.doc, { text: true })
+    let ops: Op[]
+    try {
+      ops = this.state.diff(before, this.store.doc, { text: true })
+    } catch (err) {
+      this.recoverFromDiffFailure(err)
+      return
+    }
     this.shadow = JSON.stringify(this.store.doc)
     if (!ops.length) return
     this.log.push(...ops)
     this.broadcast({ t: 'ops', a: this.actor, ops })
+  }
+
+  /**
+   * A differ bug must not WEDGE the session. The shadow is only advanced after
+   * a successful diff, so an uncaught throw here poisons every later flush:
+   * the same delta is re-diffed, throws again, and nothing syncs for the rest
+   * of the session — on any slide, not just the element that broke. That
+   * amplifier is what turned the ~200KB-text stack overflow (fixed in crdt.ts:
+   * splice-without-spread) into total, silent collab failure. The trigger is
+   * gone; the amplifier stays armed for the next differ bug, so disarm it.
+   *
+   * Recovery, best-effort in this order:
+   *  - Advance the shadow past the poison delta. Re-diffing it would just
+   *    re-throw, and a wedged differ is strictly worse than one lost delta.
+   *  - Ship a state snapshot. diff() mints ops and advances its registers as
+   *    it goes, so a mid-diff throw leaves some changes stamped but never
+   *    broadcast — they now live only in our doc VALUES. That is exactly the
+   *    offline-fork case, and a snapshot is how those travel (see hello()).
+   *    forkPending re-sends it on the next reconnect too.
+   *
+   * Deliberately not a SyncNotice: those name conditions a user can act on
+   * (too large, room full). This path is a bug — console is the right surface.
+   */
+  private recoverFromDiffFailure(err: unknown) {
+    console.error('[bento-sync] diff failed; recovering via snapshot', err)
+    this.shadow = JSON.stringify(this.store.doc)
+    this.forkPending = true
+    try {
+      // inlined rather than this.snapshot() — that calls flush(), and flush()
+      // is our caller
+      this.broadcast({
+        t: 'snap',
+        a: this.actor,
+        doc: JSON.parse(JSON.stringify(this.store.doc)) as BentoDoc,
+        state: JSON.parse(JSON.stringify(this.state.toJSON())),
+      })
+    } catch (e2) {
+      // snapshot itself failed (state unserializable) — the shadow is still
+      // advanced, so editing continues and the next reconnect retries
+      console.error('[bento-sync] snapshot recovery failed', e2)
+    }
   }
 
   // --- remote frames --------------------------------------------------------

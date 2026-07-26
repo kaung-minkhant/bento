@@ -16,7 +16,12 @@ export default defineConfig({
   // Dev-only: allow serving ../kernel (shared TS-source kernel) — without a
   // workspace root, vite's fs allow-list stops at the app dir. Build output
   // is unaffected (rollup has no such restriction).
-  server: { fs: { allow: ['..'] } },
+  server: {
+    fs: { allow: ['..'] },
+    proxy: {
+      '/api': { target: 'http://127.0.0.1:8789', changeOrigin: true },
+    },
+  },
   build: {
     // Keep asset inlining aggressive; a Bento file must have zero external requests.
     assetsInlineLimit: 100_000_000,

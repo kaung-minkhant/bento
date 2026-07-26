@@ -5,7 +5,7 @@
 // into a single undo checkpoint.
 
 import type { Store } from '../store'
-import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
+import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, morphKey, tableStyleFor, uid, type ChartElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind } from '../model'
 import { isMacOS } from '../screens'
 import { CHART_PRESETS } from '../charts'
 import { FONT_CHOICES, firstFamily, injectFonts } from '../fonts'
@@ -459,7 +459,7 @@ export class PropsPanel {
    */
   private buildMorphProps(el: SlideElement) {
     this.section(t('Morph'))
-    const effective = el.morphId || el.id
+    const effective = morphKey(el)
 
     const warn = document.createElement('p')
     warn.className = 'ed-hint ed-morph-warn'
@@ -515,7 +515,7 @@ export class PropsPanel {
     const next = clean === el.id ? undefined : clean
     const effective = next ?? el.id
     const clash = this.store.slide.elements.some(
-      (e) => e.id !== el.id && (e.morphId || e.id) === effective)
+      (e) => e.id !== el.id && morphKey(e) === effective)
     if (clash) return t('Another element on this slide already uses that morph id.')
     this.mutate(el.id, (e) => {
       if (next === undefined) delete e.morphId
@@ -529,12 +529,12 @@ export class PropsPanel {
    *  (they'd collide) and our own default key. */
   private morphTargets(el: SlideElement): Array<{ key: string; label: string }> {
     const here = new Set(
-      this.store.slide.elements.filter((e) => e.id !== el.id).map((e) => e.morphId || e.id))
+      this.store.slide.elements.filter((e) => e.id !== el.id).map(morphKey))
     const seen = new Map<string, string>()
     this.store.doc.slides.forEach((s, i) => {
       if (s.id === this.store.slide.id) return
       for (const e of s.elements) {
-        const key = e.morphId || e.id
+        const key = morphKey(e)
         if (key === el.id || here.has(key) || seen.has(key)) continue
         seen.set(key, `${t('Slide')} ${i + 1} · ${this.morphElDesc(e)}`)
       }
@@ -1399,14 +1399,18 @@ export class PropsPanel {
       : st.borderWidth ? 'Lined'
       : st.zebra ? 'Zebra'
       : 'Minimal'
+    const themed = tableStyleFor(this.store.doc.theme)
     this.section(t('Style'))
     this.row('Preset', this.select(['Lined', 'Zebra', 'Boxed', 'Minimal'], preset, (v) =>
       this.mutate(el.id, (e) => {
         const s = (e as TableElement).style
-        s.borderWidth = v === 'Lined' || v === 'Boxed' ? 1 : 0
-        s.zebra = v === 'Zebra' || v === 'Boxed' ? 'rgba(30,42,58,0.05)' : undefined
+        s.borderWidth = v === 'Lined' || v === 'Boxed' ? Math.max(themed.borderWidth, 1) : 0
+        s.zebra = v === 'Zebra' || v === 'Boxed' ? themed.zebra ?? 'rgba(30,42,58,0.05)' : undefined
         if (v === 'Minimal') { s.headerBg = 'transparent'; s.headerColor = s.color }
-        else if (s.headerBg === 'transparent') { s.headerBg = '#1E2A3A'; s.headerColor = '#FFFFFF' }
+        else if (s.headerBg === 'transparent') {
+          s.headerBg = themed.headerBg
+          s.headerColor = themed.headerColor
+        }
       }, true)))
 
     this.row('Header fill', this.colorAlpha(st.headerBg, (v, fin) =>
