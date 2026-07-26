@@ -26,16 +26,22 @@ Optional values:
 ```text
 HOST=127.0.0.1
 PORT=8789
-BENTO_API_TOKEN=...       # required for /api/v1/*
+BENTO_API_TOKEN=...       # optional agent fallback when OIDC is enabled
 BENTO_API_SUBJECT=api-user
+OIDC_ISSUER_URL=https://authz.example.com
+OIDC_CLIENT_ID=...
+OIDC_AUDIENCE=...         # Zitadel API project ID
 S3_FORCE_PATH_STYLE=true
 ```
 
-The document API uses `Authorization: Bearer <BENTO_API_TOKEN>`. Health
-endpoints remain unauthenticated so Kubernetes and ingress probes can use
-`/healthz` or `/api/healthz`. The service returns `503 auth_not_configured`
-for document API calls until `BENTO_API_TOKEN` is configured; it never trusts
-an identity supplied in a request header.
+The document API accepts `Authorization: Bearer <BENTO_API_TOKEN>` for the
+agent fallback, or a Zitadel OIDC access token when `OIDC_ISSUER_URL` and
+`OIDC_AUDIENCE` are configured. Health endpoints remain unauthenticated so
+Kubernetes and ingress probes can use `/healthz` or `/api/healthz`.
+`GET /api/v1/auth/config` publishes only the issuer and public client id for
+the browser PKCE flow. The service validates JWT signatures against the
+issuer's JWKS and uses the token `sub` as the document subject; it never
+trusts an identity supplied in a request header.
 
 Run migration `migrations/001_initial.sql` against Postgres before starting
 the service. The migration uses `gen_random_uuid()`, so the database must have
@@ -55,5 +61,4 @@ npm run dev
 
 The document API supports authenticated document creation, listing, metadata,
 encrypted version upload/download, and replaceable recovery checkpoints. It
-does not parse document contents. Live sessions and account/SSO integration
-remain later phases.
+does not parse document contents. Live sessions remain a later phase.

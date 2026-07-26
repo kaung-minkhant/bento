@@ -57,8 +57,18 @@ Create a SOPS-managed Secret named `bento-document-service-secrets` in the
 DATABASE_URL
 S3_ACCESS_KEY_ID
 S3_SECRET_ACCESS_KEY
-BENTO_API_TOKEN
+BENTO_API_TOKEN       # optional agent fallback
+OIDC_CLIENT_ID        # public Zitadel SPA client id
+OIDC_AUDIENCE         # Zitadel API project ID
 ```
+
+Set `OIDC_ISSUER_URL` as a non-secret deployment value. For the current
+installation it is `https://authz.kaungminkhant.space`. Register the public
+frontend origin (`https://slides.kaungminkhant.space/`) as a Zitadel redirect
+URI and enable authorization code with PKCE. The browser obtains a short-lived
+access token; the service validates its signature and `sub` against Zitadel's
+JWKS. `BENTO_API_TOKEN` remains available for non-browser agents until the MCP
+adapter is added.
 
 The deployment intentionally does not include this Secret or inspect existing
 secret files.
@@ -118,5 +128,6 @@ through the same host under `/api`.
 
 This deployment proves the container, frontend, Postgres migration, SeaweedFS
 configuration, Flux image flow, frontend ingress, and the authenticated
-document API storage slice. Live sessions, SSO, and the document explorer
-remain later phases.
+document API storage slice. Zitadel login is wired but requires the project
+client id and API audience to be configured. Live sessions and the document
+explorer remain later phases.

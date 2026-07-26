@@ -127,8 +127,8 @@ async function readDocument(db: Db, docId: string, subject: string): Promise<{ r
   return row ? { row, role: row.member_role ?? 'reader' } : null
 }
 
-function requireAuth(request: FastifyRequest, reply: FastifyReply, config: ServiceConfig): string | null {
-  const result = authenticate(request, config)
+async function requireAuth(request: FastifyRequest, reply: FastifyReply, config: ServiceConfig): Promise<string | null> {
+  const result = await authenticate(request, config)
   if (typeof result === 'string') return result
   void reply.code(result.status).send({ error: result.code, message: result.message })
   return null
@@ -165,8 +165,15 @@ export function buildApp(
     })
   }
 
+  app.get('/api/v1/auth/config', async (_request, reply) => {
+    if (!config.oidcIssuerUrl || !config.oidcClientId) {
+      return reply.code(404).send({ error: 'oidc_not_configured', message: 'OIDC login is not configured.' })
+    }
+    return reply.send({ issuer: config.oidcIssuerUrl, clientId: config.oidcClientId, audience: config.oidcAudience })
+  })
+
   app.post('/api/v1/documents', async (request, reply) => {
-    const subject = requireAuth(request, reply, config)
+    const subject = await requireAuth(request, reply, config)
     if (!subject) return
     const input = parseBody<CreateDocumentInput>(createDocumentSchema, request.body)
     const body = validateBlob(input.initialVersion)
@@ -203,7 +210,7 @@ export function buildApp(
   })
 
   app.get('/api/v1/documents', async (request, reply) => {
-    const subject = requireAuth(request, reply, config)
+    const subject = await requireAuth(request, reply, config)
     if (!subject) return
     const query = request.query as { cursor?: string; limit?: string }
     const limit = Math.min(Math.max(Number.parseInt(query.limit ?? '50', 10) || 50, 1), 100)
@@ -224,7 +231,7 @@ export function buildApp(
   })
 
   app.get('/api/v1/documents/:docId', async (request, reply) => {
-    const subject = requireAuth(request, reply, config)
+    const subject = await requireAuth(request, reply, config)
     if (!subject) return
     const { docId } = request.params as { docId: string }
     const document = await readDocument(db, docId, subject)
@@ -233,7 +240,7 @@ export function buildApp(
   })
 
   app.get('/api/v1/documents/:docId/versions', async (request, reply) => {
-    const subject = requireAuth(request, reply, config)
+    const subject = await requireAuth(request, reply, config)
     if (!subject) return
     const { docId } = request.params as { docId: string }
     if (!await readDocument(db, docId, subject)) return reply.code(404).send({ error: 'not_found', message: 'The document was not found.' })
@@ -246,7 +253,7 @@ export function buildApp(
   })
 
   app.get('/api/v1/documents/:docId/versions/:versionId/content', async (request, reply) => {
-    const subject = requireAuth(request, reply, config)
+    const subject = await requireAuth(request, reply, config)
     if (!subject) return
     const { docId, versionId } = request.params as { docId: string; versionId: string }
     if (!await readDocument(db, docId, subject)) return reply.code(404).send({ error: 'not_found', message: 'The document was not found.' })
@@ -264,7 +271,7 @@ export function buildApp(
   })
 
   app.post('/api/v1/documents/:docId/versions', async (request, reply) => {
-    const subject = requireAuth(request, reply, config)
+    const subject = await requireAuth(request, reply, config)
     if (!subject) return
     const { docId } = request.params as { docId: string }
     const input = parseBody<CreateVersionInput>(createVersionSchema, request.body)
@@ -310,7 +317,7 @@ export function buildApp(
   })
 
   app.put('/api/v1/documents/:docId/recovery', async (request, reply) => {
-    const subject = requireAuth(request, reply, config)
+    const subject = await requireAuth(request, reply, config)
     if (!subject) return
     const { docId } = request.params as { docId: string }
     const input = parseBody<RecoveryInput>(recoverySchema, request.body)
