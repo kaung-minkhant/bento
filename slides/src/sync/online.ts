@@ -16,7 +16,7 @@ import type { Op, SyncStateJSON } from './crdt'
 import type { Frame, RefusalCode, SyncSession, Transport } from './session'
 import { offlineEnabled } from '../update'
 
-export const DEFAULT_SYNC_HOST = 'wss://sync.bento.page'
+export const DEFAULT_SYNC_HOST = 'wss://bento-sync.kaungminkhant.space'
 const SNAP_EVERY = 200 // ops between encrypted snapshot uploads
 
 const b64u = {

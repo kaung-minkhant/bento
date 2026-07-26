@@ -8,7 +8,7 @@ compatibility_date = "2026-07-01"
 
 # workers.dev URL is fine to start; add the custom domain when ready:
 routes = [
-  { pattern = "sync.bento.page", custom_domain = true }
+  { pattern = "bento-sync.kaungminkhant.space", custom_domain = true }
 ]
 
 # Encrypted asset blobs (docs/blob-offload.md). The relay pipes ciphertext
