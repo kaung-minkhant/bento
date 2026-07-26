@@ -81,7 +81,7 @@ export class Editor {
         ev.preventDefault()
         // Chrome requires returnValue as well as preventDefault() to show the
         // native leave-page confirmation instead of completing the unload.
-        ev.returnValue = ''
+        ev.returnValue = 'Unsaved changes may be lost.'
       }
     })
     this.wireAutosave()
