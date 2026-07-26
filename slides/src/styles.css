@@ -92,6 +92,31 @@ option { background: #fff; color: #1e2a3a; }
 .ed-group { display: flex; align-items: center; gap: 6px; }
 .ed-group-right { margin-left: auto; }
 
+.ed-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ed-profile-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: #16273e;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.ed-profile-name { overflow: hidden; text-overflow: ellipsis; }
+
 .ed-btn {
   display: inline-flex;
   align-items: center;
@@ -1761,6 +1786,7 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
 @media (max-width: 760px) {
   .ed-topbar { gap: 4px; padding: 6px 6px; }
   .ed-logo > b { display: none; } /* mark only — the icon is the brand */
+  .ed-profile-name { display: none; }
 }
 
 /* panel collapse chevrons live ON the resizer strips, not in the topbar */

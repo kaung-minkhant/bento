@@ -23,7 +23,7 @@ import { onlineTransport, startSharing, stopSharing } from './sync/online'
 import {
   createHostedDocument, getHostedToken, getHostedDocument, listHostedDocuments,
   openHostedDocument, saveHostedVersion, setHostedPassword, setHostedToken,
-  completeHostedSignIn, getHostedOidcConfig, signInHosted, signOutHosted,
+  completeHostedSignIn, getHostedOidcConfig, getHostedProfile, isHostedOidcSignedIn, refreshHostedProfile, signInHosted, signOutHosted,
 } from './hosted'
 
 // Tell the kernel who this app is — must precede any kernel module use
@@ -39,6 +39,7 @@ capturePristine()
 // Finish a PKCE callback before the editor's hosted actions are used. The
 // editor can still boot while the exchange is in flight.
 void completeHostedSignIn().catch((error) => console.error(error))
+void refreshHostedProfile().catch((error) => console.error(error))
 
 // --- boot gates: password-encrypted files, read-only player files -----------
 
@@ -251,6 +252,8 @@ if (location.hash === '#present') {
   hosted: {
     get token() { return getHostedToken() },
     oidcConfig: () => getHostedOidcConfig(),
+    oidcSignedIn: () => isHostedOidcSignedIn(),
+    profile: () => getHostedProfile(),
     signIn: () => signInHosted(),
     signOut: () => signOutHosted(),
     setToken: (token: string | null) => setHostedToken(token),

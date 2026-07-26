@@ -30,6 +30,7 @@ export type HostedVersion = {
 }
 
 export type HostedOidcConfig = { issuer: string; clientId: string; audience: string }
+export type HostedProfile = { sub: string; name?: string; email?: string; preferredUsername?: string }
 
 export class HostedError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
@@ -127,6 +128,24 @@ function setSessionValue(key: string, value: string | null) {
   } catch { /* session storage is optional */ }
 }
 
+function profileFromClaims(claims: Record<string, unknown>): HostedProfile | null {
+  if (typeof claims.sub !== 'string') return null
+  return {
+    sub: claims.sub,
+    name: typeof claims.name === 'string' ? claims.name : undefined,
+    email: typeof claims.email === 'string' ? claims.email : undefined,
+    preferredUsername: typeof claims.preferred_username === 'string' ? claims.preferred_username : undefined,
+  }
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const encoded = token.split('.')[1]
+    if (!encoded) return null
+    return JSON.parse(textDecoder.decode(fromB64url(encoded))) as Record<string, unknown>
+  } catch { return null }
+}
+
 function setStorageValue(key: string, value: string) {
   try { localStorage.setItem(key, value) } catch { /* storage is optional */ }
 }
@@ -207,15 +226,53 @@ export async function completeHostedSignIn(): Promise<boolean> {
       code: code!, redirect_uri: redirectUri(), code_verifier: login.verifier }),
   })
   if (!response.ok) throw new HostedError(0, 'oidc_token', 'Zitadel did not issue an access token.')
-  const token = await response.json() as { access_token?: string }
+  const token = await response.json() as { access_token?: string; id_token?: string }
   if (!token.access_token) throw new HostedError(0, 'oidc_token', 'Zitadel did not issue an access token.')
   setSessionValue('bento-oidc-access-token', token.access_token)
+  if (token.id_token) setSessionValue('bento-oidc-id-token', token.id_token)
+  await refreshHostedProfile()
   history.replaceState(null, '', `${location.pathname}${location.hash}`)
+  window.dispatchEvent(new Event('bento:auth-changed'))
   return true
 }
 
 export function signOutHosted() {
   setSessionValue('bento-oidc-access-token', null)
+  setSessionValue('bento-oidc-id-token', null)
+  setSessionValue('bento-oidc-profile', null)
+  window.dispatchEvent(new Event('bento:auth-changed'))
+}
+
+export function isHostedOidcSignedIn(): boolean {
+  return Boolean(sessionValue('bento-oidc-access-token'))
+}
+
+export function getHostedProfile(): HostedProfile | null {
+  const saved = sessionValue('bento-oidc-profile')
+  if (saved) {
+    try { return JSON.parse(saved) as HostedProfile } catch { /* refresh below */ }
+  }
+  const token = sessionValue('bento-oidc-id-token') || sessionValue('bento-oidc-access-token')
+  if (!token) return null
+  const claims = decodeJwtPayload(token)
+  return claims ? profileFromClaims(claims) : null
+}
+
+export async function refreshHostedProfile(): Promise<void> {
+  const accessToken = sessionValue('bento-oidc-access-token')
+  if (!accessToken) return
+  const config = await getHostedOidcConfig()
+  if (!config) return
+  const discoveryResponse = await fetch(`${config.issuer}/.well-known/openid-configuration`)
+  if (!discoveryResponse.ok) return
+  const discovery = await discoveryResponse.json() as { userinfo_endpoint?: string }
+  if (!discovery.userinfo_endpoint) return
+  const response = await fetch(discovery.userinfo_endpoint, { headers: { Authorization: `Bearer ${accessToken}` } })
+  if (!response.ok) return
+  const profile = profileFromClaims(await response.json() as Record<string, unknown>)
+  if (!profile) return
+  setSessionValue('bento-oidc-profile', JSON.stringify(profile))
+  window.dispatchEvent(new Event('bento:auth-changed'))
 }
 
 function baseUrl(): string {

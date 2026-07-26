@@ -26,8 +26,12 @@ import { ICONS } from '../icons'
 import { t, setLocale, locale, LOCALE_CHOICES } from '../i18n'
 import { appConfig } from '../../../kernel/src/app.ts'
 import { disconnectOnline, joinFromDoc, mintCollab, mintInvite, onlineTransport, rotateKeys, sharingOn, startSharing, stopSharing } from '../sync/online'
+import { getHostedProfile } from '../hosted'
 
 const i18nT = t
+// Release self-updates are intentionally disabled while hosted deployment is
+// being stabilized. The signed updater remains in the kernel for later use.
+const UPDATES_ENABLED = false
 
 const SHAPE_MENU: Array<{ kind: ShapeKind; label: string; icon: string; draw?: 'line' | 'path' | 'connector' | 'free' | 'poly'; tip: string }> = [
   { kind: 'rect', label: 'Rectangle', icon: ICONS.rect, tip: 'A rectangle — rounded corners, fills, gradients and shadows in the panel' },
@@ -51,10 +55,10 @@ export class Editor {
   private presenting = false
   private updatesB!: HTMLElement
   private avatarsBox!: HTMLElement
+  private profileBox!: HTMLElement
   private shareB!: HTMLElement
   private shareWrap!: HTMLElement
   private session: import('../sync/session').SyncSession | null = null
-  private updateFound: string | null = null
   private lastAutoCheck: import('../update').UpdateCheck | null = null
   /** side panel widths (px) — user-resizable, persisted per browser */
   private panelW = { left: 188, right: 236 }
@@ -239,14 +243,13 @@ export class Editor {
     const actions = div('ed-group ed-group-right')
     // the update chip sits beside the wordmark and exists ONLY when an
     // update is available (manual checks live in the About dialog)
-    this.updatesB = btn(ICONS.sync, '', () => this.openAbout(true), t('Check for updates'))
+    this.updatesB = btn(ICONS.sync, '', () => this.openAbout(), t('Check for updates'))
     this.updatesB.style.display = 'none'
-    setTimeout(async () => {
+    if (UPDATES_ENABLED) setTimeout(async () => {
       if (!autoCheckEnabled() || offlineEnabled()) return
       const r = await checkForUpdates()
       this.lastAutoCheck = r
       if (r.status === 'update') {
-        this.updateFound = r.release.version
         this.updatesB.style.display = ''
         this.updatesB.classList.add('ed-btn-update')
         this.updatesB.innerHTML = `${ICONS.sync}<span>v${r.release.version}</span>`
@@ -264,6 +267,10 @@ export class Editor {
     const helpB = btn('<b class="ed-help-q">?</b>', '', () => this.openHelp(), t('Shortcuts & tips (?)'))
     helpB.classList.add('ed-btn-help')
     this.avatarsBox = div('ed-avatars')
+    this.profileBox = div('ed-profile')
+    this.profileBox.setAttribute('aria-live', 'polite')
+    this.refreshHostedProfile()
+    window.addEventListener('bento:auth-changed', () => this.refreshHostedProfile())
     // Intuitive grouping: LEFT = the document (identity · title · save-state ·
     // undo/redo history) · CENTRE = insert tools · RIGHT = output & sharing
     // (print · collaborators · Live · Save · more) with help pinned to the corner.
@@ -271,7 +278,7 @@ export class Editor {
     history.append(undoB, redoB)
     const saveGroup = div('ed-split')
     saveGroup.append(saveB, this.saveDropdown())
-    actions.append(pdfB, this.avatarsBox, this.shareDropdown(), saveGroup, this.languageDropdown(), helpB)
+    actions.append(pdfB, this.avatarsBox, this.profileBox, this.shareDropdown(), saveGroup, this.languageDropdown(), helpB)
     bar.append(logo, this.updatesB, title, history, insert, actions)
 
     // main area
@@ -337,6 +344,28 @@ export class Editor {
     this.panel = new PropsPanel(this.props, this.store)
 
     if (this.store.doc.collab?.role === 'reader') this.enterReaderMode()
+  }
+
+  private refreshHostedProfile() {
+    if (!this.profileBox) return
+    const profile = getHostedProfile()
+    this.profileBox.textContent = ''
+    if (!profile) {
+      this.profileBox.style.display = 'none'
+      this.profileBox.removeAttribute('title')
+      return
+    }
+    const label = profile.name || profile.email || profile.preferredUsername || profile.sub
+    const initials = label.split(/[\s.@_-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+    const avatar = document.createElement('span')
+    avatar.className = 'ed-profile-avatar'
+    avatar.textContent = initials || '?'
+    const name = document.createElement('span')
+    name.className = 'ed-profile-name'
+    name.textContent = label
+    this.profileBox.append(avatar, name)
+    this.profileBox.title = profile.email ? `${label}\n${profile.email}` : label
+    this.profileBox.style.display = ''
   }
 
   /** Live viewer: block user edits (store.readOnly), hide editing chrome, and
@@ -512,12 +541,16 @@ export class Editor {
       item(ICONS.lock, t('Set hosted API token…'),
         t('Configure the bearer token for the self-hosted document service.'),
         () => this.setHostedToken())
-      item(ICONS.globe, t('Sign in with Zitadel'),
-        t('Use your self-hosted Zitadel account for hosted documents.'),
-        () => void this.signInHosted())
-      item(ICONS.lock, t('Sign out of Zitadel'),
-        t('Remove this browser session’s hosted-document login.'),
-        () => this.signOutHosted())
+      const hostedAuth = (window as unknown as { bento?: { hosted?: { oidcSignedIn?: () => boolean } } }).bento?.hosted
+      if (hostedAuth?.oidcSignedIn?.()) {
+        item(ICONS.lock, t('Sign out of Zitadel'),
+          t('Remove this browser session’s hosted-document login.'),
+          () => this.signOutHosted())
+      } else {
+        item(ICONS.globe, t('Sign in with Zitadel'),
+          t('Use your self-hosted Zitadel account for hosted documents.'),
+          () => void this.signInHosted())
+      }
       item(ICONS.save, t('Save to hosted library'),
         t('Encrypt and save this deck as a durable hosted document version.'),
         () => void this.saveHosted())
@@ -2037,7 +2070,7 @@ export class Editor {
   // --- about & updates ------------------------------------------------------
 
   /** About dialog: version, user-initiated update check, licenses. */
-  private openAbout(runCheck = false) {
+  private openAbout() {
     document.querySelector('.ed-about-overlay')?.remove()
     const overlay = div('ed-about-overlay')
     const box = div('ed-about')
@@ -2067,6 +2100,7 @@ export class Editor {
     )
     box.appendChild(promo)
 
+    if (UPDATES_ENABLED) {
     const status = div('ed-about-status')
     status.textContent =
       this.lastAutoCheck?.status === 'current'
@@ -2168,6 +2202,7 @@ export class Editor {
     autoCb.addEventListener('change', () => setAutoCheck(autoCb.checked))
     autoRow.append(autoCb, document.createTextNode(' ' + t('Check for updates automatically at launch')))
     box.appendChild(autoRow)
+    }
 
     // the hard no-network switch: blocks update checks AND online
     // collaboration for this browser. Same-machine tab sync is not
@@ -2246,7 +2281,6 @@ export class Editor {
     })
     document.addEventListener('keydown', onKey, true)
     document.body.appendChild(overlay)
-    if (runCheck || this.updateFound) checkB.click()
   }
 
   toast(message: string) {
