@@ -14,7 +14,7 @@
 // slides (the morph idiom — baseDoc carries a duplicated 'cast' id so every
 // random run exercises composite element identity).
 
-import { SyncState, keyBetween, spreadKey, tokenize, materialize } from '../slides/src/sync/crdt.ts'
+import { SyncState, BLOB_INLINE_MAX, keyBetween, spreadKey, tokenize, materialize } from '../slides/src/sync/crdt.ts'
 import type { Op } from '../slides/src/sync/crdt.ts'
 
 let failures = 0
@@ -202,6 +202,23 @@ class Replica {
     const txt = Object.fromEntries(Object.entries(j.txt).filter(([id]) => !this.state.dead(id)))
     return stable({ regs: j.regs, pos: j.pos, births: j.births, tombs: j.tombs, txt, vv: j.vv })
   }
+}
+
+{
+  console.log('large assets become blob references…')
+  const A = new Replica('A')
+  const B = new Replica('B')
+  const large = `data:image/png;base64,${'A'.repeat(BLOB_INLINE_MAX + 32)}`
+  const inlineOps = A.mutate((d) => { d.assets.large = large })
+  ok(!inlineOps.some((o) => o.op === 'set' && o.k === 'assets.large'), 'large asset bytes stay out of CRDT ops')
+  B.doc.assets.large = large
+  B.shadow = JSON.stringify(B.doc)
+  const refOps = A.mutate((d) => {
+    ;(d.blobs ??= {}).large = { key: 'blob-key', mime: 'image/png', size: 64 }
+  })
+  B.receive(refOps)
+  ok(refOps.some((o) => o.op === 'set' && o.k === 'blobs.large'), 'blob metadata is emitted as a small CRDT reference')
+  ok(A.fingerprint() === B.fingerprint(), 'blob reference converges when the receiver has the local asset bytes')
 }
 
 // mutation menu — mirrors what the editor's commit sites do

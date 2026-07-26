@@ -42,11 +42,17 @@ reviewed and classified as ported, intentionally skipped, or deferred.
 - Temml math rendering, symbol-level math morphing, and starter-deck examples.
 - Explicit morph unpairing, truthful save capability messaging and browser
   recovery feedback, and best-effort screen wake lock while presenting.
+- Encrypted media blob offload, relay refusal signaling, frame-ID correlation,
+  per-room quotas, expiry cleanup, and client-side blob caching/deduplication.
+- Large asset CRDT references and image/media insertion integration.
 
-## Deferred
+## Deployment note
 
-- Encrypted media blob offload and relay refusal protocol changes. These require
-  coordinated sync-client and relay work and must be ported as one tested batch.
+- The ported relay implementation expects its `BLOBS` binding to an R2-style
+  object store. Without that binding it returns `501` and the client falls back
+  to inline assets. SeaweedFS support for the sync relay is separate from the
+  document service's existing SeaweedFS integration and is not implied by this
+  client port.
 
 ## Intentionally not ported
 

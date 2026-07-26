@@ -362,8 +362,17 @@ export class SyncSession {
     return null
   }
   private notify(code: string, detail?: string) {
-    // routed through the existing notice channel so the editor can toast it
-    try { (this as unknown as { noticeFn?: (c: string, d?: string) => void }).noticeFn?.(code, detail) } catch { /* none */ }
+    // Blob failures use the same user-facing channel as relay refusals. The
+    // local document remains intact; this only reports that live sharing of
+    // the affected media did not complete.
+    void detail
+    const mapped: RefusalCode | null =
+      code === 'blob-too-large' ? 'too-large' :
+      code === 'blob-room-full' ? 'room-full' :
+      code === 'blob-network' || code === 'blob-forbidden' || code === 'blob-unavailable' ? 'storage-failed' :
+      null
+    if (!mapped) return
+    this.emitNotice({ code: mapped, permanent: true, ops: 0, media: true })
   }
 
   flush() {
