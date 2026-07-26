@@ -77,7 +77,12 @@ export class Editor {
       this.dirtyDot.classList.toggle('on', store.dirty)
     })
     window.addEventListener('beforeunload', (ev) => {
-      if (store.dirty) ev.preventDefault()
+      if (store.dirty) {
+        ev.preventDefault()
+        // Chrome requires returnValue as well as preventDefault() to show the
+        // native leave-page confirmation instead of completing the unload.
+        ev.returnValue = ''
+      }
     })
     this.wireAutosave()
     this.wirePaste()
