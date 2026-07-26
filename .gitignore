@@ -20,3 +20,6 @@ testing/
 site/
 working/
 .dev.vars
+
+# local agent/browser tooling
+.playwright-cli/

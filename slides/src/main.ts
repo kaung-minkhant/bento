@@ -20,6 +20,10 @@ import { Editor } from './editor/editor'
 import { startPresentation } from './present'
 import { SyncSession } from './sync/session'
 import { onlineTransport, startSharing, stopSharing } from './sync/online'
+import {
+  createHostedDocument, getHostedToken, getHostedDocument, listHostedDocuments,
+  openHostedDocument, saveHostedVersion, setHostedPassword, setHostedToken,
+} from './hosted'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -134,6 +138,55 @@ const editor = new Editor(document.getElementById('app')!, store)
 const session = new SyncSession(store)
 editor.connectSync(session)
 
+let hostedDocId: string | null = null
+let hostedVersionId: string | null = null
+
+const hostedMetadata = () => ({
+  title: store.doc.title,
+  format: store.doc.format,
+  keywords: store.doc.meta?.keywords,
+})
+
+const hostedHtml = () => serializeAuto(store.doc)
+
+const createOrSaveHosted = async () => {
+  const html = await hostedHtml()
+  if (!hostedDocId) {
+    const created = await createHostedDocument(store.doc.docId, store.doc.format, hostedMetadata(), await html)
+    hostedDocId = created.docId
+    hostedVersionId = created.currentVersionId
+    return created
+  }
+  const current = await getHostedDocument(hostedDocId)
+  if (!current.currentVersionId) throw new Error('Hosted document has no current version')
+  const version = await saveHostedVersion(hostedDocId, current.currentVersionId, store.doc.format, hostedMetadata(), await html)
+  hostedVersionId = version.versionId
+  return version
+}
+
+const openHostedIntoEditor = async (docId: string) => {
+  const opened = await openHostedDocument(docId)
+  const parsed = new DOMParser().parseFromString(opened.html, 'text/html')
+  const body = parsed.getElementById('bento-doc')?.textContent?.trim()
+  if (!body) throw new Error('Hosted file has no document block')
+  const envelope = parseEnvelope(body)
+  let json = body
+  if (envelope) {
+    const password = window.prompt('Document password')
+    if (!password) throw new Error('Document password is required')
+    const decrypted = await decryptEnvelope(envelope, password)
+    if (!decrypted) throw new Error('Wrong document password')
+    setEncryptionPassword(password)
+    json = decrypted
+  }
+  const next = parseDoc(json)
+  if (!next) throw new Error('Hosted file contains an invalid document')
+  store.replaceDoc(next)
+  hostedDocId = opened.document.docId
+  hostedVersionId = opened.document.currentVersionId
+  return next
+}
+
 // Opening a link ending in #present starts the show immediately (player mode).
 if (location.hash === '#present') {
   editor.present(true)
@@ -189,6 +242,15 @@ if (location.hash === '#present') {
     },
     unshare: () => stopSharing(session, store),
     online: () => onlineTransport()?.status ?? 'off',
+  },
+  hosted: {
+    get token() { return getHostedToken() },
+    setToken: (token: string | null) => setHostedToken(token),
+    setPassword: (password: string | null) => setHostedPassword(password),
+    createOrSave: () => createOrSaveHosted(),
+    list: () => listHostedDocuments(),
+    open: (docId: string) => openHostedIntoEditor(docId),
+    get current() { return { docId: hostedDocId, versionId: hostedVersionId } },
   },
   /**
    * AI/tooling round-trip: replace the whole document from a JSON string
