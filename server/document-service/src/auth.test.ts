@@ -22,18 +22,18 @@ const request = (authorization?: string) => ({
   headers: authorization ? { authorization } : {},
 }) as FastifyRequest
 
-test('authenticates the configured bearer token', () => {
-  assert.equal(authenticate(request('Bearer test-token'), config), 'test-subject')
+test('authenticates the configured bearer token', async () => {
+  assert.equal(await authenticate(request('Bearer test-token'), config), 'test-subject')
 })
 
-test('rejects missing and invalid bearer tokens', () => {
-  assert.equal((authenticate(request(), config) as { code: string }).code, 'missing_authorization')
-  assert.equal((authenticate(request('Bearer wrong'), config) as { code: string }).code, 'invalid_authorization')
+test('rejects missing and invalid bearer tokens', async () => {
+  assert.equal((await authenticate(request(), config) as { code: string }).code, 'missing_authorization')
+  assert.equal((await authenticate(request('Bearer wrong'), config) as { code: string }).code, 'invalid_authorization')
 })
 
-test('does not accept an identity header when auth is unconfigured', () => {
+test('does not accept an identity header when auth is unconfigured', async () => {
   const unconfigured = { ...config, apiToken: undefined }
-  const result = authenticate({ headers: { 'x-bento-subject': 'attacker' } } as unknown as FastifyRequest, unconfigured)
+  const result = await authenticate({ headers: { 'x-bento-subject': 'attacker' } } as unknown as FastifyRequest, unconfigured)
   assert.equal(typeof result, 'object')
   assert.equal((result as { status: number; code: string }).status, 503)
   assert.equal((result as { status: number; code: string }).code, 'auth_not_configured')

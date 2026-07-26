@@ -671,4 +671,10 @@ export const es: Catalog = {
   'Hosted document opened': 'Documento alojado abierto',
   'Hosted save failed': 'No se pudo guardar en el servicio alojado',
   'Hosted open failed': 'No se pudo abrir el documento alojado',
+  'Sign in with Zitadel': 'Iniciar sesión con Zitadel',
+  'Sign out of Zitadel': 'Cerrar sesión de Zitadel',
+  'Use your self-hosted Zitadel account for hosted documents.': 'Usa tu cuenta Zitadel autoalojada para los documentos alojados.',
+  'Remove this browser session’s hosted-document login.': 'Quita el inicio de sesión de documentos alojados de esta sesión.',
+  'Zitadel sign-in failed': 'No se pudo iniciar sesión con Zitadel',
+  'Signed out of Zitadel': 'Sesión de Zitadel cerrada',
 }

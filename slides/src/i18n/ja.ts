@@ -671,4 +671,10 @@ export const ja: Catalog = {
   'Hosted document opened': 'ホストされたドキュメントを開きました',
   'Hosted save failed': 'ホストへの保存に失敗しました',
   'Hosted open failed': 'ホストされたドキュメントを開けませんでした',
+  'Sign in with Zitadel': 'Zitadel でサインイン',
+  'Sign out of Zitadel': 'Zitadel からサインアウト',
+  'Use your self-hosted Zitadel account for hosted documents.': 'ホストされたドキュメントに自分の Zitadel アカウントを使用',
+  'Remove this browser session’s hosted-document login.': 'このブラウザセッションのホストドキュメントログインを削除',
+  'Zitadel sign-in failed': 'Zitadel のサインインに失敗しました',
+  'Signed out of Zitadel': 'Zitadel からサインアウトしました',
 }

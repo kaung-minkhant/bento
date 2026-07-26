@@ -512,6 +512,12 @@ export class Editor {
       item(ICONS.lock, t('Set hosted API token…'),
         t('Configure the bearer token for the self-hosted document service.'),
         () => this.setHostedToken())
+      item(ICONS.globe, t('Sign in with Zitadel'),
+        t('Use your self-hosted Zitadel account for hosted documents.'),
+        () => void this.signInHosted())
+      item(ICONS.lock, t('Sign out of Zitadel'),
+        t('Remove this browser session’s hosted-document login.'),
+        () => this.signOutHosted())
       item(ICONS.save, t('Save to hosted library'),
         t('Encrypt and save this deck as a durable hosted document version.'),
         () => void this.saveHosted())
@@ -607,9 +613,14 @@ export class Editor {
   }
 
   private async saveHosted() {
-    const api = (window as unknown as { bento?: { hosted?: { token?: string | null; createOrSave?: () => Promise<unknown> } } }).bento?.hosted
+    const api = (window as unknown as { bento?: { hosted?: { token?: string | null; oidcConfig?: () => Promise<unknown>; signIn?: () => Promise<void>; createOrSave?: () => Promise<unknown> } } }).bento?.hosted
     if (!api?.createOrSave) return
     if (!api.token) {
+      const oidc = await api.oidcConfig?.()
+      if (oidc && api.signIn) {
+        await api.signIn()
+        return
+      }
       this.setHostedToken()
       if (!api.token) return
     }
@@ -620,6 +631,19 @@ export class Editor {
       console.error(error)
       this.toast(error instanceof Error ? error.message : t('Hosted save failed'))
     }
+  }
+
+  private async signInHosted() {
+    const api = (window as unknown as { bento?: { hosted?: { signIn?: () => Promise<void> } } }).bento?.hosted
+    if (!api?.signIn) return
+    try { await api.signIn() }
+    catch (error) { this.toast(error instanceof Error ? error.message : t('Zitadel sign-in failed')) }
+  }
+
+  private signOutHosted() {
+    const api = (window as unknown as { bento?: { hosted?: { signOut?: () => void } } }).bento?.hosted
+    api?.signOut?.()
+    this.toast(t('Signed out of Zitadel'))
   }
 
   private async openHostedPicker() {

@@ -671,4 +671,10 @@ export const zhHant: Catalog = {
   'Hosted document opened': '已開啟託管文件',
   'Hosted save failed': '儲存到託管服務失敗',
   'Hosted open failed': '開啟託管文件失敗',
+  'Sign in with Zitadel': '使用 Zitadel 登入',
+  'Sign out of Zitadel': '登出 Zitadel',
+  'Use your self-hosted Zitadel account for hosted documents.': '使用自託管 Zitadel 帳戶存取託管文件。',
+  'Remove this browser session’s hosted-document login.': '移除此瀏覽器工作階段的託管文件登入。',
+  'Zitadel sign-in failed': 'Zitadel 登入失敗',
+  'Signed out of Zitadel': '已登出 Zitadel',
 }

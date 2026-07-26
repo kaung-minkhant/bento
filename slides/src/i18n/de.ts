@@ -671,4 +671,10 @@ export const de: Catalog = {
   'Hosted document opened': 'Gehostetes Dokument geöffnet',
   'Hosted save failed': 'Speichern im gehosteten Dienst fehlgeschlagen',
   'Hosted open failed': 'Öffnen des gehosteten Dokuments fehlgeschlagen',
+  'Sign in with Zitadel': 'Mit Zitadel anmelden',
+  'Sign out of Zitadel': 'Von Zitadel abmelden',
+  'Use your self-hosted Zitadel account for hosted documents.': 'Für gehostete Dokumente das selbst gehostete Zitadel-Konto verwenden.',
+  'Remove this browser session’s hosted-document login.': 'Die Anmeldung für gehostete Dokumente aus dieser Browsersitzung entfernen.',
+  'Zitadel sign-in failed': 'Zitadel-Anmeldung fehlgeschlagen',
+  'Signed out of Zitadel': 'Von Zitadel abgemeldet',
 }

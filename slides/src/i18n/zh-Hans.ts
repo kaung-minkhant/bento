@@ -671,4 +671,10 @@ export const zhHans: Catalog = {
   'Hosted document opened': '已打开托管文档',
   'Hosted save failed': '保存到托管服务失败',
   'Hosted open failed': '打开托管文档失败',
+  'Sign in with Zitadel': '使用 Zitadel 登录',
+  'Sign out of Zitadel': '退出 Zitadel',
+  'Use your self-hosted Zitadel account for hosted documents.': '使用自托管 Zitadel 账户访问托管文档。',
+  'Remove this browser session’s hosted-document login.': '移除此浏览器会话的托管文档登录。',
+  'Zitadel sign-in failed': 'Zitadel 登录失败',
+  'Signed out of Zitadel': '已退出 Zitadel',
 }
