@@ -3,6 +3,8 @@ import { z } from 'zod'
 const configSchema = z.object({
   HOST: z.string().default('127.0.0.1'),
   PORT: z.coerce.number().int().positive().default(8789),
+  BENTO_API_TOKEN: z.string().min(1).optional(),
+  BENTO_API_SUBJECT: z.string().min(1).default('api-user'),
   DATABASE_URL: z.string().min(1),
   S3_ENDPOINT: z.string().url(),
   S3_REGION: z.string().default('us-east-1'),
@@ -15,6 +17,8 @@ const configSchema = z.object({
 export type ServiceConfig = {
   host: string
   port: number
+  apiToken?: string
+  apiSubject: string
   databaseUrl: string
   s3Endpoint: string
   s3Region: string
@@ -29,6 +33,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig 
   return {
     host: parsed.HOST,
     port: parsed.PORT,
+    apiToken: parsed.BENTO_API_TOKEN,
+    apiSubject: parsed.BENTO_API_SUBJECT,
     databaseUrl: parsed.DATABASE_URL,
     s3Endpoint: parsed.S3_ENDPOINT,
     s3Region: parsed.S3_REGION,

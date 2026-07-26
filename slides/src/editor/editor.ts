@@ -508,6 +508,16 @@ export class Editor {
       item(ICONS.code, t('Replace from JSON…'),
         t('Paste edited document JSON to replace this deck’s content — ⌘Z undoes.'),
         () => this.openReplaceJson())
+      menu.appendChild(div('ed-menu-sep'))
+      item(ICONS.lock, t('Set hosted API token…'),
+        t('Configure the bearer token for the self-hosted document service.'),
+        () => this.setHostedToken())
+      item(ICONS.save, t('Save to hosted library'),
+        t('Encrypt and save this deck as a durable hosted document version.'),
+        () => void this.saveHosted())
+      item(ICONS.globe, t('Open hosted documents…'),
+        t('List hosted documents and open one in this editor.'),
+        () => void this.openHostedPicker())
     }
     wrap.append(trigger, menu)
     document.addEventListener('pointerdown', (ev) => {
@@ -584,6 +594,60 @@ export class Editor {
       this.toast(t('Document JSON copied'))
     } catch {
       this.toast(t('Couldn’t access the clipboard'))
+    }
+  }
+
+  private setHostedToken() {
+    const api = (window as unknown as { bento?: { hosted?: { token?: string | null; setToken?: (token: string | null) => void } } }).bento?.hosted
+    if (!api?.setToken) return
+    const token = window.prompt(t('Hosted API token'), api.token ?? '')
+    if (token === null) return
+    api.setToken(token.trim() || null)
+    this.toast(token.trim() ? t('Hosted API token saved') : t('Hosted API token removed'))
+  }
+
+  private async saveHosted() {
+    const api = (window as unknown as { bento?: { hosted?: { token?: string | null; createOrSave?: () => Promise<unknown> } } }).bento?.hosted
+    if (!api?.createOrSave) return
+    if (!api.token) {
+      this.setHostedToken()
+      if (!api.token) return
+    }
+    try {
+      await api.createOrSave()
+      this.toast(t('Saved to hosted library'))
+    } catch (error) {
+      console.error(error)
+      this.toast(error instanceof Error ? error.message : t('Hosted save failed'))
+    }
+  }
+
+  private async openHostedPicker() {
+    const api = (window as unknown as { bento?: { hosted?: { token?: string | null; list?: () => Promise<Array<{ docId: string; format: string; updatedAt: string }>>; open?: (docId: string) => Promise<unknown> } } }).bento?.hosted
+    if (!api?.list || !api.open) return
+    if (!api.token) {
+      this.setHostedToken()
+      if (!api.token) return
+    }
+    try {
+      const documents = await api.list()
+      if (!documents.length) {
+        this.toast(t('No hosted documents found'))
+        return
+      }
+      const choices = documents.map((doc, index) => `${index + 1}. ${doc.docId} (${doc.format})`).join('\n')
+      const answer = window.prompt(`${t('Hosted documents')}\n\n${choices}\n\n${t('Enter a document number')}`)
+      if (answer === null) return
+      const index = Number.parseInt(answer, 10) - 1
+      if (!Number.isInteger(index) || !documents[index]) {
+        this.toast(t('Invalid hosted document selection'))
+        return
+      }
+      await api.open(documents[index].docId)
+      this.toast(t('Hosted document opened'))
+    } catch (error) {
+      console.error(error)
+      this.toast(error instanceof Error ? error.message : t('Hosted open failed'))
     }
   }
 

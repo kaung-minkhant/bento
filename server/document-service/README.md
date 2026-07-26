@@ -26,8 +26,16 @@ Optional values:
 ```text
 HOST=127.0.0.1
 PORT=8789
+BENTO_API_TOKEN=...       # required for /api/v1/*
+BENTO_API_SUBJECT=api-user
 S3_FORCE_PATH_STYLE=true
 ```
+
+The document API uses `Authorization: Bearer <BENTO_API_TOKEN>`. Health
+endpoints remain unauthenticated so Kubernetes and ingress probes can use
+`/healthz` or `/api/healthz`. The service returns `503 auth_not_configured`
+for document API calls until `BENTO_API_TOKEN` is configured; it never trusts
+an identity supplied in a request header.
 
 Run migration `migrations/001_initial.sql` against Postgres before starting
 the service. The migration uses `gen_random_uuid()`, so the database must have
@@ -45,7 +53,7 @@ npm run build
 npm run dev
 ```
 
-The current skeleton exposes `/healthz` and reserves the document API routes.
-Authentication, repository transactions, presigned downloads, and the full
-document API are added in the next slice; no development identity fallback is
-provided by design.
+The document API supports authenticated document creation, listing, metadata,
+encrypted version upload/download, and replaceable recovery checkpoints. It
+does not parse document contents. Live sessions and account/SSO integration
+remain later phases.

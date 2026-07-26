@@ -57,6 +57,7 @@ Create a SOPS-managed Secret named `bento-document-service-secrets` in the
 DATABASE_URL
 S3_ACCESS_KEY_ID
 S3_SECRET_ACCESS_KEY
+BENTO_API_TOKEN
 ```
 
 The deployment intentionally does not include this Secret or inspect existing
@@ -109,11 +110,13 @@ kubectl -n bento-prod rollout status deployment/bento-slides
 kubectl -n bento-prod rollout status deployment/bento-document-service
 ```
 
-The frontend is public through the Traefik Ingress. The document service is
-ClusterIP-only until authenticated document APIs are implemented.
+The frontend is public through the Traefik Ingress. The document service
+remains a ClusterIP workload, with authenticated `/api/v1/*` requests routed
+through the same host under `/api`.
 
 ## Current readiness boundary
 
 This deployment proves the container, frontend, Postgres migration, SeaweedFS
-configuration, Flux image flow, and frontend ingress. The document API still
-contains placeholder `501` routes until authentication and CRUD are added.
+configuration, Flux image flow, frontend ingress, and the authenticated
+document API storage slice. Live sessions, SSO, and the document explorer
+remain later phases.

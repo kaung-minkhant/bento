@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -48,6 +49,13 @@ export class BlobStore {
 
   async get(key: string) {
     return this.client.send(new GetObjectCommand({
+      Bucket: this.config.s3Bucket,
+      Key: key,
+    }))
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({
       Bucket: this.config.s3Bucket,
       Key: key,
     }))
