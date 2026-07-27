@@ -59,8 +59,10 @@ export function openHostedLibrary(options: HostedLibraryOptions): { close: () =>
   account.className = 'ed-hosted-library-account'
   account.textContent = options.profileLabel
   const vault = document.createElement('button')
-  vault.className = 'ed-hosted-library-vault'
-  vault.textContent = t('Set up or unlock hosted vault…')
+  vault.className = 'ed-hosted-library-account-action'
+  vault.innerHTML = ICONS.lock
+  vault.title = t('Set up or unlock hosted vault…')
+  vault.setAttribute('aria-label', t('Set up or unlock hosted vault…'))
   vault.addEventListener('click', () => void run(options.setupVault, false, t('Hosted vault setup failed')))
   const accountMenu = document.createElement('button')
   accountMenu.className = 'ed-hosted-library-signout'

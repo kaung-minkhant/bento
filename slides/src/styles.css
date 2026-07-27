@@ -565,16 +565,20 @@ option { background: #fff; color: #1e2a3a; }
   font-size: 12px;
 }
 .ed-hosted-library-signout:hover { color: var(--ink); text-decoration: underline; }
-.ed-hosted-library-vault {
-  border: 0;
-  padding: 0;
+.ed-hosted-library-account-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   color: #5e7699;
-  background: transparent;
+  background: #fff;
   cursor: pointer;
-  font: inherit;
-  font-size: 12px;
 }
-.ed-hosted-library-vault:hover { color: var(--ink); text-decoration: underline; }
+.ed-hosted-library-account-action:hover { color: var(--ink); background: #eef1f5; }
+.ed-hosted-library-account-action svg { width: 16px; height: 16px; }
 .ed-hosted-library-toolbar {
   display: flex;
   justify-content: space-between;
