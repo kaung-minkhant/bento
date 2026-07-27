@@ -276,7 +276,11 @@ export async function refreshHostedProfile(): Promise<void> {
 }
 
 function baseUrl(): string {
-  return storageValue('bento-hosted-api-url') || `${location.origin}/api/v1`
+  // Hosted documents use the current origin. Vite proxies /api in development
+  // and the production ingress serves the API under the same host, so a
+  // persisted endpoint override can only create stale or cross-environment
+  // authentication failures.
+  return `${location.origin}/api/v1`
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
