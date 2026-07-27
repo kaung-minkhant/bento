@@ -708,4 +708,5 @@ export const fr: Catalog = {
   'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Créez ou déverrouillez la clé de chiffrement du compte. Le mot de passe de récupération est requis uniquement pour ajouter un appareil.',
   'Hosted vault is ready': 'Le coffre hébergé est prêt',
   'Hosted vault setup failed': 'Échec de la configuration du coffre hébergé',
+  'Vault': 'Coffre',
 }

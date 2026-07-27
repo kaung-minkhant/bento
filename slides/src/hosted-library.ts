@@ -60,10 +60,10 @@ export function openHostedLibrary(options: HostedLibraryOptions): { close: () =>
   account.textContent = options.profileLabel
   const vault = document.createElement('button')
   vault.className = 'ed-hosted-library-account-action'
-  vault.innerHTML = ICONS.lock
+  vault.innerHTML = `${ICONS.lock}<span>${t('Vault')}</span>`
   vault.title = t('Set up or unlock hosted vault…')
   vault.setAttribute('aria-label', t('Set up or unlock hosted vault…'))
-  vault.addEventListener('click', () => void run(options.setupVault, false, t('Hosted vault setup failed')))
+  vault.addEventListener('click', () => void run(options.setupVault, false, t('Hosted vault setup failed'), t('Hosted vault is ready')))
   const accountMenu = document.createElement('button')
   accountMenu.className = 'ed-hosted-library-signout'
   accountMenu.textContent = t('Sign out of Zitadel')
@@ -132,13 +132,19 @@ export function openHostedLibrary(options: HostedLibraryOptions): { close: () =>
     }
   }
 
-  const run = async (action: () => Promise<void>, closeAfter = true, failureText = t('Hosted open failed')) => {
+  const run = async (
+    action: () => Promise<void>, closeAfter = true,
+    failureText = t('Hosted open failed'), successText = '',
+  ) => {
     status.textContent = ''
     for (const el of overlay.querySelectorAll('button')) el.disabled = true
     try {
       await action()
       if (closeAfter) close()
-      else for (const el of overlay.querySelectorAll('button')) el.disabled = false
+      else {
+        status.textContent = successText
+        for (const el of overlay.querySelectorAll('button')) el.disabled = false
+      }
     } catch (error) {
       console.error(error)
       status.textContent = error instanceof Error ? error.message : failureText

@@ -708,4 +708,5 @@ export const zhHant: Catalog = {
   'Create or unlock the account encryption key. You only need the recovery password when adding a device.': '建立或解除鎖定帳戶加密金鑰。只有新增裝置時才需要復原密碼。',
   'Hosted vault is ready': '託管保管庫已準備就緒',
   'Hosted vault setup failed': '託管保管庫設定失敗',
+  'Vault': '保管庫',
 }

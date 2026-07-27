@@ -708,4 +708,5 @@ export const es: Catalog = {
   'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Crea o desbloquea la clave de cifrado de la cuenta. Solo necesitas la contraseña de recuperación al añadir un dispositivo.',
   'Hosted vault is ready': 'La bóveda alojada está lista',
   'Hosted vault setup failed': 'No se pudo configurar la bóveda alojada',
+  'Vault': 'Bóveda',
 }
