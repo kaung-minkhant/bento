@@ -147,6 +147,9 @@ function registerErrorHandler(app: FastifyInstance) {
     if (error instanceof HttpError) {
       return reply.code(error.status).send({ error: error.code, message: error.message })
     }
+    if ((error as { code?: string }).code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+      return reply.code(413).send({ error: 'request_too_large', message: 'The encrypted document upload is too large.' })
+    }
     app.log.error(error)
     return reply.code(500).send({ error: 'internal_error', message: 'The document service could not complete the request.' })
   })
@@ -157,7 +160,7 @@ export function buildApp(
   db: Pool = new Pool({ connectionString: config.databaseUrl }),
   blobs: BlobStore = new BlobStore(config),
 ): FastifyInstance {
-  const app = Fastify({ logger: true })
+  const app = Fastify({ logger: true, bodyLimit: config.requestBodyLimitBytes })
   registerErrorHandler(app)
 
   for (const path of ['/healthz', '/api/healthz']) {

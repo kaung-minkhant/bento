@@ -32,6 +32,7 @@ OIDC_ISSUER_URL=https://authz.example.com
 OIDC_CLIENT_ID=...
 OIDC_AUDIENCE=...         # Zitadel API project ID
 S3_FORCE_PATH_STYLE=true
+BENTO_REQUEST_BODY_LIMIT_BYTES=26214400  # default: 25 MiB; maximum: 100 MiB
 ```
 
 The document API accepts `Authorization: Bearer <BENTO_API_TOKEN>` for the

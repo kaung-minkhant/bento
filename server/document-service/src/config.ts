@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+const defaultRequestBodyLimitBytes = 25 * 1024 * 1024
+
 const configSchema = z.object({
   HOST: z.string().default('127.0.0.1'),
   PORT: z.coerce.number().int().positive().default(8789),
@@ -15,6 +17,7 @@ const configSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('true'),
+  BENTO_REQUEST_BODY_LIMIT_BYTES: z.coerce.number().int().positive().max(100 * 1024 * 1024).default(defaultRequestBodyLimitBytes),
 })
 
 export type ServiceConfig = {
@@ -32,6 +35,7 @@ export type ServiceConfig = {
   s3AccessKeyId: string
   s3SecretAccessKey: string
   s3ForcePathStyle: boolean
+  requestBodyLimitBytes: number
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig {
@@ -51,5 +55,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig 
     s3AccessKeyId: parsed.S3_ACCESS_KEY_ID,
     s3SecretAccessKey: parsed.S3_SECRET_ACCESS_KEY,
     s3ForcePathStyle: parsed.S3_FORCE_PATH_STYLE === 'true',
+    requestBodyLimitBytes: parsed.BENTO_REQUEST_BODY_LIMIT_BYTES,
   }
 }

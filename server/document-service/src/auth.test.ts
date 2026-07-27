@@ -16,6 +16,7 @@ const config = {
   s3AccessKeyId: 'access',
   s3SecretAccessKey: 'secret',
   s3ForcePathStyle: true,
+  requestBodyLimitBytes: 25 * 1024 * 1024,
 } satisfies ServiceConfig
 
 const request = (authorization?: string) => ({
