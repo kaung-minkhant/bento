@@ -252,7 +252,7 @@ export class Editor {
       t('Comment (C) — click an element or a spot on the slide'))
     insert.appendChild(commentB)
 
-    const actions = div('ed-group ed-group-right')
+    const actions = div('ed-group ed-group-right ed-topbar-right')
     // the update chip sits beside the wordmark and exists ONLY when an
     // update is available (manual checks live in the About dialog)
     this.updatesB = btn(ICONS.sync, '', () => this.openAbout(), t('Check for updates'))
@@ -293,7 +293,11 @@ export class Editor {
     const saveGroup = div('ed-split')
     saveGroup.append(saveB, this.saveDropdown())
     actions.append(pdfB, this.avatarsBox, this.profileBox, this.shareDropdown(), saveGroup, this.languageDropdown(), helpB)
-    bar.append(logo, this.updatesB, title, history, insert, actions)
+    const left = div('ed-topbar-left')
+    left.append(logo, this.updatesB, title, history)
+    const middle = div('ed-topbar-middle')
+    middle.append(insert)
+    bar.append(left, middle, actions)
 
     // main area
     const main = div('ed-main')

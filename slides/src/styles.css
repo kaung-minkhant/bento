@@ -54,7 +54,8 @@ option { background: #fff; color: #1e2a3a; }
 /* ————— topbar ————— */
 
 .ed-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
@@ -62,6 +63,16 @@ option { background: #fff; color: #1e2a3a; }
   border-bottom: 1px solid var(--line);
   z-index: 20;
 }
+.ed-topbar-left,
+.ed-topbar-middle,
+.ed-topbar-right {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.ed-topbar-left { gap: 10px; }
+.ed-topbar-middle { justify-content: center; }
+.ed-topbar-right { justify-content: flex-end; margin-left: 0; }
 
 .ed-logo { display: flex; align-items: center; gap: 7px; font-size: 15px; white-space: nowrap; }
 .ed-logo-mark { display: block; border-radius: 5px; }
@@ -75,7 +86,7 @@ option { background: #fff; color: #1e2a3a; }
   border-radius: 8px;
   padding: 6px 10px;
   width: 220px;
-  min-width: 140px;
+  min-width: 120px;
   min-height: 32px;
   background: #f7f9fb;
 }
@@ -1953,7 +1964,12 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
 .ed-topbar { min-width: 0; }
 .ed-topbar .ed-group { flex-shrink: 0; }
 .ed-logo { flex-shrink: 0; }
-.ed-title { flex: 0 1 220px; min-width: 140px; }
+.ed-title { flex: 0 1 220px; min-width: 120px; }
+@media (max-width: 2000px) {
+  /* Keep the document identity readable while dense insert labels give way
+     to their existing icon tooltips before output actions get clipped. */
+  .ed-topbar .ed-insert > .ed-btn > span { display: none; }
+}
 @media (max-width: 1200px) {
   .ed-topbar .ed-btn > span { display: none; } /* icons + tooltips take over */
   .ed-topbar .ed-btn.ed-btn-update > span { display: inline; } /* version chip is signal */
@@ -1967,7 +1983,7 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
   .ed-topbar { gap: 4px; padding: 6px 6px; }
   .ed-logo > b { display: none; } /* mark only — the icon is the brand */
   .ed-profile-name { display: none; }
-  .ed-title { min-width: 100px; }
+  .ed-title { min-width: 90px; }
 }
 
 /* panel collapse chevrons live ON the resizer strips, not in the topbar */
