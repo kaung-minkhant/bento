@@ -45,6 +45,7 @@ const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 let hostedPassword: string | null = null
 let oidcConfigPromise: Promise<HostedOidcConfig | null> | null = null
+const hostedVaultSessionKey = 'bento-hosted-vault-key'
 
 function b64url(bytes: Uint8Array): string {
   let binary = ''
@@ -209,6 +210,15 @@ function setSessionValue(key: string, value: string | null) {
   } catch { /* session storage is optional */ }
 }
 
+function restoreHostedVaultKey() {
+  if (!hostedPassword) hostedPassword = sessionValue(hostedVaultSessionKey)
+}
+
+function rememberHostedVaultKey(value: string) {
+  hostedPassword = value
+  setSessionValue(hostedVaultSessionKey, value)
+}
+
 function profileFromClaims(claims: Record<string, unknown>): HostedProfile | null {
   if (typeof claims.sub !== 'string') return null
   return {
@@ -244,28 +254,32 @@ export function setHostedToken(token: string | null) {
 
 export function setHostedPassword(password: string | null) {
   hostedPassword = password
+  setSessionValue(hostedVaultSessionKey, password)
 }
 
 export function hasHostedPassword(): boolean {
+  restoreHostedVaultKey()
   return hostedPassword !== null
 }
 
 export type HostedVaultState = 'setup' | 'unlock' | 'ready'
 
 export async function getHostedVaultState(): Promise<HostedVaultState> {
+  restoreHostedVaultKey()
   if (hostedPassword) return 'ready'
   const result = await request<{ wrappedKey: WrappedVaultKey | null }>('/vault/key')
   return result.wrappedKey ? 'unlock' : 'setup'
 }
 
 export async function ensureHostedVaultKey(): Promise<void> {
+  restoreHostedVaultKey()
   if (hostedPassword) return
   const result = await request<{ wrappedKey: WrappedVaultKey | null }>('/vault/key')
   if (result.wrappedKey) {
     const recoveryPassword = await askPassword(t('Enter your hosted vault recovery password'), false)
     if (!recoveryPassword) throw new HostedError(0, 'recovery_required', 'A hosted vault recovery password is required.')
     try {
-      hostedPassword = await unwrapVaultKey(result.wrappedKey, recoveryPassword)
+      rememberHostedVaultKey(await unwrapVaultKey(result.wrappedKey, recoveryPassword))
     } catch {
       throw new HostedError(0, 'recovery_invalid', 'The hosted vault recovery password is incorrect.')
     }
@@ -277,7 +291,7 @@ export async function ensureHostedVaultKey(): Promise<void> {
   const rawKey = crypto.getRandomValues(new Uint8Array(32))
   const wrappedKey = await wrapVaultKey(rawKey, recoveryPassword)
   await request('/vault/key', { method: 'POST', body: JSON.stringify({ wrappedKey }) })
-  hostedPassword = b64url(rawKey)
+  rememberHostedVaultKey(b64url(rawKey))
 }
 
 export async function getHostedOidcConfig(): Promise<HostedOidcConfig | null> {
@@ -355,6 +369,8 @@ export function signOutHosted() {
   setSessionValue('bento-oidc-access-token', null)
   setSessionValue('bento-oidc-id-token', null)
   setSessionValue('bento-oidc-profile', null)
+  setSessionValue(hostedVaultSessionKey, null)
+  hostedPassword = null
   window.dispatchEvent(new Event('bento:auth-changed'))
 }
 
