@@ -941,9 +941,14 @@ export class Editor {
     nameInput.type = 'text'
     nameInput.placeholder = t('Guest')
     try {
-      nameInput.value = localStorage.getItem('bento-author') ?? ''
+      const savedName = localStorage.getItem('bento-author')
+      const profile = getHostedProfile()
+      const defaultName = profile?.name || profile?.preferredUsername || profile?.email || ''
+      nameInput.value = savedName || defaultName
+      if (!savedName && defaultName) localStorage.setItem('bento-author', defaultName)
     } catch {
-      /* storage unavailable */
+      const profile = getHostedProfile()
+      nameInput.value = profile?.name || profile?.preferredUsername || profile?.email || ''
     }
     nameInput.addEventListener('change', () => {
       try {
