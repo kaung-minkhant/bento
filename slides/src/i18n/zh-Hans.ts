@@ -708,5 +708,7 @@ export const zhHans: Catalog = {
   'Create or unlock the account encryption key. You only need the recovery password when adding a device.': '创建或解锁账户加密密钥。只有添加设备时才需要恢复密码。',
   'Hosted vault is ready': '托管保管库已准备就绪',
   'Hosted vault setup failed': '托管保管库设置失败',
-  'Vault': '保管库',
+  'Set up deck encryption': '设置演示文稿加密',
+  'Unlock deck encryption': '解锁演示文稿加密',
+  'Deck encryption: ready': '演示文稿加密：已就绪',
 }

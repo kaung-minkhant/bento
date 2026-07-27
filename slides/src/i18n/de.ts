@@ -708,5 +708,7 @@ export const de: Catalog = {
   'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Kontoverschlüsselung erstellen oder entsperren. Das Wiederherstellungspasswort wird nur beim Hinzufügen eines Geräts benötigt.',
   'Hosted vault is ready': 'Der gehostete Tresor ist bereit',
   'Hosted vault setup failed': 'Einrichtung des gehosteten Tresors fehlgeschlagen',
-  'Vault': 'Tresor',
+  'Set up deck encryption': 'Präsentationsverschlüsselung einrichten',
+  'Unlock deck encryption': 'Präsentationsverschlüsselung entsperren',
+  'Deck encryption: ready': 'Präsentationsverschlüsselung: bereit',
 }

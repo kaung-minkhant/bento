@@ -708,5 +708,7 @@ export const it: Catalog = {
   'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Crea o sblocca la chiave di cifratura dell’account. La password di recupero serve solo quando aggiungi un dispositivo.',
   'Hosted vault is ready': 'Il vault ospitato è pronto',
   'Hosted vault setup failed': 'Configurazione del vault ospitato non riuscita',
-  'Vault': 'Vault',
+  'Set up deck encryption': 'Configura la cifratura della presentazione',
+  'Unlock deck encryption': 'Sblocca la cifratura della presentazione',
+  'Deck encryption: ready': 'Cifratura della presentazione: pronta',
 }

@@ -250,6 +250,14 @@ export function hasHostedPassword(): boolean {
   return hostedPassword !== null
 }
 
+export type HostedVaultState = 'setup' | 'unlock' | 'ready'
+
+export async function getHostedVaultState(): Promise<HostedVaultState> {
+  if (hostedPassword) return 'ready'
+  const result = await request<{ wrappedKey: WrappedVaultKey | null }>('/vault/key')
+  return result.wrappedKey ? 'unlock' : 'setup'
+}
+
 export async function ensureHostedVaultKey(): Promise<void> {
   if (hostedPassword) return
   const result = await request<{ wrappedKey: WrappedVaultKey | null }>('/vault/key')

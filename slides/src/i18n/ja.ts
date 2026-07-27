@@ -708,5 +708,7 @@ export const ja: Catalog = {
   'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'アカウントの暗号化キーを作成またはロック解除します。復旧パスワードが必要なのはデバイス追加時だけです。',
   'Hosted vault is ready': 'ホスト保管庫を使用できます',
   'Hosted vault setup failed': 'ホスト保管庫の設定に失敗しました',
-  'Vault': '保管庫',
+  'Set up deck encryption': 'デッキの暗号化を設定',
+  'Unlock deck encryption': 'デッキの暗号化を解除',
+  'Deck encryption: ready': 'デッキの暗号化：準備完了',
 }

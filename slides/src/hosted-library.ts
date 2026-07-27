@@ -1,4 +1,4 @@
-import type { HostedDocument, HostedMetadata } from './hosted'
+import type { HostedDocument, HostedMetadata, HostedVaultState } from './hosted'
 import { t } from './i18n'
 import { ICONS } from './icons'
 
@@ -13,6 +13,7 @@ export type HostedLibraryOptions = {
   remove: (docId: string) => Promise<void>
   create: () => Promise<void>
   setupVault: () => Promise<void>
+  vaultState: () => Promise<HostedVaultState>
   continueLocal: () => void
   signOut: () => void
 }
@@ -60,10 +61,22 @@ export function openHostedLibrary(options: HostedLibraryOptions): { close: () =>
   account.textContent = options.profileLabel
   const vault = document.createElement('button')
   vault.className = 'ed-hosted-library-account-action'
-  vault.innerHTML = `${ICONS.lock}<span>${t('Vault')}</span>`
-  vault.title = t('Set up or unlock hosted vault…')
-  vault.setAttribute('aria-label', t('Set up or unlock hosted vault…'))
-  vault.addEventListener('click', () => void run(options.setupVault, false, t('Hosted vault setup failed'), t('Hosted vault is ready')))
+  const vaultLabel = document.createElement('span')
+  vault.innerHTML = ICONS.lock
+  vault.appendChild(vaultLabel)
+  const setVaultState = (state: HostedVaultState) => {
+    const label = state === 'ready'
+      ? t('Deck encryption: ready')
+      : state === 'unlock' ? t('Unlock deck encryption') : t('Set up deck encryption')
+    vaultLabel.textContent = label
+    vault.title = label
+    vault.setAttribute('aria-label', label)
+  }
+  setVaultState('setup')
+  vault.addEventListener('click', () => void run(async () => {
+    await options.setupVault()
+    setVaultState('ready')
+  }, false, t('Hosted vault setup failed'), t('Deck encryption: ready')))
   const accountMenu = document.createElement('button')
   accountMenu.className = 'ed-hosted-library-signout'
   accountMenu.textContent = t('Sign out of Zitadel')
@@ -167,6 +180,7 @@ export function openHostedLibrary(options: HostedLibraryOptions): { close: () =>
     status.textContent = error instanceof Error ? error.message : t('Hosted open failed')
     render([])
   })
+  void options.vaultState().then(setVaultState).catch((error) => console.error(error))
 
   return { close }
 }
