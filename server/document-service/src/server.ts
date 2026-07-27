@@ -7,10 +7,12 @@ import { loadConfig, type ServiceConfig } from './config.js'
 import { authenticate } from './auth.js'
 import {
   createDocumentSchema,
+  createVaultKeySchema,
   createVersionSchema,
   decodeBase64url,
   recoverySchema,
   type CreateDocumentInput,
+  type CreateVaultKeyInput,
   type CreateVersionInput,
   type RecoveryInput,
 } from './schema.js'
@@ -170,6 +172,45 @@ export function buildApp(
       return reply.code(404).send({ error: 'oidc_not_configured', message: 'OIDC login is not configured.' })
     }
     return reply.send({ issuer: config.oidcIssuerUrl, clientId: config.oidcClientId, audience: config.oidcAudience })
+  })
+
+  app.get('/api/v1/vault/key', async (request, reply) => {
+    const subject = await requireAuth(request, reply, config)
+    if (!subject) return
+    const result = await db.query<{
+      wrapped_key_ciphertext: string
+      wrapped_key_salt: string
+      wrapped_key_nonce: string
+      wrapped_key_version: number
+    }>(`
+      SELECT wrapped_key_ciphertext, wrapped_key_salt, wrapped_key_nonce, wrapped_key_version
+      FROM user_vault_keys WHERE owner_subject = $1
+    `, [subject])
+    const row = result.rows[0]
+    if (!row) return reply.send({ wrappedKey: null })
+    return reply.send({ wrappedKey: {
+      ciphertext: row.wrapped_key_ciphertext,
+      salt: row.wrapped_key_salt,
+      nonce: row.wrapped_key_nonce,
+      version: row.wrapped_key_version,
+    } })
+  })
+
+  app.post('/api/v1/vault/key', async (request, reply) => {
+    const subject = await requireAuth(request, reply, config)
+    if (!subject) return
+    const input = parseBody<CreateVaultKeyInput>(createVaultKeySchema, request.body)
+    try {
+      await db.query(`
+        INSERT INTO user_vault_keys
+          (owner_subject, wrapped_key_ciphertext, wrapped_key_salt, wrapped_key_nonce, wrapped_key_version)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [subject, input.wrappedKey.ciphertext, input.wrappedKey.salt, input.wrappedKey.nonce, input.wrappedKey.version])
+    } catch (error: any) {
+      if (error?.code === '23505') return reply.code(409).send({ error: 'vault_key_exists', message: 'A hosted vault is already set up for this account.' })
+      throw error
+    }
+    return reply.code(201).send({ ok: true })
   })
 
   app.post('/api/v1/documents', async (request, reply) => {

@@ -701,4 +701,11 @@ export const es: Catalog = {
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Reemplaza todas las diapositivas por una diapositiva en blanco. Conserva el tema, el nombre y la sesión en vivo de la presentación — ⌘Z lo deshace.",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "¿Reemplazar las {n} diapositivas por una diapositiva en blanco? ⌘Z lo deshace.",
   "Don’t pair — use its own id": "No emparejar — usar su propio id",
+  'Enter your hosted vault recovery password': 'Introduce la contraseña de recuperación de tu bóveda alojada',
+  'Create a hosted vault recovery password': 'Crea una contraseña de recuperación para tu bóveda alojada',
+  'Confirm your hosted vault recovery password': 'Confirma la contraseña de recuperación de tu bóveda alojada',
+  'Set up or unlock hosted vault…': 'Configurar o desbloquear la bóveda alojada…',
+  'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Crea o desbloquea la clave de cifrado de la cuenta. Solo necesitas la contraseña de recuperación al añadir un dispositivo.',
+  'Hosted vault is ready': 'La bóveda alojada está lista',
+  'Hosted vault setup failed': 'No se pudo configurar la bóveda alojada',
 }

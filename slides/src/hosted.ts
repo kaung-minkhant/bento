@@ -1,6 +1,8 @@
 // Hosted document client. The service receives only an opaque encrypted
 // envelope; document HTML and library metadata are encrypted in this browser.
 
+import { t } from './i18n'
+
 export type HostedMetadata = {
   title: string
   format: string
@@ -31,6 +33,7 @@ export type HostedVersion = {
 
 export type HostedOidcConfig = { issuer: string; clientId: string; audience: string }
 export type HostedProfile = { sub: string; name?: string; email?: string; preferredUsername?: string }
+type WrappedVaultKey = { ciphertext: string; salt: string; nonce: string; version: number }
 
 export class HostedError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
@@ -79,17 +82,68 @@ async function decryptPayload(envelope: { salt: string; iv: string; data: string
     { name: 'AES-GCM', iv: fromB64url(envelope.iv) as BufferSource }, key, fromB64url(envelope.data) as BufferSource))
 }
 
-function requirePassword(): string {
-  if (!hostedPassword) {
-    const value = window.prompt('Hosted document password')
-    if (!value) throw new HostedError(0, 'password_required', 'A hosted document password is required.')
-    hostedPassword = value
-  }
+function requireHostedSecret(): string {
+  if (!hostedPassword) throw new HostedError(0, 'vault_locked', 'The hosted vault is locked.')
   return hostedPassword
 }
 
+function askPassword(title: string, confirmation: boolean): Promise<string | null> {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog')
+    dialog.className = 'ed-dialog ed-pwdialog'
+    dialog.innerHTML =
+      `<h2>${title}</h2>` +
+      `<label>${t('Password')}<input type="password" class="pw1" autocomplete="current-password"></label>` +
+      (confirmation ? `<label>${t('Confirm password')}<input type="password" class="pw2" autocomplete="new-password"></label>` : '') +
+      `<div class="ed-pwerr"></div>` +
+      `<div class="ed-dialog-actions"><button class="cancel">${t('Cancel')}</button>` +
+      `<button class="ok ed-primary">${confirmation ? t('Set password') : t('Unlock')}</button></div>`
+    document.body.appendChild(dialog)
+    const first = dialog.querySelector<HTMLInputElement>('.pw1')!
+    const second = dialog.querySelector<HTMLInputElement>('.pw2')
+    const error = dialog.querySelector<HTMLElement>('.ed-pwerr')!
+    const done = (value: string | null) => {
+      dialog.close()
+      dialog.remove()
+      resolve(value)
+    }
+    dialog.querySelector('.cancel')!.addEventListener('click', () => done(null))
+    dialog.querySelector('.ok')!.addEventListener('click', () => {
+      if (!first.value || (second && first.value !== second.value)) {
+        error.textContent = t('Passwords do not match')
+        return
+      }
+      done(first.value)
+    })
+    dialog.addEventListener('cancel', () => done(null), { once: true })
+    dialog.showModal()
+    first.focus()
+  })
+}
+
+async function requireLegacyPassword(): Promise<string> {
+  const value = await askPassword(t('Enter the password for this older hosted document'), false)
+  if (!value) throw new HostedError(0, 'password_required', 'A hosted document password is required.')
+  return value
+}
+
+async function wrapVaultKey(rawKey: Uint8Array, recoveryPassword: string): Promise<WrappedVaultKey> {
+  const envelope = await encryptPayload(rawKey, recoveryPassword)
+  return { ciphertext: envelope.data, salt: envelope.salt, nonce: envelope.iv, version: 1 }
+}
+
+async function unwrapVaultKey(wrappedKey: WrappedVaultKey, recoveryPassword: string): Promise<string> {
+  const rawKey = await decryptPayload(
+    { salt: wrappedKey.salt, iv: wrappedKey.nonce, data: wrappedKey.ciphertext },
+    recoveryPassword,
+  )
+  if (rawKey.byteLength !== 32) throw new Error('Invalid hosted vault key')
+  return b64url(rawKey)
+}
+
 async function encryptedDocument(html: string, metadata: HostedMetadata) {
-  const password = requirePassword()
+  await ensureHostedVaultKey()
+  const password = requireHostedSecret()
   const documentEnvelope = await encryptPayload(textEncoder.encode(html), password)
   const metadataEnvelope = await encryptPayload(textEncoder.encode(JSON.stringify(metadata)), password)
   const body = textEncoder.encode(JSON.stringify({ format: 'bento/hosted', v: 1, ...documentEnvelope }))
@@ -115,7 +169,8 @@ export async function decryptHostedMetadata(metadata: HostedDocument['metadata']
       salt?: string; iv?: string; data?: string
     }
     if (!envelope.salt || !envelope.iv || !envelope.data) return null
-    const plain = await decryptPayload({ salt: envelope.salt, iv: envelope.iv, data: envelope.data }, requirePassword())
+    if (!hostedPassword) return null
+    const plain = await decryptPayload({ salt: envelope.salt, iv: envelope.iv, data: envelope.data }, hostedPassword)
     return JSON.parse(textDecoder.decode(plain)) as HostedMetadata
   } catch {
     return null
@@ -123,14 +178,20 @@ export async function decryptHostedMetadata(metadata: HostedDocument['metadata']
 }
 
 async function decryptDocument(body: ArrayBuffer): Promise<string> {
-  const password = requirePassword()
   const envelope = JSON.parse(textDecoder.decode(new Uint8Array(body))) as {
     format: string; v: number; salt: string; iv: string; data: string
   }
   if (envelope.format !== 'bento/hosted' || envelope.v !== 1) {
     throw new HostedError(0, 'invalid_blob', 'The hosted document envelope is invalid.')
   }
-  return textDecoder.decode(await decryptPayload(envelope, password))
+  await ensureHostedVaultKey()
+  try {
+    return textDecoder.decode(await decryptPayload(envelope, requireHostedSecret()))
+  } catch {
+    // Older hosted documents used an individual password. Keep them readable
+    // and migrate them to the account vault key on the next save.
+    return textDecoder.decode(await decryptPayload(envelope, await requireLegacyPassword()))
+  }
 }
 
 function storageValue(key: string): string | null {
@@ -187,6 +248,28 @@ export function setHostedPassword(password: string | null) {
 
 export function hasHostedPassword(): boolean {
   return hostedPassword !== null
+}
+
+export async function ensureHostedVaultKey(): Promise<void> {
+  if (hostedPassword) return
+  const result = await request<{ wrappedKey: WrappedVaultKey | null }>('/vault/key')
+  if (result.wrappedKey) {
+    const recoveryPassword = await askPassword(t('Enter your hosted vault recovery password'), false)
+    if (!recoveryPassword) throw new HostedError(0, 'recovery_required', 'A hosted vault recovery password is required.')
+    try {
+      hostedPassword = await unwrapVaultKey(result.wrappedKey, recoveryPassword)
+    } catch {
+      throw new HostedError(0, 'recovery_invalid', 'The hosted vault recovery password is incorrect.')
+    }
+    return
+  }
+
+  const recoveryPassword = await askPassword(t('Create a hosted vault recovery password'), true)
+  if (!recoveryPassword) throw new HostedError(0, 'recovery_required', 'A hosted vault recovery password is required.')
+  const rawKey = crypto.getRandomValues(new Uint8Array(32))
+  const wrappedKey = await wrapVaultKey(rawKey, recoveryPassword)
+  await request('/vault/key', { method: 'POST', body: JSON.stringify({ wrappedKey }) })
+  hostedPassword = b64url(rawKey)
 }
 
 export async function getHostedOidcConfig(): Promise<HostedOidcConfig | null> {

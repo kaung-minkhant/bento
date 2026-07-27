@@ -557,6 +557,9 @@ export class Editor {
         item(ICONS.lock, t('Sign out of Zitadel'),
           t('Remove this browser session’s hosted-document login.'),
           () => this.signOutHosted())
+        item(ICONS.lock, t('Set up or unlock hosted vault…'),
+          t('Create or unlock the account encryption key. You only need the recovery password when adding a device.'),
+          () => void this.ensureHostedVault())
       } else {
         item(ICONS.globe, t('Sign in with Zitadel'),
           t('Use your self-hosted Zitadel account for hosted documents.'),
@@ -710,6 +713,18 @@ export class Editor {
     if (!api?.signIn) return
     try { await api.signIn() }
     catch (error) { this.toast(error instanceof Error ? error.message : t('Zitadel sign-in failed')) }
+  }
+
+  private async ensureHostedVault() {
+    const api = (window as unknown as { bento?: { hosted?: { ensureVault?: () => Promise<void> } } }).bento?.hosted
+    if (!api?.ensureVault) return
+    try {
+      await api.ensureVault()
+      this.toast(t('Hosted vault is ready'))
+    } catch (error) {
+      console.error(error)
+      this.toast(error instanceof Error ? error.message : t('Hosted vault setup failed'))
+    }
   }
 
   private signOutHosted() {

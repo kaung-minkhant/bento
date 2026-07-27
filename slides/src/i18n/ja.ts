@@ -701,4 +701,11 @@ export const ja: Catalog = {
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "すべてのスライドを 1 枚の空白スライドに置き換えます。プレゼンテーションのテーマ、名前、ライブセッションはそのまま残ります — ⌘Z で元に戻せます。",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "{n} 枚すべてのスライドを 1 枚の空白スライドに置き換えますか？ ⌘Z で元に戻せます。",
   "Don’t pair — use its own id": "ペアにしない — 自身の id を使う",
+  'Enter your hosted vault recovery password': 'ホスト保管庫の復旧パスワードを入力',
+  'Create a hosted vault recovery password': 'ホスト保管庫の復旧パスワードを作成',
+  'Confirm your hosted vault recovery password': 'ホスト保管庫の復旧パスワードを確認',
+  'Set up or unlock hosted vault…': 'ホスト保管庫を設定またはロック解除…',
+  'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'アカウントの暗号化キーを作成またはロック解除します。復旧パスワードが必要なのはデバイス追加時だけです。',
+  'Hosted vault is ready': 'ホスト保管庫を使用できます',
+  'Hosted vault setup failed': 'ホスト保管庫の設定に失敗しました',
 }

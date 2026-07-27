@@ -23,7 +23,7 @@ import { onlineTransport, startSharing, stopSharing } from './sync/online'
 import {
   createHostedDocument, deleteHostedDocument, getHostedToken, getHostedDocument, listHostedDocuments,
   openHostedDocument, saveHostedVersion, decryptHostedMetadata, hasHostedPassword, setHostedPassword, setHostedToken,
-  completeHostedSignIn, getHostedOidcConfig, getHostedProfile, isHostedOidcSignedIn, refreshHostedProfile, signInHosted, signOutHosted,
+  completeHostedSignIn, ensureHostedVaultKey, getHostedOidcConfig, getHostedProfile, isHostedOidcSignedIn, refreshHostedProfile, signInHosted, signOutHosted,
 } from './hosted'
 import { docContentKey } from './autosave'
 import { openHostedLibrary } from './hosted-library'
@@ -322,6 +322,7 @@ if (location.hash === '#present') {
     signOut: () => signOutHosted(),
     setToken: (token: string | null) => setHostedToken(token),
     setPassword: (password: string | null) => setHostedPassword(password),
+    ensureVault: () => ensureHostedVaultKey(),
     createOrSave: () => createOrSaveHosted(),
     openLibrary: () => {
       if (isHostedOidcSignedIn()) showHostedLibrary()

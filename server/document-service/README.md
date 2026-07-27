@@ -43,9 +43,10 @@ the browser PKCE flow. The service validates JWT signatures against the
 issuer's JWKS and uses the token `sub` as the document subject; it never
 trusts an identity supplied in a request header.
 
-Run migration `migrations/001_initial.sql` against Postgres before starting
-the service. The migration uses `gen_random_uuid()`, so the database must have
-the `pgcrypto` extension enabled:
+Run the migration runner before starting the service. It applies
+`migrations/001_initial.sql` and later migrations, including the account vault
+key table. The initial migration uses `gen_random_uuid()`, so the database must
+have the `pgcrypto` extension enabled:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -56,10 +57,14 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 ```sh
 npm install
 npm run build
+npm run migrate
 npm run dev
 ```
 
 The document API supports authenticated document creation, listing, metadata,
 encrypted version upload/download, owner-only deletion, and replaceable
-recovery checkpoints. It does not parse document contents. Live sessions
-remain a later phase.
+recovery checkpoints. `GET /api/v1/vault/key` returns the caller's opaque
+wrapped vault key, and `POST /api/v1/vault/key` creates it once. The browser
+generates the random vault key and wraps it with the user's recovery password;
+the service never receives either plaintext value. It does not parse document
+contents. Live sessions remain a later phase.

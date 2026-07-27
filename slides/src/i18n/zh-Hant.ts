@@ -701,4 +701,11 @@ export const zhHant: Catalog = {
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "將所有投影片取代為一張空白投影片。簡報的主題、名稱與即時協作工作階段都會保留 — ⌘Z 可復原。",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "將全部 {n} 張投影片取代為一張空白投影片？⌘Z 可復原。",
   "Don’t pair — use its own id": "不配對 — 使用自身 id",
+  'Enter your hosted vault recovery password': '輸入託管保管庫復原密碼',
+  'Create a hosted vault recovery password': '建立託管保管庫復原密碼',
+  'Confirm your hosted vault recovery password': '確認託管保管庫復原密碼',
+  'Set up or unlock hosted vault…': '設定或解除鎖定託管保管庫…',
+  'Create or unlock the account encryption key. You only need the recovery password when adding a device.': '建立或解除鎖定帳戶加密金鑰。只有新增裝置時才需要復原密碼。',
+  'Hosted vault is ready': '託管保管庫已準備就緒',
+  'Hosted vault setup failed': '託管保管庫設定失敗',
 }

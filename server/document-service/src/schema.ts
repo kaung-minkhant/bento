@@ -11,6 +11,17 @@ export const encryptedMetadataSchema = z.object({
   version: z.number().int().positive(),
 })
 
+export const wrappedVaultKeySchema = z.object({
+  ciphertext: base64url,
+  salt: base64url,
+  nonce: base64url,
+  version: z.number().int().positive(),
+})
+
+export const createVaultKeySchema = z.object({
+  wrappedKey: wrappedVaultKeySchema,
+})
+
 const encryptedSnapshotSchema = z.object({
   ciphertext: base64url,
   sha256,
@@ -36,6 +47,8 @@ export const recoverySchema = encryptedSnapshotSchema.extend({
 export type CreateDocumentInput = z.infer<typeof createDocumentSchema>
 export type CreateVersionInput = z.infer<typeof createVersionSchema>
 export type RecoveryInput = z.infer<typeof recoverySchema>
+export type WrappedVaultKey = z.infer<typeof wrappedVaultKeySchema>
+export type CreateVaultKeyInput = z.infer<typeof createVaultKeySchema>
 
 export function decodeBase64url(value: string): Buffer {
   return Buffer.from(value, 'base64url')

@@ -701,4 +701,11 @@ export const zhHans: Catalog = {
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "将所有幻灯片替换为一张空白幻灯片。演示文稿的主题、名称和实时协作会话都会保留 — ⌘Z 可撤销。",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "将全部 {n} 张幻灯片替换为一张空白幻灯片？⌘Z 可撤销。",
   "Don’t pair — use its own id": "不配对 — 使用自身 id",
+  'Enter your hosted vault recovery password': '输入托管保管库恢复密码',
+  'Create a hosted vault recovery password': '创建托管保管库恢复密码',
+  'Confirm your hosted vault recovery password': '确认托管保管库恢复密码',
+  'Set up or unlock hosted vault…': '设置或解锁托管保管库…',
+  'Create or unlock the account encryption key. You only need the recovery password when adding a device.': '创建或解锁账户加密密钥。只有添加设备时才需要恢复密码。',
+  'Hosted vault is ready': '托管保管库已准备就绪',
+  'Hosted vault setup failed': '托管保管库设置失败',
 }

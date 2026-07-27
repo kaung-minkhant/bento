@@ -138,6 +138,41 @@ table is a library/service record, not a replacement for relay state.
 All endpoints are under `/api/v1` and require authentication. Responses use
 JSON unless an endpoint explicitly returns an encrypted document object.
 
+### Account vault key
+
+The browser generates one random 256-bit vault key per account. It wraps that
+key with a recovery password using PBKDF2-SHA-256 and AES-GCM, then stores only
+the wrapped envelope here. The service never receives the recovery password or
+the unwrapped vault key.
+
+```http
+GET /api/v1/vault/key
+```
+
+Returns `{ "wrappedKey": null }` before first-device setup, or an opaque
+`wrappedKey` envelope afterward.
+
+```http
+POST /api/v1/vault/key
+Content-Type: application/json
+```
+
+Request:
+
+```json
+{
+  "wrappedKey": {
+    "ciphertext": "base64url",
+    "salt": "base64url",
+    "nonce": "base64url",
+    "version": 1
+  }
+}
+```
+
+Creation is one-time per authenticated account. A second creation attempt
+returns `409 vault_key_exists`; key rotation is intentionally deferred.
+
 ### Create a document
 
 ```http

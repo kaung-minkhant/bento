@@ -701,4 +701,11 @@ export const de: Catalog = {
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Ersetzt alle Folien durch eine einzige leere Folie. Design, Name und Live-Sitzung der Präsentation bleiben erhalten — ⌘Z macht es rückgängig.",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "Alle {n} Folien durch eine leere Folie ersetzen? ⌘Z macht dies rückgängig.",
   "Don’t pair — use its own id": "Nicht verknüpfen — eigene ID verwenden",
+  'Enter your hosted vault recovery password': 'Wiederherstellungspasswort für deinen gehosteten Tresor eingeben',
+  'Create a hosted vault recovery password': 'Wiederherstellungspasswort für deinen gehosteten Tresor erstellen',
+  'Confirm your hosted vault recovery password': 'Wiederherstellungspasswort für deinen gehosteten Tresor bestätigen',
+  'Set up or unlock hosted vault…': 'Gehosteten Tresor einrichten oder entsperren…',
+  'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Kontoverschlüsselung erstellen oder entsperren. Das Wiederherstellungspasswort wird nur beim Hinzufügen eines Geräts benötigt.',
+  'Hosted vault is ready': 'Der gehostete Tresor ist bereit',
+  'Hosted vault setup failed': 'Einrichtung des gehosteten Tresors fehlgeschlagen',
 }

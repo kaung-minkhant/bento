@@ -701,4 +701,11 @@ export const fr: Catalog = {
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Remplace toutes les diapositives par une seule diapositive vierge. Conserve le thème, le nom et la session en direct de la présentation — ⌘Z annule.",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "Remplacer les {n} diapositives par une diapositive vierge ? ⌘Z annule cette action.",
   "Don’t pair — use its own id": "Ne pas associer — utiliser son propre id",
+  'Enter your hosted vault recovery password': 'Saisissez le mot de passe de récupération de votre coffre hébergé',
+  'Create a hosted vault recovery password': 'Créez un mot de passe de récupération pour votre coffre hébergé',
+  'Confirm your hosted vault recovery password': 'Confirmez le mot de passe de récupération de votre coffre hébergé',
+  'Set up or unlock hosted vault…': 'Configurer ou déverrouiller le coffre hébergé…',
+  'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Créez ou déverrouillez la clé de chiffrement du compte. Le mot de passe de récupération est requis uniquement pour ajouter un appareil.',
+  'Hosted vault is ready': 'Le coffre hébergé est prêt',
+  'Hosted vault setup failed': 'Échec de la configuration du coffre hébergé',
 }

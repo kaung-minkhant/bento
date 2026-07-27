@@ -701,4 +701,11 @@ export const it: Catalog = {
   "Replace every slide with one blank slide. Keeps the deck’s theme, name and live session — ⌘Z undoes.": "Sostituisce tutte le diapositive con una sola diapositiva vuota. Mantiene tema, nome e sessione dal vivo della presentazione — ⌘Z annulla.",
   "Replace all {n} slides with one blank slide? ⌘Z undoes this.": "Sostituire tutte le {n} diapositive con una diapositiva vuota? ⌘Z annulla l’operazione.",
   "Don’t pair — use its own id": "Non abbinare — usa il proprio id",
+  'Enter your hosted vault recovery password': 'Inserisci la password di recupero del tuo vault ospitato',
+  'Create a hosted vault recovery password': 'Crea una password di recupero per il tuo vault ospitato',
+  'Confirm your hosted vault recovery password': 'Conferma la password di recupero del tuo vault ospitato',
+  'Set up or unlock hosted vault…': 'Configura o sblocca il vault ospitato…',
+  'Create or unlock the account encryption key. You only need the recovery password when adding a device.': 'Crea o sblocca la chiave di cifratura dell’account. La password di recupero serve solo quando aggiungi un dispositivo.',
+  'Hosted vault is ready': 'Il vault ospitato è pronto',
+  'Hosted vault setup failed': 'Configurazione del vault ospitato non riuscita',
 }
