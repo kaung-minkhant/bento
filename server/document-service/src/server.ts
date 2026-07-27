@@ -252,6 +252,39 @@ export function buildApp(
     return reply.send({ versions: result.rows.map(versionJson) })
   })
 
+  app.delete('/api/v1/documents/:docId', async (request, reply) => {
+    const subject = await requireAuth(request, reply, config)
+    if (!subject) return
+    const { docId } = request.params as { docId: string }
+    const document = await readDocument(db, docId, subject)
+    if (!document) return reply.code(404).send({ error: 'not_found', message: 'The document was not found.' })
+    if (document.role !== 'owner') return reply.code(403).send({ error: 'forbidden', message: 'Only the document owner can delete it.' })
+
+    const client = await db.connect()
+    const objectKeys: string[] = []
+    try {
+      await client.query('BEGIN')
+      const versions = await client.query<{ object_key: string }>(
+        'SELECT object_key FROM document_versions WHERE doc_id = $1', [docId])
+      const recovery = await client.query<{ object_key: string }>(
+        'SELECT object_key FROM document_recovery WHERE doc_id = $1', [docId])
+      objectKeys.push(...versions.rows.map((row) => row.object_key), ...recovery.rows.map((row) => row.object_key))
+      await client.query('UPDATE documents SET deleted_at = now(), updated_at = now() WHERE doc_id = $1 AND deleted_at IS NULL', [docId])
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+
+    // The database tombstone is authoritative. Blob cleanup is best effort so
+    // a transient SeaweedFS failure cannot make a successful delete appear to
+    // fail or expose the document in the library again.
+    for (const key of objectKeys) await blobs.delete(key).catch((error) => app.log.warn({ error, key }, 'Could not remove deleted document blob'))
+    return reply.code(204).send()
+  })
+
   app.get('/api/v1/documents/:docId/versions/:versionId/content', async (request, reply) => {
     const subject = await requireAuth(request, reply, config)
     if (!subject) return

@@ -552,9 +552,6 @@ export class Editor {
         t('Paste edited document JSON to replace this deck’s content — ⌘Z undoes.'),
         () => this.openReplaceJson())
       menu.appendChild(div('ed-menu-sep'))
-      item(ICONS.lock, t('Set hosted API token…'),
-        t('Configure the bearer token for the self-hosted document service.'),
-        () => this.setHostedToken())
       const hostedAuth = (window as unknown as { bento?: { hosted?: { oidcSignedIn?: () => boolean } } }).bento?.hosted
       if (hostedAuth?.oidcSignedIn?.()) {
         item(ICONS.lock, t('Sign out of Zitadel'),
@@ -700,8 +697,8 @@ export class Editor {
       if (!api.token) return
     }
     try {
-      await api.createOrSave()
-      this.toast(t('Saved to hosted library'))
+      const result = await api.createOrSave()
+      this.toast(result === null ? t('Hosted deck is already up to date') : t('Saved to hosted library'))
     } catch (error) {
       console.error(error)
       this.toast(error instanceof Error ? error.message : t('Hosted save failed'))
@@ -722,8 +719,17 @@ export class Editor {
   }
 
   private async openHostedPicker() {
-    const api = (window as unknown as { bento?: { hosted?: { token?: string | null; list?: () => Promise<Array<{ docId: string; format: string; updatedAt: string }>>; open?: (docId: string) => Promise<unknown> } } }).bento?.hosted
+    const api = (window as unknown as { bento?: { hosted?: {
+      openLibrary?: () => void | Promise<void>
+      token?: string | null
+      list?: () => Promise<Array<{ docId: string; format: string; updatedAt: string }>>
+      open?: (docId: string) => Promise<unknown>
+    } } }).bento?.hosted
     if (!api?.list || !api.open) return
+    if (api.openLibrary) {
+      await api.openLibrary()
+      return
+    }
     if (!api.token) {
       this.setHostedToken()
       if (!api.token) return

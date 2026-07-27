@@ -37,6 +37,24 @@ Scope:
 - Preserve `docId`, standalone-file operation, client-side encryption, and
   backward-compatible document format rules.
 
+Deferred: durable version retention and expiration. Immutable version objects
+and their Postgres records remain until an explicit retention policy is
+designed and implemented; current work must not silently delete or expire
+durable versions.
+
+### User workflow boundary
+
+Logged-in users get the hosted library, user-scoped documents, durable
+SeaweedFS versions, and membership-controlled collaboration. Non-logged-in
+users remain fully supported in local-first mode: they can open or create a
+standalone `.bento.html`, edit it offline, save/download a copy, and use the
+existing file-based live collaboration flow when a document carries an
+invitation. They cannot browse or save to the hosted library, or access a
+user-scoped hosted document, until they sign in. Hosted collaboration invites
+may be opened by an anonymous participant only if a future capability-token
+flow explicitly grants that access; this is not implicit from the document
+URL.
+
 The first phase-2 milestone is a single document owned by one authenticated
 subject. Sharing, multi-user access, and agent access come later.
 

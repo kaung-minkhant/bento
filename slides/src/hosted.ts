@@ -98,7 +98,27 @@ async function encryptedDocument(html: string, metadata: HostedMetadata) {
     ciphertext: b64url(body),
     sha256: digest,
     byteSize: body.byteLength,
-    metadata: { ciphertext: metadataEnvelope.data, nonce: metadataEnvelope.iv, version: 1 },
+    // Keep the salt with the encrypted metadata. Older records stored only the
+    // ciphertext and IV, which made their titles impossible to recover after
+    // listing without downloading every document.
+    metadata: {
+      ciphertext: b64url(textEncoder.encode(JSON.stringify(metadataEnvelope))),
+      nonce: metadataEnvelope.iv,
+      version: 1,
+    },
+  }
+}
+
+export async function decryptHostedMetadata(metadata: HostedDocument['metadata']): Promise<HostedMetadata | null> {
+  try {
+    const envelope = JSON.parse(textDecoder.decode(fromB64url(metadata.ciphertext))) as {
+      salt?: string; iv?: string; data?: string
+    }
+    if (!envelope.salt || !envelope.iv || !envelope.data) return null
+    const plain = await decryptPayload({ salt: envelope.salt, iv: envelope.iv, data: envelope.data }, requirePassword())
+    return JSON.parse(textDecoder.decode(plain)) as HostedMetadata
+  } catch {
+    return null
   }
 }
 
@@ -163,6 +183,10 @@ export function setHostedToken(token: string | null) {
 
 export function setHostedPassword(password: string | null) {
   hostedPassword = password
+}
+
+export function hasHostedPassword(): boolean {
+  return hostedPassword !== null
 }
 
 export async function getHostedOidcConfig(): Promise<HostedOidcConfig | null> {
@@ -309,6 +333,10 @@ export async function createHostedDocument(docId: string, format: string, metada
 export async function listHostedDocuments(): Promise<HostedDocument[]> {
   const result = await request<{ documents: HostedDocument[]; nextCursor: string | null }>('/documents')
   return result.documents
+}
+
+export async function deleteHostedDocument(docId: string): Promise<void> {
+  await request<void>(`/documents/${encodeURIComponent(docId)}`, { method: 'DELETE' })
 }
 
 export async function getHostedDocument(docId: string): Promise<HostedDocument> {

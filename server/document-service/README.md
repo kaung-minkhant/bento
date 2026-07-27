@@ -60,5 +60,6 @@ npm run dev
 ```
 
 The document API supports authenticated document creation, listing, metadata,
-encrypted version upload/download, and replaceable recovery checkpoints. It
-does not parse document contents. Live sessions remain a later phase.
+encrypted version upload/download, owner-only deletion, and replaceable
+recovery checkpoints. It does not parse document contents. Live sessions
+remain a later phase.
