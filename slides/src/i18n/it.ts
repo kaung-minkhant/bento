@@ -712,4 +712,5 @@ export const it: Catalog = {
   'Unlock deck encryption': 'Sblocca la cifratura della presentazione',
   'Deck encryption: ready': 'Cifratura della presentazione: pronta',
   'Sign in with Zitadel to open your hosted deck library.': 'Accedi con Zitadel per aprire la tua libreria di presentazioni ospitate.',
+  'Back to hosted library': 'Torna alla libreria ospitata',
 }

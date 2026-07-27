@@ -51,12 +51,17 @@ void refreshHostedProfile().catch((error) => console.error(error))
 const embedded = readEmbeddedDoc()
 const envelope = embedded ? parseEnvelope(embedded) : null
 const isHostedLibraryEntry = location.protocol !== 'file:' && location.pathname === '/library'
+const hostedDocQuery = location.protocol !== 'file:' && new URLSearchParams(location.search).get('doc')
 if (isHostedLibraryEntry && !embedded && !envelope) {
   void hostedSignIn.then(() => bootHostedLibraryPage())
+} else if (hostedDocQuery && !embedded && !envelope) {
+  void loadHostedDocument(hostedDocQuery).then(({ doc, docId, versionId }) => {
+    bootWith(doc, { docId, versionId })
+  }).catch((error) => hostedLoadError(error))
 } else if (envelope) {
   void passwordGate()
 } else {
-  bootWith((embedded && parseDoc(embedded)) || starterDoc())
+  bootWith(new URLSearchParams(location.search).get('new') === '1' ? newDoc() : (embedded && parseDoc(embedded)) || starterDoc())
 }
 
 /** Encrypted file: ask for the password (looping on failure), then boot. */
@@ -101,9 +106,43 @@ async function passwordGate() {
   input.focus()
 }
 
-function bootWith(doc: BentoDoc) {
+type HostedBoot = { docId: string; versionId: string | null }
+
+function bootWith(doc: BentoDoc, hosted?: HostedBoot) {
   if (doc.readonly) playerMode(doc)
-  else editorMode(doc)
+  else editorMode(doc, hosted)
+}
+
+async function loadHostedDocument(docId: string): Promise<HostedBoot & { doc: BentoDoc }> {
+  const opened = await openHostedDocument(docId)
+  const parsed = new DOMParser().parseFromString(opened.html, 'text/html')
+  const body = parsed.getElementById('bento-doc')?.textContent?.trim()
+  if (!body) throw new Error('Hosted file has no document block')
+  const fileEnvelope = parseEnvelope(body)
+  let json = body
+  if (fileEnvelope) {
+    const password = window.prompt('Document password')
+    if (!password) throw new Error('Document password is required')
+    const decrypted = await decryptEnvelope(fileEnvelope, password)
+    if (!decrypted) throw new Error('Wrong document password')
+    setEncryptionPassword(password)
+    json = decrypted
+  }
+  const doc = parseDoc(json)
+  if (!doc) throw new Error('Hosted file contains an invalid document')
+  return { doc, docId: opened.document.docId, versionId: opened.document.currentVersionId }
+}
+
+function hostedLoadError(error: unknown) {
+  document.getElementById('bento-splash')?.remove()
+  const message = error instanceof Error ? error.message : t('Hosted open failed')
+  const card = document.createElement('main')
+  card.className = 'ed-hosted-library-signin'
+  card.innerHTML = `<div class="ed-hosted-library-signin-card"><div class="ed-hosted-library-kicker">bento/vault</div>` +
+    `<h1>${t('Hosted open failed')}</h1><p>${message}</p>` +
+    `<button class="ed-hosted-library-action primary">${t('Back to hosted library')}</button></div>`
+  card.querySelector('button')!.addEventListener('click', () => location.assign('/library'))
+  document.body.appendChild(card)
 }
 
 const hostedProfileLabel = () => {
@@ -113,6 +152,9 @@ const hostedProfileLabel = () => {
 
 const listHostedLibraryDocuments = async () => {
   const documents = await listHostedDocuments()
+  if (documents.length && !hasHostedPassword() && await getHostedVaultState() === 'unlock') {
+    await ensureHostedVaultKey()
+  }
   return Promise.all(documents.map(async (document) => ({
     ...document,
     displayMetadata: hasHostedPassword() ? await decryptHostedMetadata(document.metadata) : null,
@@ -175,7 +217,7 @@ function playerMode(doc: BentoDoc) {
   start()
 }
 
-function editorMode(doc: BentoDoc) {
+function editorMode(doc: BentoDoc, hosted?: HostedBoot) {
 
 document.title = `${doc.title} — ${appConfig().appName}`
 
@@ -191,9 +233,9 @@ const editor = new Editor(document.getElementById('app')!, store)
 const session = new SyncSession(store)
 editor.connectSync(session)
 
-let hostedDocId: string | null = null
-let hostedVersionId: string | null = null
-let hostedContentKey: string | null = null
+let hostedDocId: string | null = hosted?.docId ?? null
+let hostedVersionId: string | null = hosted?.versionId ?? null
+let hostedContentKey: string | null = hosted ? docContentKey(doc) : null
 
 const hostedMetadata = () => ({
   title: store.doc.title,
@@ -247,20 +289,6 @@ const openHostedIntoEditor = async (docId: string) => {
   hostedContentKey = docContentKey(next)
   store.setDirty(false)
   return next
-}
-
-const editorQuery = new URLSearchParams(location.search)
-const initialHostedDocId = editorQuery.get('doc')
-if (initialHostedDocId) {
-  void openHostedIntoEditor(initialHostedDocId).catch((error) => {
-    console.error(error)
-    editor.toast(error instanceof Error ? error.message : t('Hosted open failed'))
-  })
-} else if (editorQuery.get('new') === '1') {
-  store.replaceDoc(newDoc())
-  hostedDocId = null
-  hostedVersionId = null
-  hostedContentKey = null
 }
 
 // Opening a link ending in #present starts the show immediately (player mode).

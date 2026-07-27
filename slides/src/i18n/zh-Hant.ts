@@ -712,4 +712,5 @@ export const zhHant: Catalog = {
   'Unlock deck encryption': '解除簡報加密鎖定',
   'Deck encryption: ready': '簡報加密：已準備就緒',
   'Sign in with Zitadel to open your hosted deck library.': '登入 Zitadel 以開啟託管簡報庫。',
+  'Back to hosted library': '返回託管簡報庫',
 }
