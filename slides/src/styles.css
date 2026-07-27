@@ -71,14 +71,15 @@ option { background: #fff; color: #1e2a3a; }
   font: inherit;
   font-size: 14px;
   color: var(--ink);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
   width: 220px;
   min-width: 140px;
-  background: transparent;
+  min-height: 32px;
+  background: #f7f9fb;
 }
-.ed-title:hover { border-color: var(--line); }
+.ed-title:hover { background: #fff; }
 .ed-title:focus { border-color: var(--blue); outline: none; background: #fff; }
 
 /* unsaved-changes dot — badges the SAVE button's corner (amber when dirty) */
