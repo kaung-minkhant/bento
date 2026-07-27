@@ -243,7 +243,10 @@ const hostedMetadata = () => ({
   keywords: store.doc.meta?.keywords,
 })
 
-const hostedHtml = () => serializeAuto(store.doc)
+// Hosted snapshots already have an account-level encrypted envelope. Keep the
+// inner Bento document plain so opening a hosted deck needs only the vault key;
+// older snapshots containing bento/enc remain readable in loadHostedDocument().
+const hostedHtml = () => serializeFile(store.doc)
 
 const createOrSaveHosted = async () => {
   const contentKey = docContentKey(store.doc)
