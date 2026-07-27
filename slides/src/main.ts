@@ -242,6 +242,7 @@ const showHostedLibrary = () => {
       await createOrSaveHosted()
       closeHostedLibrary()
     },
+    setupVault: () => ensureHostedVaultKey(),
     continueLocal: closeHostedLibrary,
     signOut: () => { closeHostedLibrary(); signOutHosted() },
   })

@@ -12,6 +12,7 @@ export type HostedLibraryOptions = {
   open: (docId: string) => Promise<void>
   remove: (docId: string) => Promise<void>
   create: () => Promise<void>
+  setupVault: () => Promise<void>
   continueLocal: () => void
   signOut: () => void
 }
@@ -57,11 +58,15 @@ export function openHostedLibrary(options: HostedLibraryOptions): { close: () =>
   const account = document.createElement('div')
   account.className = 'ed-hosted-library-account'
   account.textContent = options.profileLabel
+  const vault = document.createElement('button')
+  vault.className = 'ed-hosted-library-vault'
+  vault.textContent = t('Set up or unlock hosted vault…')
+  vault.addEventListener('click', () => void run(options.setupVault, false, t('Hosted vault setup failed')))
   const accountMenu = document.createElement('button')
   accountMenu.className = 'ed-hosted-library-signout'
   accountMenu.textContent = t('Sign out of Zitadel')
   accountMenu.addEventListener('click', () => options.signOut())
-  account.appendChild(accountMenu)
+  account.append(vault, accountMenu)
   header.append(heading, account)
 
   const toolbar = document.createElement('div')
