@@ -246,7 +246,14 @@ const hostedMetadata = () => ({
 // Hosted snapshots already have an account-level encrypted envelope. Keep the
 // inner Bento document plain so opening a hosted deck needs only the vault key;
 // older snapshots containing bento/enc remain readable in loadHostedDocument().
-const hostedHtml = () => serializeFile(store.doc)
+// A deck's auto-minted collab credentials do not mean the user went live. Do
+// not make a hosted save join the relay unless this editor is actually live.
+const hostedHtml = () => {
+  const snapshot = store.doc.collab && !onlineTransport()
+    ? { ...store.doc, collab: { ...store.doc.collab, on: false } }
+    : store.doc
+  return serializeFile(snapshot)
+}
 
 const createOrSaveHosted = async () => {
   const contentKey = docContentKey(store.doc)
