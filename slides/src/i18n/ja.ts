@@ -711,4 +711,5 @@ export const ja: Catalog = {
   'Set up deck encryption': 'デッキの暗号化を設定',
   'Unlock deck encryption': 'デッキの暗号化を解除',
   'Deck encryption: ready': 'デッキの暗号化：準備完了',
+  'Sign in with Zitadel to open your hosted deck library.': 'ホストされたデッキライブラリを開くには Zitadel にサインインしてください。',
 }

@@ -711,4 +711,5 @@ export const fr: Catalog = {
   'Set up deck encryption': 'Configurer le chiffrement de la présentation',
   'Unlock deck encryption': 'Déverrouiller le chiffrement de la présentation',
   'Deck encryption: ready': 'Chiffrement de la présentation : prêt',
+  'Sign in with Zitadel to open your hosted deck library.': 'Connectez-vous avec Zitadel pour ouvrir votre bibliothèque de présentations hébergées.',
 }

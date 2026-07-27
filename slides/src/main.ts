@@ -38,16 +38,22 @@ configureApp({
 
 capturePristine()
 
-// Finish a PKCE callback before the editor's hosted actions are used. The
-// editor can still boot while the exchange is in flight.
-void completeHostedSignIn().catch((error) => console.error(error))
+// Finish a PKCE callback before deciding whether this is the library page.
+// The editor can still boot while the exchange is in flight on normal routes.
+const hostedSignIn = completeHostedSignIn().catch((error) => {
+  console.error(error)
+  return false
+})
 void refreshHostedProfile().catch((error) => console.error(error))
 
 // --- boot gates: password-encrypted files, read-only player files -----------
 
 const embedded = readEmbeddedDoc()
 const envelope = embedded ? parseEnvelope(embedded) : null
-if (envelope) {
+const isHostedLibraryEntry = location.protocol !== 'file:' && location.pathname === '/library'
+if (isHostedLibraryEntry && !embedded && !envelope) {
+  void hostedSignIn.then(() => bootHostedLibraryPage())
+} else if (envelope) {
   void passwordGate()
 } else {
   bootWith((embedded && parseDoc(embedded)) || starterDoc())
@@ -100,6 +106,45 @@ function bootWith(doc: BentoDoc) {
   else editorMode(doc)
 }
 
+const hostedProfileLabel = () => {
+  const profile = getHostedProfile()
+  return profile?.name || profile?.email || profile?.preferredUsername || profile?.sub || t('Signed in with Zitadel')
+}
+
+const listHostedLibraryDocuments = async () => {
+  const documents = await listHostedDocuments()
+  return Promise.all(documents.map(async (document) => ({
+    ...document,
+    displayMetadata: hasHostedPassword() ? await decryptHostedMetadata(document.metadata) : null,
+  })))
+}
+
+function bootHostedLibraryPage() {
+  document.title = `bento/vault — ${appConfig().appName}`
+  document.getElementById('bento-splash')?.remove()
+  if (!isHostedOidcSignedIn()) {
+    const card = document.createElement('main')
+    card.className = 'ed-hosted-library-signin'
+    card.innerHTML = `<div class="ed-hosted-library-signin-card"><div class="ed-hosted-library-kicker">bento/vault</div>` +
+      `<h1>${t('Your decks')}</h1><p>${t('Sign in with Zitadel to open your hosted deck library.')}</p>` +
+      `<button class="ed-hosted-library-action primary">${t('Sign in with Zitadel')}</button></div>`
+    card.querySelector('button')!.addEventListener('click', () => void signInHosted())
+    document.body.appendChild(card)
+    return
+  }
+  openHostedLibrary({
+    profileLabel: hostedProfileLabel(),
+    list: listHostedLibraryDocuments,
+    open: async (docId) => { location.assign(`/?doc=${encodeURIComponent(docId)}`) },
+    remove: (docId) => deleteHostedDocument(docId),
+    create: async () => { location.assign('/?new=1') },
+    setupVault: () => ensureHostedVaultKey(),
+    vaultState: () => getHostedVaultState(),
+    continueLocal: () => { location.assign('/') },
+    signOut: () => { signOutHosted(); location.assign('/library') },
+  })
+}
+
 /**
  * Read-only files are PLAYER files: they open straight into the show and
  * never expose the editor. Leaving the presentation lands on a minimal card.
@@ -149,7 +194,6 @@ editor.connectSync(session)
 let hostedDocId: string | null = null
 let hostedVersionId: string | null = null
 let hostedContentKey: string | null = null
-let hostedLibraryOpen = false
 
 const hostedMetadata = () => ({
   title: store.doc.title,
@@ -205,59 +249,19 @@ const openHostedIntoEditor = async (docId: string) => {
   return next
 }
 
-const listHostedLibraryDocuments = async () => {
-  const documents = await listHostedDocuments()
-  return Promise.all(documents.map(async (document) => ({
-    ...document,
-    displayMetadata: hasHostedPassword() ? await decryptHostedMetadata(document.metadata) : null,
-  })))
-}
-
-const closeHostedLibrary = () => {
-  document.querySelector('.ed-hosted-library-overlay')?.remove()
-  hostedLibraryOpen = false
-}
-
-const showHostedLibrary = () => {
-  if (hostedLibraryOpen || !isHostedOidcSignedIn()) return
-  hostedLibraryOpen = true
-  const profile = getHostedProfile()
-  openHostedLibrary({
-    profileLabel: profile?.name || profile?.email || profile?.preferredUsername || profile?.sub || t('Signed in with Zitadel'),
-    list: listHostedLibraryDocuments,
-    open: async (docId) => { await openHostedIntoEditor(docId); closeHostedLibrary() },
-    remove: async (docId) => {
-      await deleteHostedDocument(docId)
-      if (hostedDocId === docId) {
-        hostedDocId = null
-        hostedVersionId = null
-        hostedContentKey = null
-      }
-    },
-    create: async () => {
-      store.replaceDoc(newDoc())
-      hostedDocId = null
-      hostedVersionId = null
-      hostedContentKey = null
-      await createOrSaveHosted()
-      closeHostedLibrary()
-    },
-    setupVault: () => ensureHostedVaultKey(),
-    vaultState: () => getHostedVaultState(),
-    continueLocal: closeHostedLibrary,
-    signOut: () => { closeHostedLibrary(); signOutHosted() },
+const editorQuery = new URLSearchParams(location.search)
+const initialHostedDocId = editorQuery.get('doc')
+if (initialHostedDocId) {
+  void openHostedIntoEditor(initialHostedDocId).catch((error) => {
+    console.error(error)
+    editor.toast(error instanceof Error ? error.message : t('Hosted open failed'))
   })
+} else if (editorQuery.get('new') === '1') {
+  store.replaceDoc(newDoc())
+  hostedDocId = null
+  hostedVersionId = null
+  hostedContentKey = null
 }
-
-// The deployed app root is the library entry point for authenticated users.
-// Standalone .bento.html files, including shared collaboration copies, always
-// open directly into their document and retain the anonymous local-first path.
-const isHostedLibraryEntry = location.protocol !== 'file:' &&
-  (location.pathname === '/' || location.pathname.endsWith('/index.html'))
-if (isHostedLibraryEntry && isHostedOidcSignedIn()) queueMicrotask(showHostedLibrary)
-window.addEventListener('bento:auth-changed', () => {
-  if (isHostedLibraryEntry && isHostedOidcSignedIn()) showHostedLibrary()
-})
 
 // Opening a link ending in #present starts the show immediately (player mode).
 if (location.hash === '#present') {
@@ -327,7 +331,7 @@ if (location.hash === '#present') {
     ensureVault: () => ensureHostedVaultKey(),
     createOrSave: () => createOrSaveHosted(),
     openLibrary: () => {
-      if (isHostedOidcSignedIn()) showHostedLibrary()
+      if (isHostedOidcSignedIn()) location.assign('/library')
       else void signInHosted()
     },
     list: () => listHostedDocuments(),

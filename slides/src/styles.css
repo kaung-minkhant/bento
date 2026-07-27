@@ -522,6 +522,24 @@ option { background: #fff; color: #1e2a3a; }
   background: #f5f7fa;
   color: var(--ink);
 }
+.ed-hosted-library-signin {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: #f5f7fa;
+  color: var(--ink);
+}
+.ed-hosted-library-signin-card {
+  width: min(460px, 100%);
+  padding: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgb(15 23 36 / 0.08);
+}
+.ed-hosted-library-signin-card h1 { margin: 8px 0 12px; font-size: 32px; }
+.ed-hosted-library-signin-card p { margin: 0 0 24px; color: var(--muted); line-height: 1.5; }
 .ed-hosted-library {
   width: min(820px, calc(100% - 40px));
   margin: 0 auto;
