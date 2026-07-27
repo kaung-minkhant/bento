@@ -12,7 +12,7 @@ import {
 } from './save'
 import { APP_VERSION, checkForUpdates, buildUpdatedFile, applyUpdate } from './update'
 import { i18nApi, t } from './i18n'
-import { parseDoc, type BentoDoc } from './model'
+import { newDoc, parseDoc, type BentoDoc } from './model'
 import { starterDoc } from './starterdeck'
 import { injectFonts } from './fonts'
 import { Store } from './store'
@@ -21,10 +21,12 @@ import { startPresentation } from './present'
 import { SyncSession } from './sync/session'
 import { onlineTransport, startSharing, stopSharing } from './sync/online'
 import {
-  createHostedDocument, getHostedToken, getHostedDocument, listHostedDocuments,
-  openHostedDocument, saveHostedVersion, setHostedPassword, setHostedToken,
+  createHostedDocument, deleteHostedDocument, getHostedToken, getHostedDocument, listHostedDocuments,
+  openHostedDocument, saveHostedVersion, decryptHostedMetadata, hasHostedPassword, setHostedPassword, setHostedToken,
   completeHostedSignIn, getHostedOidcConfig, getHostedProfile, isHostedOidcSignedIn, refreshHostedProfile, signInHosted, signOutHosted,
 } from './hosted'
+import { docContentKey } from './autosave'
+import { openHostedLibrary } from './hosted-library'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -146,6 +148,8 @@ editor.connectSync(session)
 
 let hostedDocId: string | null = null
 let hostedVersionId: string | null = null
+let hostedContentKey: string | null = null
+let hostedLibraryOpen = false
 
 const hostedMetadata = () => ({
   title: store.doc.title,
@@ -156,17 +160,23 @@ const hostedMetadata = () => ({
 const hostedHtml = () => serializeAuto(store.doc)
 
 const createOrSaveHosted = async () => {
+  const contentKey = docContentKey(store.doc)
+  if (hostedDocId && hostedContentKey === contentKey) return null
   const html = await hostedHtml()
   if (!hostedDocId) {
     const created = await createHostedDocument(store.doc.docId, store.doc.format, hostedMetadata(), await html)
     hostedDocId = created.docId
     hostedVersionId = created.currentVersionId
+    hostedContentKey = contentKey
+    store.setDirty(false)
     return created
   }
   const current = await getHostedDocument(hostedDocId)
   if (!current.currentVersionId) throw new Error('Hosted document has no current version')
   const version = await saveHostedVersion(hostedDocId, current.currentVersionId, store.doc.format, hostedMetadata(), await html)
   hostedVersionId = version.versionId
+  hostedContentKey = contentKey
+  store.setDirty(false)
   return version
 }
 
@@ -190,8 +200,62 @@ const openHostedIntoEditor = async (docId: string) => {
   store.replaceDoc(next)
   hostedDocId = opened.document.docId
   hostedVersionId = opened.document.currentVersionId
+  hostedContentKey = docContentKey(next)
+  store.setDirty(false)
   return next
 }
+
+const listHostedLibraryDocuments = async () => {
+  const documents = await listHostedDocuments()
+  return Promise.all(documents.map(async (document) => ({
+    ...document,
+    displayMetadata: hasHostedPassword() ? await decryptHostedMetadata(document.metadata) : null,
+  })))
+}
+
+const closeHostedLibrary = () => {
+  document.querySelector('.ed-hosted-library-overlay')?.remove()
+  hostedLibraryOpen = false
+}
+
+const showHostedLibrary = () => {
+  if (hostedLibraryOpen || !isHostedOidcSignedIn()) return
+  hostedLibraryOpen = true
+  const profile = getHostedProfile()
+  openHostedLibrary({
+    profileLabel: profile?.name || profile?.email || profile?.preferredUsername || profile?.sub || t('Signed in with Zitadel'),
+    list: listHostedLibraryDocuments,
+    open: async (docId) => { await openHostedIntoEditor(docId); closeHostedLibrary() },
+    remove: async (docId) => {
+      await deleteHostedDocument(docId)
+      if (hostedDocId === docId) {
+        hostedDocId = null
+        hostedVersionId = null
+        hostedContentKey = null
+      }
+    },
+    create: async () => {
+      store.replaceDoc(newDoc())
+      hostedDocId = null
+      hostedVersionId = null
+      hostedContentKey = null
+      await createOrSaveHosted()
+      closeHostedLibrary()
+    },
+    continueLocal: closeHostedLibrary,
+    signOut: () => { closeHostedLibrary(); signOutHosted() },
+  })
+}
+
+// The deployed app root is the library entry point for authenticated users.
+// Standalone .bento.html files, including shared collaboration copies, always
+// open directly into their document and retain the anonymous local-first path.
+const isHostedLibraryEntry = location.protocol !== 'file:' &&
+  (location.pathname === '/' || location.pathname.endsWith('/index.html'))
+if (isHostedLibraryEntry && isHostedOidcSignedIn()) queueMicrotask(showHostedLibrary)
+window.addEventListener('bento:auth-changed', () => {
+  if (isHostedLibraryEntry && isHostedOidcSignedIn()) showHostedLibrary()
+})
 
 // Opening a link ending in #present starts the show immediately (player mode).
 if (location.hash === '#present') {
@@ -259,6 +323,10 @@ if (location.hash === '#present') {
     setToken: (token: string | null) => setHostedToken(token),
     setPassword: (password: string | null) => setHostedPassword(password),
     createOrSave: () => createOrSaveHosted(),
+    openLibrary: () => {
+      if (isHostedOidcSignedIn()) showHostedLibrary()
+      else void signInHosted()
+    },
     list: () => listHostedDocuments(),
     open: (docId: string) => openHostedIntoEditor(docId),
     get current() { return { docId: hostedDocId, versionId: hostedVersionId } },

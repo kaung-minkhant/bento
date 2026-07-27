@@ -512,6 +512,151 @@ option { background: #fff; color: #1e2a3a; }
   align-items: center;
   justify-content: center;
 }
+
+/* ————— hosted library entry ————— */
+.ed-hosted-library-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  overflow: auto;
+  background: #f5f7fa;
+  color: var(--ink);
+}
+.ed-hosted-library {
+  width: min(820px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 48px 0 64px;
+}
+.ed-hosted-library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+.ed-hosted-library-kicker {
+  color: #5e7699;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.ed-hosted-library h1 {
+  margin: 6px 0 0;
+  font-size: 32px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+.ed-hosted-library-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.ed-hosted-library-signout {
+  border: 0;
+  padding: 0;
+  color: #5e7699;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.ed-hosted-library-signout:hover { color: var(--ink); text-decoration: underline; }
+.ed-hosted-library-toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 24px 0 18px;
+}
+.ed-hosted-library-actions { display: flex; gap: 10px; }
+.ed-hosted-library-action {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink-2);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+.ed-hosted-library-action:hover { background: #eef1f5; }
+.ed-hosted-library-action.primary {
+  border-color: #ff9e8a;
+  color: #0d1b2e;
+  background: #ff9e8a;
+}
+.ed-hosted-library-action.primary:hover { background: #f07b54; }
+.ed-hosted-library-action:disabled { cursor: wait; opacity: .55; }
+.ed-hosted-library-status {
+  min-height: 20px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.ed-hosted-library-list { display: flex; flex-direction: column; gap: 8px; }
+.ed-hosted-library-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.ed-hosted-library-row-body { min-width: 0; }
+.ed-hosted-library-row h2 {
+  margin: 0 0 5px;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-hosted-library-row p { margin: 0; color: var(--muted); font-size: 12px; }
+.ed-hosted-library-row-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.ed-hosted-library-row .ed-hosted-library-action { flex: none; }
+.ed-hosted-library-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #9a4c4c;
+  background: transparent;
+  cursor: pointer;
+}
+.ed-hosted-library-icon-action:hover { border-color: #edcaca; background: #fff2f2; }
+.ed-hosted-library-icon-action svg { width: 16px; height: 16px; }
+.ed-hosted-library-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 48px 20px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  text-align: center;
+}
+.ed-hosted-library-empty strong { color: var(--ink-2); font-size: 15px; }
+@media (max-width: 620px) {
+  .ed-hosted-library { width: min(100% - 28px, 820px); padding-top: 28px; }
+  .ed-hosted-library-header { flex-direction: column; gap: 14px; }
+  .ed-hosted-library-account { width: 100%; justify-content: space-between; }
+  .ed-hosted-library-actions { width: 100%; }
+  .ed-hosted-library-action { flex: 1; }
+  .ed-hosted-library-row { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .ed-hosted-library-row-actions { width: 100%; }
+  .ed-hosted-library-row-actions .ed-hosted-library-action { flex: 1; }
+  .ed-hosted-library-row-actions .ed-hosted-library-icon-action { flex: none; }
+}
 .ed-about {
   width: 360px;
   background: #fff;

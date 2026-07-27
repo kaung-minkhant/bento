@@ -188,6 +188,17 @@ Returns document identity, format, timestamps, current version information,
 membership role, and encrypted metadata. It does not return plaintext
 content.
 
+### Delete a document
+
+```http
+DELETE /api/v1/documents/{docId}
+```
+
+Only the owner may delete a document. The service records a deletion tombstone
+and removes its durable-version and recovery blobs from SeaweedFS on a
+best-effort basis. Deleted documents no longer appear in the library or pass
+document access checks.
+
 ### Download a durable version
 
 ```http
