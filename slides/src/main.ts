@@ -235,7 +235,12 @@ editor.connectSync(session)
 
 let hostedDocId: string | null = hosted?.docId ?? null
 let hostedVersionId: string | null = hosted?.versionId ?? null
-let hostedContentKey: string | null = hosted ? docContentKey(doc) : null
+
+function hostedSaveKey(value: BentoDoc): string {
+  return `${docContentKey(value)}:${value.collab && onlineTransport() ? 'live' : 'offline'}`
+}
+
+let hostedContentKey: string | null = hosted ? hostedSaveKey(doc) : null
 
 const hostedMetadata = () => ({
   title: store.doc.title,
@@ -256,7 +261,7 @@ const hostedHtml = () => {
 }
 
 const createOrSaveHosted = async () => {
-  const contentKey = docContentKey(store.doc)
+  const contentKey = hostedSaveKey(store.doc)
   if (hostedDocId && hostedContentKey === contentKey) return null
   const html = await hostedHtml()
   if (!hostedDocId) {
@@ -296,7 +301,7 @@ const openHostedIntoEditor = async (docId: string) => {
   store.replaceDoc(next)
   hostedDocId = opened.document.docId
   hostedVersionId = opened.document.currentVersionId
-  hostedContentKey = docContentKey(next)
+  hostedContentKey = hostedSaveKey(next)
   store.setDirty(false)
   return next
 }
