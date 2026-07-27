@@ -67,6 +67,7 @@ option { background: #fff; color: #1e2a3a; }
 .ed-logo-mark { display: block; border-radius: 5px; }
 
 .ed-title {
+  box-sizing: border-box;
   font: inherit;
   font-size: 14px;
   color: var(--ink);
@@ -74,6 +75,7 @@ option { background: #fff; color: #1e2a3a; }
   border-radius: 6px;
   padding: 5px 8px;
   width: 220px;
+  min-width: 140px;
   background: transparent;
 }
 .ed-title:hover { border-color: var(--line); }
@@ -1950,7 +1952,7 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
 .ed-topbar { min-width: 0; }
 .ed-topbar .ed-group { flex-shrink: 0; }
 .ed-logo { flex-shrink: 0; }
-.ed-title { flex: 0 1 220px; min-width: 48px; }
+.ed-title { flex: 0 1 220px; min-width: 140px; }
 @media (max-width: 1200px) {
   .ed-topbar .ed-btn > span { display: none; } /* icons + tooltips take over */
   .ed-topbar .ed-btn.ed-btn-update > span { display: inline; } /* version chip is signal */
@@ -1964,6 +1966,7 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
   .ed-topbar { gap: 4px; padding: 6px 6px; }
   .ed-logo > b { display: none; } /* mark only — the icon is the brand */
   .ed-profile-name { display: none; }
+  .ed-title { min-width: 100px; }
 }
 
 /* panel collapse chevrons live ON the resizer strips, not in the topbar */
