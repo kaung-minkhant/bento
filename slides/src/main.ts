@@ -429,9 +429,12 @@ if (location.hash === '#present') {
     type AgentAction = {
       id: string
       operation: string
-      phase: 'running' | 'completed' | 'failed'
+      phase: 'running' | 'completed' | 'failed' | 'undone'
       startedAt: number
       finishedAt?: number
+      beforeRevision: number
+      afterRevision?: number
+      durationMs?: number
       error?: string
     }
     let socket: WebSocket | null = null
@@ -443,21 +446,23 @@ if (location.hash === '#present') {
       window.dispatchEvent(new CustomEvent('bento:agent-action', { detail: action }))
     }
     const sendResponse = (requestId: string, ok: boolean, value?: unknown, error?: string) => {
-      if (socket?.readyState !== WebSocket.OPEN) return
       const action = actionOperations.get(requestId)
       if (action) {
         action.phase = ok ? 'completed' : 'failed'
         action.finishedAt = Date.now()
+        action.durationMs = action.finishedAt - action.startedAt
+        action.afterRevision = store.revision
         if (error) action.error = error
         actionOperations.delete(requestId)
         notifyAction(action)
       }
+      if (socket?.readyState !== WebSocket.OPEN) return
       socket.send(JSON.stringify({ type: 'response', requestId, ok, ...(value === undefined ? {} : { value }), ...(error ? { error } : {}) }))
     }
     const handleRequest = (message: { requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }) => {
       if (typeof message.requestId !== 'string') return
       if (typeof message.operation === 'string') {
-        const action: AgentAction = { id: message.requestId, operation: message.operation, phase: 'running', startedAt: Date.now() }
+        const action: AgentAction = { id: message.requestId, operation: message.operation, phase: 'running', startedAt: Date.now(), beforeRevision: store.revision }
         actionHistory.push(action)
         if (actionHistory.length > 50) actionHistory.shift()
         actionOperations.set(message.requestId, action)
@@ -608,6 +613,7 @@ if (location.hash === '#present') {
       })
       return { code: pairing.code, expiresAt: pairing.expiresAt, docId: store.doc.docId }
     }
+    const lastUndoableAction = () => [...actionHistory].reverse().find((item) => item.phase === 'completed' && item.afterRevision !== undefined && item.afterRevision > item.beforeRevision && item.afterRevision === store.revision)
     return {
       connect,
       connectPairing,
@@ -615,6 +621,17 @@ if (location.hash === '#present') {
       status: () => state,
       pairingCode: () => pairingCode,
       actions: () => actionHistory.map((action) => ({ ...action })),
+      revision: () => store.revision,
+      undoLast: () => {
+        const action = lastUndoableAction()
+        if (!action || !store.undo()) return false
+        action.phase = 'undone'
+        action.finishedAt = Date.now()
+        action.durationMs = action.finishedAt - action.startedAt
+        notifyAction(action)
+        return true
+      },
+      canUndoLast: () => !!lastUndoableAction(),
       clearActions: () => { actionHistory.length = 0; actionOperations.clear() },
     }
   })(),

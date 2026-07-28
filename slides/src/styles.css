@@ -2217,6 +2217,11 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
   margin-bottom: 8px;
   font-size: 13px;
 }
+.ed-agent-activity header > div:first-child { display: flex; align-items: baseline; gap: 8px; }
+.ed-agent-activity-actions { display: flex; align-items: center; gap: 6px; }
+.ed-agent-activity-summary { color: #8A98AA; font-size: 11px; }
+.ed-agent-undo { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 4px !important; color: #536276; }
+.ed-agent-undo:disabled { cursor: default; opacity: 0.4; }
 .ed-agent-clear { padding: 4px 8px !important; font-size: 11px; color: #66758A; }
 .ed-agent-activity-empty {
   display: flex;
@@ -2252,6 +2257,7 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-activity-item.running { border-left: 3px solid #E7A51B; }
 .ed-agent-activity-item.completed { border-left: 3px solid #38A169; }
 .ed-agent-activity-item.failed { border-left: 3px solid #C75045; }
+.ed-agent-activity-item.undone { border-left: 3px solid #8A98AA; opacity: 0.7; }
 .ed-agent-activity-item small { grid-column: 1 / -1; color: #9B3A2C; white-space: normal; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }
