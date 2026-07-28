@@ -606,6 +606,12 @@ export function startPresentation(
     const to = slidesEl.children[toIdx] as HTMLElement | undefined
     if (!to) return
     to.style.visibility = 'hidden'
+    primeMorphStart(doc, to, fromIdx, toIdx)
+    // Commit the start frame while this is still Reveal's hidden destination.
+    // Without the flush, Chromium can reuse the layer texture from the slide's
+    // previous visit for one compositor frame even though the inline styles are
+    // already correct by the time `slidechanged` observers inspect them.
+    void to.offsetWidth
     primedMorphSection = to
   }) as any)
 
@@ -1119,6 +1125,44 @@ function morphMathSymbols(
   return true
 }
 
+function applyMorphGeometry(node: HTMLElement, a: SlideElement, b: SlideElement, p: number) {
+  const x = a.x + (b.x - a.x) * p
+  const y = a.y + (b.y - a.y) * p
+  const w = a.w + (b.w - a.w) * p
+  const h = a.h + (b.h - a.h) * p
+  const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
+  node.style.transformOrigin = '0 0'
+  node.style.transform =
+    `translate(${x - b.x}px, ${y - b.y}px)` +
+    (r ? ` rotate(${r}deg)` : '') +
+    ` scale(${w / Math.max(b.w, 0.01)}, ${h / Math.max(b.h, 0.01)})`
+}
+
+/** Seed the hidden destination before Reveal promotes it to `.present`. */
+function primeMorphStart(doc: BentoDoc, toSection: HTMLElement, fromIdx: number, toIdx: number) {
+  const fromModel = modelByMorphKey(doc, fromIdx)
+  const toModel = modelByMorphKey(doc, toIdx)
+  for (const [id, node] of elementsById(toSection)) {
+    const a = fromModel.get(id)
+    const b = toModel.get(id)
+    if (!a || !b) {
+      node.style.opacity = '0'
+      continue
+    }
+    if (a.x !== b.x || a.y !== b.y || a.w !== b.w || a.h !== b.h || (a.rotation ?? 0) !== (b.rotation ?? 0)) {
+      applyMorphGeometry(node, a, b, 0)
+    }
+    node.style.opacity = String(a.opacity)
+    if (a.type === 'text' && b.type === 'text') {
+      const inner = node.querySelector<HTMLElement>('.bento-text-inner')
+      if (inner) inner.style.color = a.color
+    }
+    if (a.type === 'shape' && b.type === 'shape' && !a.fillGradient) {
+      node.querySelector<SVGElement>('rect,ellipse,polygon,line,path')?.setAttribute('fill', a.fill)
+    }
+  }
+}
+
 function runMorph(
   doc: BentoDoc,
   fromSection: HTMLElement,
@@ -1187,28 +1231,16 @@ function runMorph(
     if (!a || !b) continue
     if (a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && (a.rotation ?? 0) === (b.rotation ?? 0)) continue
     const state = { p: 0 }
-    node.style.transformOrigin = '0 0'
-    const apply = (p: number) => {
-      const x = a.x + (b.x - a.x) * p
-      const y = a.y + (b.y - a.y) * p
-      const w = a.w + (b.w - a.w) * p
-      const h = a.h + (b.h - a.h) * p
-      const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
-      node.style.transform =
-        `translate(${x - b.x}px, ${y - b.y}px)` +
-        (r ? ` rotate(${r}deg)` : '') +
-        ` scale(${w / Math.max(b.w, 0.01)}, ${h / Math.max(b.h, 0.01)})`
-    }
     // Reveal has already made the destination section current when this
     // handler runs. anim.to updates on the next frame, so without this eager
     // start transform the browser can paint the destination's final geometry
     // once before the morph resets. Apply progress 0 in the same task.
-    apply(0)
+    applyMorphGeometry(node, a, b, 0)
     anim.to(state, {
       p: 1,
       duration: MORPH_DURATION,
       ease: MORPH_EASE,
-      onUpdate() { apply(state.p) },
+      onUpdate() { applyMorphGeometry(node, a, b, state.p) },
       onComplete() {
         node.style.transformOrigin = ''
         node.style.transform = b.rotation ? `rotate(${b.rotation}deg)` : ''
