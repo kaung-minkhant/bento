@@ -4,10 +4,10 @@ This package exposes the encrypted document service through the standard MCP
 protocol. It is agent-agnostic: Claude, ChatGPT, local models, and other MCP
 clients can use the same endpoint.
 
-The adapter is deliberately metadata/session-only in this phase. It never
-decrypts or returns a `.bento.html` snapshot, document password, vault key, or
-relay key. Later browser-mediated mutation tools will use the editor's normal
-document-model path so undo, collaboration, autosave, and export keep working.
+The adapter never decrypts stored snapshots or receives a document password,
+vault key, or relay key. Metadata and session tools use the document service.
+Content tools require an explicit browser bridge connection and then read or
+replace the open document through the editor's normal undoable mutation path.
 
 ## Run
 
@@ -24,11 +24,22 @@ Optional environment:
 HOST=127.0.0.1
 PORT=8790
 MCP_ALLOWED_DOC_IDS=doc-uuid-1,doc-uuid-2
+BENTO_AGENT_BRIDGE_TOKEN=...
 ```
 
 `MCP_ALLOWED_DOC_IDS` is a deployment-level allowlist. Even without it, every
 document tool requires an explicit `docId` and the document service enforces
-the token subject's membership and role.
+the token subject's membership and role. `BENTO_AGENT_BRIDGE_TOKEN` enables
+browser connections; omit it to disable content tools.
+
+After starting the adapter, connect the open editor from its browser console:
+
+```js
+window.bento.agent.connect('ws://127.0.0.1:8790/bridge', 'your-bridge-token')
+```
+
+Use `wss://` for a remote HTTPS deployment. The browser must be open on the
+same document ID listed in `MCP_ALLOWED_DOC_IDS`.
 
 HTTP MCP endpoint:
 

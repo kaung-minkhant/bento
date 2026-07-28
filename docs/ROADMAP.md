@@ -72,9 +72,10 @@ subject. Sharing, multi-user access, and agent access come later.
   Streamable HTTP and stdio transports.
 - Keep the adapter agent-agnostic rather than integrating individual agents.
 - Keep the adapter metadata/session-only until browser-mediated document
-  capabilities are implemented: it never decrypts snapshots or receives vault
-  or relay keys.
-- Route future content actions through normal document-model mutations so
+  capabilities are implemented: it never decrypts stored snapshots or receives
+  vault or relay keys. The explicit browser bridge now provides read and
+  replace operations for one open document.
+- Route content actions through normal document-model mutations so
   undo, autosave, collaboration, validation, and export continue to work.
 - Scope every agent capability to an explicit document and role.
 

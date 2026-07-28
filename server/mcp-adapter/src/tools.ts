@@ -2,12 +2,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import type { AdapterConfig } from './config.js'
 import { DocumentServiceClient } from './client.js'
+import { BrowserBridge } from './bridge.js'
 
 function result(value: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value) }] }
 }
 
-export function createMcpServer(config: AdapterConfig, client = new DocumentServiceClient(config)) {
+export function createMcpServer(config: AdapterConfig, client = new DocumentServiceClient(config), bridge?: BrowserBridge) {
   const server = new McpServer({ name: 'bento-document-service', version: '1.0.0' })
   const assertAllowed = (docId: string) => {
     if (config.allowedDocIds.size && !config.allowedDocIds.has(docId)) {
@@ -56,6 +57,20 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
     inputSchema: { docId: z.string().uuid(), confirm: z.literal('delete') },
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   }, async ({ docId }) => { assertAllowed(docId); return result(await client.deleteDocument(docId)) })
+
+  if (bridge) {
+    server.registerTool('agent_read_document', {
+      description: 'Read the plaintext document model from the explicitly connected browser editor. Requires an intentional browser bridge connection.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'read_document')) })
+
+    server.registerTool('agent_replace_document', {
+      description: 'Replace the explicitly connected browser editor document through its normal undoable mutation path.',
+      inputSchema: { docId: z.string().uuid(), json: z.string().min(2).max(50_000_000) },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, json }) => { assertAllowed(docId); return result(await bridge.request(docId, 'replace_document', json)) })
+  }
 
   return server
 }

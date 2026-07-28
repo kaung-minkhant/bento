@@ -420,6 +420,52 @@ if (location.hash === '#present') {
     open: (docId: string) => openHostedIntoEditor(docId),
     get current() { return { docId: hostedDocId, versionId: hostedVersionId } },
   },
+  /** Explicit browser bridge for a trusted MCP agent. */
+  agent: (() => {
+    let socket: WebSocket | null = null
+    const sendResponse = (requestId: string, ok: boolean, value?: unknown, error?: string) => {
+      if (socket?.readyState !== WebSocket.OPEN) return
+      socket.send(JSON.stringify({ type: 'response', requestId, ok, ...(value === undefined ? {} : { value }), ...(error ? { error } : {}) }))
+    }
+    const connect = (url: string, token: string) => {
+      socket?.close()
+      const next = new WebSocket(url)
+      socket = next
+      next.addEventListener('open', () => {
+        next.send(JSON.stringify({ type: 'register', docId: store.doc.docId, token }))
+      })
+      next.addEventListener('message', (event) => {
+        let message: { type?: string; requestId?: string; operation?: string; json?: string }
+        try { message = JSON.parse(String(event.data)) } catch { return }
+        if (message.type !== 'request' || typeof message.requestId !== 'string') return
+        try {
+          if (message.operation === 'read_document') {
+            sendResponse(message.requestId, true, store.doc)
+            return
+          }
+          if (message.operation === 'replace_document' && typeof message.json === 'string') {
+            const nextDoc = parseDoc(message.json)
+            if (!nextDoc || nextDoc.docId !== store.doc.docId) {
+              sendResponse(message.requestId, false, undefined, 'The replacement must be a valid document with the same docId.')
+              return
+            }
+            store.replaceDoc(nextDoc)
+            sendResponse(message.requestId, true, { ok: true, docId: nextDoc.docId })
+            return
+          }
+          sendResponse(message.requestId, false, undefined, 'Unsupported browser bridge operation.')
+        } catch (error) {
+          sendResponse(message.requestId, false, undefined, error instanceof Error ? error.message : 'Browser bridge operation failed.')
+        }
+      })
+      return { status: 'connecting', docId: store.doc.docId }
+    }
+    return {
+      connect,
+      disconnect: () => { socket?.close(); socket = null },
+      status: () => socket?.readyState === WebSocket.OPEN ? 'connected' : socket ? 'connecting' : 'off',
+    }
+  })(),
   /**
    * AI/tooling round-trip: replace the whole document from a JSON string
    * (the contents of #bento-doc). Validates via parseDoc; returns false and
