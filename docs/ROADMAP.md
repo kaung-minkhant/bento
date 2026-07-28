@@ -104,6 +104,50 @@ after a manual edit, and activity-history clearing without changing document
 content. The file remains authoritative, hosted snapshots remain encrypted,
 and agent content access still requires an explicit browser pairing.
 
-Future work belongs in a new roadmap rather than expanding these phases.
 Fine-grained collaboration access-control phases are tracked separately in
 `docs/collab-design.md`.
+
+## Continuing roadmap: agent-authored decks
+
+The next milestone is an agent that can compose a complete slide, inspect its
+rendered result, identify visual problems, and refine it through targeted,
+undoable mutations rather than replacing the whole document JSON.
+
+### Phase 6: visual feedback loop
+
+- Render one slide to a preview image through the explicit browser bridge.
+- Render compact deck thumbnails for narrative and consistency review.
+- Validate overflow, clipping, off-canvas geometry, unintended overlap, and
+  low-contrast text.
+- Keep rendered content scoped to the explicitly paired document.
+
+### Phase 7: rich creation vocabulary
+
+- Add targeted tools for shapes, images, lines, charts, and tables.
+- Add slide background, transition, and layout controls.
+- Expand element updates to the presentation properties already supported by
+  the editor, including typography, fills, borders, shadows, and effects.
+- Support duplication, alignment, distribution, grouping, and z-order without
+  requiring full-document replacement.
+- Add safe asset ingestion and reuse for embedded and generated images.
+
+### Phase 8: composition system
+
+- Expose deck themes, palettes, and named typography roles.
+- Provide reusable layout recipes for common presentation structures without
+  forcing every deck into one visual style.
+- Let agents inspect and reuse the current deck's visual language.
+- Add design-quality checks across slides for hierarchy, rhythm, consistency,
+  and narrative flow.
+
+### Phase 9: transactional agent workflow
+
+- Apply several targeted operations atomically as one activity entry and one
+  undo checkpoint.
+- Require revision preconditions so stale plans fail safely.
+- Validate a batch before mutation and leave the document unchanged on error.
+- Support the full inspect, plan, apply, render, critique, refine, validate,
+  and approve loop in the editor.
+
+The implementation order starts with slide rendering and validation. Richer
+creation tools follow only once agents can see and evaluate what they produce.
