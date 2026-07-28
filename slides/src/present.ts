@@ -1066,19 +1066,23 @@ function morphMathSymbols(
 
   const state = { p: 0 }
   for (const { node } of pairs) node.style.willChange = 'transform'
+  const apply = (p: number) => {
+    // undo the box tween's scale so the symbol delta stays in model units
+    const sx = (a.w + (b.w - a.w) * p) / Math.max(b.w, 0.01)
+    const sy = (a.h + (b.h - a.h) * p) / Math.max(b.h, 0.01)
+    for (const { node, dx, dy } of pairs) {
+      node.style.transform = `translate(${(dx * (1 - p)) / sx}px, ${(dy * (1 - p)) / sy}px)`
+    }
+  }
+  // anim.to reads its start state on the next animation frame. Initialise
+  // synchronously so the destination symbols cannot paint for one frame in
+  // their final positions before snapping back to the morph start.
+  apply(0)
   anim.to(state, {
     p: 1,
     duration: MORPH_DURATION,
     ease: MORPH_EASE,
-    onUpdate() {
-      const p = state.p
-      // undo the box tween's scale so the symbol delta stays in model units
-      const sx = (a.w + (b.w - a.w) * p) / Math.max(b.w, 0.01)
-      const sy = (a.h + (b.h - a.h) * p) / Math.max(b.h, 0.01)
-      for (const { node, dx, dy } of pairs) {
-        node.style.transform = `translate(${(dx * (1 - p)) / sx}px, ${(dy * (1 - p)) / sy}px)`
-      }
-    },
+    onUpdate() { apply(state.p) },
     onComplete() {
       for (const { node } of pairs) {
         node.style.transform = ''
@@ -1158,22 +1162,27 @@ function runMorph(
     if (a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && (a.rotation ?? 0) === (b.rotation ?? 0)) continue
     const state = { p: 0 }
     node.style.transformOrigin = '0 0'
+    const apply = (p: number) => {
+      const x = a.x + (b.x - a.x) * p
+      const y = a.y + (b.y - a.y) * p
+      const w = a.w + (b.w - a.w) * p
+      const h = a.h + (b.h - a.h) * p
+      const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
+      node.style.transform =
+        `translate(${x - b.x}px, ${y - b.y}px)` +
+        (r ? ` rotate(${r}deg)` : '') +
+        ` scale(${w / Math.max(b.w, 0.01)}, ${h / Math.max(b.h, 0.01)})`
+    }
+    // Reveal has already made the destination section current when this
+    // handler runs. anim.to updates on the next frame, so without this eager
+    // start transform the browser can paint the destination's final geometry
+    // once before the morph resets. Apply progress 0 in the same task.
+    apply(0)
     anim.to(state, {
       p: 1,
       duration: MORPH_DURATION,
       ease: MORPH_EASE,
-      onUpdate() {
-        const p = state.p
-        const x = a.x + (b.x - a.x) * p
-        const y = a.y + (b.y - a.y) * p
-        const w = a.w + (b.w - a.w) * p
-        const h = a.h + (b.h - a.h) * p
-        const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
-        node.style.transform =
-          `translate(${x - b.x}px, ${y - b.y}px)` +
-          (r ? ` rotate(${r}deg)` : '') +
-          ` scale(${w / Math.max(b.w, 0.01)}, ${h / Math.max(b.h, 0.01)})`
-      },
+      onUpdate() { apply(state.p) },
       onComplete() {
         node.style.transformOrigin = ''
         node.style.transform = b.rotation ? `rotate(${b.rotation}deg)` : ''
