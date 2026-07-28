@@ -22,7 +22,7 @@ import { SyncSession } from './sync/session'
 import { onlineTransport, startSharing, stopSharing } from './sync/online'
 import {
   createHostedDocument, deleteHostedDocument, getHostedToken, getHostedDocument, listHostedDocuments,
-  openHostedDocument, saveHostedVersion, decryptHostedMetadata, hasHostedPassword, setHostedPassword, setHostedToken,
+  openHostedDocument, saveHostedVersion, startHostedSession as registerHostedSession, closeHostedSession, decryptHostedMetadata, hasHostedPassword, setHostedPassword, setHostedToken,
   completeHostedSignIn, ensureHostedVaultKey, getHostedOidcConfig, getHostedProfile, getHostedVaultState, isHostedOidcSignedIn, refreshHostedProfile, signInHosted, signOutHosted,
 } from './hosted'
 import { docContentKey } from './autosave'
@@ -235,6 +235,8 @@ editor.connectSync(session)
 
 let hostedDocId: string | null = hosted?.docId ?? null
 let hostedVersionId: string | null = hosted?.versionId ?? null
+let hostedSessionId: string | null = null
+let hostedSessionHeartbeat: number | null = null
 
 function hostedSaveKey(value: BentoDoc): string {
   return `${docContentKey(value)}:${value.collab && onlineTransport() ? 'live' : 'offline'}`
@@ -260,6 +262,30 @@ const hostedHtml = () => {
   return serializeFile(snapshot)
 }
 
+const stopHostedSession = async () => {
+  if (hostedSessionHeartbeat !== null) {
+    window.clearInterval(hostedSessionHeartbeat)
+    hostedSessionHeartbeat = null
+  }
+  if (hostedDocId && hostedSessionId) {
+    await closeHostedSession(hostedDocId, hostedSessionId)
+  }
+  hostedSessionId = null
+}
+
+const startHostedSessionRecord = async (): Promise<import('./hosted').HostedSession | null> => {
+  const relayRoom = store.doc.collab?.room
+  if (!hostedDocId || !relayRoom || !onlineTransport()) return null
+  const session = await registerHostedSession(hostedDocId, relayRoom, hostedSessionId ?? undefined)
+  hostedSessionId = session.sessionId
+  if (hostedSessionHeartbeat === null) {
+    hostedSessionHeartbeat = window.setInterval(() => {
+      void startHostedSessionRecord().catch((error: unknown) => console.warn('[bento-hosted] session heartbeat failed', error))
+    }, 30_000)
+  }
+  return session
+}
+
 const createOrSaveHosted = async () => {
   const contentKey = hostedSaveKey(store.doc)
   if (hostedDocId && hostedContentKey === contentKey) return null
@@ -270,6 +296,7 @@ const createOrSaveHosted = async () => {
     hostedVersionId = created.currentVersionId
     hostedContentKey = contentKey
     store.setDirty(false)
+    await startHostedSessionRecord()
     return created
   }
   const current = await getHostedDocument(hostedDocId)
@@ -278,6 +305,7 @@ const createOrSaveHosted = async () => {
   hostedVersionId = version.versionId
   hostedContentKey = contentKey
   store.setDirty(false)
+  await startHostedSessionRecord()
   return version
 }
 
@@ -359,7 +387,10 @@ if (location.hash === '#present') {
       void startSharing(session, store)
       return store.doc.collab
     },
-    unshare: () => stopSharing(session, store),
+    unshare: () => {
+      stopSharing(session, store)
+      void stopHostedSession()
+    },
     online: () => onlineTransport()?.status ?? 'off',
   },
   hosted: {
@@ -373,6 +404,8 @@ if (location.hash === '#present') {
     setPassword: (password: string | null) => setHostedPassword(password),
     ensureVault: () => ensureHostedVaultKey(),
     createOrSave: () => createOrSaveHosted(),
+    startSession: () => startHostedSessionRecord(),
+    stopSession: () => stopHostedSession(),
     openLibrary: () => {
       if (isHostedOidcSignedIn()) location.assign('/library')
       else void signInHosted()
