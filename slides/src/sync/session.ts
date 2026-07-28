@@ -241,7 +241,7 @@ export class SyncSession {
   }
 
   async removeTransport(tr: Transport) {
-    await tr.leave?.({ t: 'bye', a: this.actor })
+    await tr.leave?.({ pv: SYNC_V, t: 'bye', a: this.actor })
     tr.close()
     this.transports = this.transports.filter((x) => x !== tr)
     this.makeExtraTransports = []
