@@ -16,6 +16,8 @@ The deployed components are:
 
 - `bento-slides`: static Vite frontend at `slides.kaungminkhant.space`.
 - `bento-document-service`: internal API service on port `8789`.
+- `bento-mcp-adapter`: authenticated MCP and browser bridge service at
+  `https://slides.kaungminkhant.space/mcp`.
 - `bento-document-migrate`: one-shot Postgres migration Job.
 
 The sync relay remains a separate Cloudflare Worker. It is not part of this
@@ -36,9 +38,10 @@ push to:
 ```text
 registry.gitlab.com/james-homelab/bento/document-service
 registry.gitlab.com/james-homelab/bento/frontend
+registry.gitlab.com/james-homelab/bento/mcp-adapter
 ```
 
-The workflow is `.github/workflows/images.yml`. It builds both images and tags
+The workflow is `.github/workflows/images.yml`. It builds all three images and tags
 them as `build-{run-number}-{commit}`. It does not deploy directly.
 
 ## GitOps prerequisites
@@ -67,11 +70,14 @@ installation it is `https://authz.kaungminkhant.space`. Register the public
 frontend origin (`https://slides.kaungminkhant.space/`) as a Zitadel redirect
 URI and enable authorization code with PKCE. The browser obtains a short-lived
 access token; the service validates its signature and `sub` against Zitadel's
-JWKS. `BENTO_API_TOKEN` remains available for non-browser agents until the MCP
-adapter is added.
+JWKS. `BENTO_API_TOKEN` remains the document-service credential used by the MCP
+adapter's backend client; MCP clients use the separate `MCP_ACCESS_TOKEN`.
 
-The deployment intentionally does not include this Secret or inspect existing
-secret files.
+Add `MCP_ACCESS_TOKEN` and `BENTO_AGENT_BRIDGE_TOKEN` to the same Secret. The
+MCP adapter uses `BENTO_API_TOKEN` as its document-service credential, while
+the other two keys are dedicated credentials for MCP clients and browser
+pairing. The deployment intentionally does not include this Secret or inspect
+existing secret files.
 
 The image-pull and Flux registry Secret is referenced as:
 
@@ -120,9 +126,11 @@ kubectl -n bento-prod rollout status deployment/bento-slides
 kubectl -n bento-prod rollout status deployment/bento-document-service
 ```
 
-The frontend is public through the Traefik Ingress. The document service
-remains a ClusterIP workload, with authenticated `/api/v1/*` requests routed
-through the same host under `/api`.
+The frontend is public through the Traefik Ingress. The document service and
+MCP adapter remain ClusterIP workloads, with authenticated `/api/v1/*` requests
+routed under `/api` and MCP traffic routed under `/mcp`, `/pairings`, and
+`/bridge` on the same host. MCP clients still need the `MCP_ACCESS_TOKEN`
+bearer token.
 
 ## Current readiness boundary
 
