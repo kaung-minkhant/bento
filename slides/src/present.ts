@@ -587,6 +587,28 @@ export function startPresentation(
     }
   }, { passive: true })
 
+  // Reveal promotes the destination section before `slidechanged`. Usually the
+  // event follows in the same task, but a browser can occasionally composite
+  // the promoted section first (especially on repeat visits), exposing its
+  // final model frame for one flash. Keep only morph destinations hidden across
+  // that handoff; visibility preserves layout, so runMorph can still measure
+  // formula symbols and initialise every layer before the section is revealed.
+  let primedMorphSection: HTMLElement | null = null
+  deck.on('beforeslidechange', ((event: any) => {
+    const fromIdx = deck.getIndices().h
+    const toIdx = Number(event.indexh)
+    const forward = toIdx > fromIdx
+    const morphing =
+      toIdx !== fromIdx &&
+      ((forward && doc.slides[toIdx]?.transition === 'morph') ||
+        (!forward && doc.slides[fromIdx]?.transition === 'morph'))
+    if (!morphing || reduceMotion) return
+    const to = slidesEl.children[toIdx] as HTMLElement | undefined
+    if (!to) return
+    to.style.visibility = 'hidden'
+    primedMorphSection = to
+  }) as any)
+
   deck.on('slidechanged', ((event: any) => {
     const from = event.previousSlide as HTMLElement | undefined
     const to = event.currentSlide as HTMLElement
@@ -634,6 +656,10 @@ export function startPresentation(
     // symbol-morph on the way out. symbolOffsets normalises by the element's
     // own box, so measuring mid-morph is safe.
     cacheSlideSymbols(doc, to, toIdx)
+    if (primedMorphSection) {
+      primedMorphSection.style.visibility = ''
+      primedMorphSection = null
+    }
     updateSpeaker()
   }) as any)
 
