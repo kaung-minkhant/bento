@@ -394,7 +394,7 @@ if (location.hash === '#present') {
       return store.doc.collab
     },
     unshare: () => {
-      stopSharing(session, store)
+      void stopSharing(session, store)
       void stopHostedSession()
     },
     online: () => onlineTransport()?.status ?? 'off',
