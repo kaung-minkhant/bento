@@ -906,9 +906,9 @@ export class Editor {
       `<p>${t('Pair an agent with this open deck. The agent can read and change this deck through the normal editor, undo and collaboration paths.')}</p>` +
       `<label>${t('MCP adapter URL')}<input class="ed-agent-url" type="url" placeholder="http://127.0.0.1:8790"></label>` +
       `<button class="ed-agent-connect ed-primary" type="button">${t('Create pairing code')}</button>` +
-      `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><button class="ed-agent-disconnect" type="button">${t('Disconnect agent')}</button></div><code class="ed-agent-code"></code>` +
+      `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><button class="ed-agent-disconnect" type="button">${t('Stop agent')}</button></div><code class="ed-agent-code"></code>` +
       `<p>${t('Tell your agent to claim this pairing code:')}</p><button class="ed-agent-copy" type="button">${ICONS.copy}<span>${t('Copy code')}</span></button>` +
-      `<section class="ed-agent-activity" aria-live="polite"><header><strong>${t('Agent activity')}</strong><button class="ed-agent-clear" type="button">${t('Clear activity')}</button></header><div class="ed-agent-activity-empty">${t('No agent actions yet')}</div><ol class="ed-agent-activity-list"></ol></section></div>`
+      `<section class="ed-agent-activity" aria-live="polite"><header><div><strong>${t('Agent activity')}</strong><span class="ed-agent-activity-summary"></span></div><div class="ed-agent-activity-actions"><button class="ed-agent-undo" type="button" title="${t('Undo last agent change')}">${ICONS.undo}</button><button class="ed-agent-redo" type="button" title="${t('Redo last agent change')}">${ICONS.redo}</button><button class="ed-agent-clear" type="button">${t('Clear activity')}</button></div></header><div class="ed-agent-activity-empty">${t('No agent actions yet')}</div><ol class="ed-agent-activity-list"></ol></section></div>`
     const urlInput = dialog.querySelector<HTMLInputElement>('.ed-agent-url')!
     const connectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-connect')!
     const pairing = dialog.querySelector<HTMLElement>('.ed-agent-pairing')!
@@ -916,12 +916,15 @@ export class Editor {
     const code = dialog.querySelector<HTMLElement>('.ed-agent-code')!
     const copyB = dialog.querySelector<HTMLButtonElement>('.ed-agent-copy')!
     const disconnectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-disconnect')!
+    const undoB = dialog.querySelector<HTMLButtonElement>('.ed-agent-undo')!
+    const redoB = dialog.querySelector<HTMLButtonElement>('.ed-agent-redo')!
     const clearB = dialog.querySelector<HTMLButtonElement>('.ed-agent-clear')!
     const activityEmpty = dialog.querySelector<HTMLElement>('.ed-agent-activity-empty')!
     const activityList = dialog.querySelector<HTMLOListElement>('.ed-agent-activity-list')!
+    const activitySummary = dialog.querySelector<HTMLElement>('.ed-agent-activity-summary')!
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; error?: string }>; clearActions?: () => void } } }).bento?.agent
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
         read_document: 'Read document', summary: 'Deck summary', create_slide: 'Create slide',
@@ -934,6 +937,10 @@ export class Editor {
       const actions = api?.actions?.() ?? []
       activityEmpty.hidden = actions.length > 0
       activityList.textContent = ''
+      const changeCount = actions.filter((action) => action.phase === 'completed' || action.phase === 'undone').length
+      activitySummary.textContent = changeCount > 0 ? `${t('Agent changes')} ${changeCount}` : ''
+      undoB.disabled = !api?.canUndoLast?.()
+      redoB.disabled = !api?.canRedoLast?.()
       const groups: Array<{ action: typeof actions[number]; count: number }> = []
       for (const action of actions.slice().reverse()) {
         const previous = groups[groups.length - 1]
@@ -950,7 +957,9 @@ export class Editor {
         const heading = document.createElement('strong')
         heading.textContent = `${actionLabel(action.operation)}${group.count > 1 ? ` x${group.count}` : ''}`
         const state = document.createElement('span')
-        state.textContent = action.phase === 'running' ? t('Working') : action.phase === 'completed' ? t('Completed') : t('Failed')
+        const phaseLabel = action.phase === 'running' ? t('Working') : action.phase === 'completed' ? t('Completed') : action.phase === 'undone' ? t('Undone') : t('Failed')
+        const duration = action.durationMs === undefined ? '' : ` · ${action.durationMs < 1000 ? `${action.durationMs} ms` : `${(action.durationMs / 1000).toFixed(1)} s`}`
+        state.textContent = `${phaseLabel}${duration}`
         item.append(heading, state)
         if (action.error) {
           const error = document.createElement('small')
@@ -996,6 +1005,8 @@ export class Editor {
     })
     copyB.addEventListener('click', () => void navigator.clipboard?.writeText(code.textContent || ''))
     disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; pairing.classList.remove('connected'); updateStatus() })
+    undoB.addEventListener('click', () => { if (api?.undoLast?.()) renderActivity() })
+    redoB.addEventListener('click', () => { if (api?.redoLast?.()) renderActivity() })
     clearB.addEventListener('click', () => { api?.clearActions?.(); renderActivity() })
     const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); dialog.remove() }
     dialog.querySelector<HTMLButtonElement>('.ed-agent-close')!.addEventListener('click', closePanel)

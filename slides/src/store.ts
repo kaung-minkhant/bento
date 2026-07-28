@@ -19,6 +19,8 @@ export class Store {
   currentIndex = 0
   selection: string[] = []
   dirty = false
+  /** Monotonic local mutation counter, used to scope agent undo safely. */
+  revision = 0
   /** editor-only: which showOnHover set the canvas previews (never saved) */
   hoverPreview: string | null = null
 
@@ -66,6 +68,7 @@ export class Store {
   replaceDoc(next: BentoDoc) {
     this.checkpoint()
     this.doc = next
+    this.revision++
     this.currentIndex = 0
     this.selection = []
     this.setDirty(true)
@@ -89,6 +92,7 @@ export class Store {
     if (this.readOnly) return // live viewer — user edits are inert
     this.checkpoint()
     mutate()
+    this.revision++
     this.touch(event)
   }
 
@@ -100,14 +104,15 @@ export class Store {
     if (event !== 'doc') this.emit(event)
   }
 
-  undo() { this.restore(this.undoStack, this.redoStack) }
-  redo() { this.restore(this.redoStack, this.undoStack) }
+  undo() { return this.restore(this.undoStack, this.redoStack) }
+  redo() { return this.restore(this.redoStack, this.undoStack) }
 
   private restore(from: string[], to: string[]) {
     const snapshot = from.pop()
-    if (!snapshot) return
+    if (!snapshot) return false
     to.push(JSON.stringify(this.doc))
     this.doc = JSON.parse(snapshot)
+    this.revision++
     this.currentIndex = Math.min(this.currentIndex, this.doc.slides.length - 1)
     this.selection = this.selection.filter((id) => this.element(id))
     this.setDirty(true)
@@ -115,6 +120,7 @@ export class Store {
     this.emit('slides')
     this.emit('current')
     this.emit('selection')
+    return true
   }
 
   setDirty(dirty: boolean) {
