@@ -2182,9 +2182,14 @@ dialog.ed-agent-dialog .ed-agent-close { position: absolute; top: 12px; right: 1
 .ed-agent-code { display: block; margin: 8px 0 10px; font-size: 28px; letter-spacing: 3px; color: #16273E; }
 .ed-agent-copy { display: inline-flex; align-items: center; gap: 6px; }
 .ed-agent-disconnect { float: right; color: #9B3A2C; }
+.ed-agent-pairing.connected .ed-agent-code,
+.ed-agent-pairing.connected > p,
+.ed-agent-pairing.connected .ed-agent-copy { display: none; }
+.ed-agent-pairing.connected .ed-agent-status { margin-bottom: 0; }
 .ed-agent-activity {
-  margin-top: 18px;
-  padding-top: 14px;
+  clear: both;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid #E3E8EF;
 }
 .ed-agent-activity header {
@@ -2200,8 +2205,8 @@ dialog.ed-agent-dialog .ed-agent-close { position: absolute; top: 12px; right: 1
 .ed-agent-activity-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 190px;
+  gap: 4px;
+  max-height: 150px;
   overflow: auto;
   margin: 0;
   padding: 0;
@@ -2211,7 +2216,7 @@ dialog.ed-agent-dialog .ed-agent-close { position: absolute; top: 12px; right: 1
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2px 8px;
-  padding: 7px 8px;
+  padding: 6px 8px;
   border-radius: 7px;
   background: #F5F7FA;
   font-size: 12px;

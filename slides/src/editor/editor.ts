@@ -922,16 +922,33 @@ export class Editor {
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
     const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; error?: string }>; clearActions?: () => void } } }).bento?.agent
-    const actionLabel = (operation: string) => operation.replaceAll('_', ' ')
+    const actionLabel = (operation: string) => {
+      const labels: Record<string, string> = {
+        read_document: 'Read document', summary: 'Deck summary', create_slide: 'Create slide',
+        add_text: 'Add text', update_element: 'Update element', delete_element: 'Delete element',
+        set_notes: 'Set speaker notes', replace_document: 'Replace document',
+      }
+      return labels[operation] || operation.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())
+    }
     const renderActivity = () => {
       const actions = api?.actions?.() ?? []
       activityEmpty.hidden = actions.length > 0
       activityList.textContent = ''
+      const groups: Array<{ action: typeof actions[number]; count: number }> = []
       for (const action of actions.slice().reverse()) {
+        const previous = groups[groups.length - 1]
+        if (previous && previous.action.operation === action.operation && previous.action.phase === action.phase && previous.action.error === action.error) {
+          previous.count++
+        } else {
+          groups.push({ action, count: 1 })
+        }
+      }
+      for (const group of groups) {
+        const { action } = group
         const item = document.createElement('li')
         item.className = `ed-agent-activity-item ${action.phase}`
         const heading = document.createElement('strong')
-        heading.textContent = actionLabel(action.operation)
+        heading.textContent = `${actionLabel(action.operation)}${group.count > 1 ? ` x${group.count}` : ''}`
         const state = document.createElement('span')
         state.textContent = action.phase === 'running' ? t('Working') : action.phase === 'completed' ? t('Completed') : t('Failed')
         item.append(heading, state)
@@ -949,6 +966,7 @@ export class Editor {
       const current = api?.status?.() || 'off'
       status.textContent = current === 'connected' ? t('Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
       status.classList.toggle('ok', current === 'connected')
+      pairing.classList.toggle('connected', current === 'connected')
     }
     const existingStatus = api?.status?.() || 'off'
     if (existingStatus !== 'off') {
@@ -977,7 +995,7 @@ export class Editor {
       }
     })
     copyB.addEventListener('click', () => void navigator.clipboard?.writeText(code.textContent || ''))
-    disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; updateStatus() })
+    disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; pairing.classList.remove('connected'); updateStatus() })
     clearB.addEventListener('click', () => { api?.clearActions?.(); renderActivity() })
     dialog.addEventListener('close', () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); dialog.remove() })
     dialog.showModal()
