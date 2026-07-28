@@ -1091,6 +1091,9 @@ export class Editor {
         action(ICONS.stop, t('Stop sharing'), false, () => {
           if (!this.session) return
           stopSharing(this.session, this.store)
+          const api = (window as unknown as { bento?: { hosted?: { stopSession?: () => Promise<unknown> } } }).bento?.hosted
+          const closing = api?.stopSession?.()
+          void closing?.catch((error) => console.warn('[bento-hosted] session close failed', error))
           this.wireOnlineStatus()
           this.renderSharePanel()
         }, t('Disconnect this deck from the live session. Copies keep their last state and can rejoin if you go live again.'))
@@ -1114,6 +1117,9 @@ export class Editor {
     if (!this.session || offlineEnabled()) return
     this.session.enableSharing()
     await startSharing(this.session, this.store)
+    const api = (window as unknown as { bento?: { hosted?: { startSession?: () => Promise<unknown> } } }).bento?.hosted
+    const registration = api?.startSession?.()
+    await registration?.catch((error) => console.warn('[bento-hosted] session registration failed', error))
     this.wireOnlineStatus()
   }
 

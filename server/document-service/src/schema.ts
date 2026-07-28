@@ -40,12 +40,18 @@ export const createVersionSchema = encryptedSnapshotSchema.extend({
   labelCiphertext: base64url.optional(),
 })
 
+export const startSessionSchema = z.object({
+  relayRoom: z.string().url().max(2048),
+  sessionId: z.string().uuid().optional(),
+})
+
 export const recoverySchema = encryptedSnapshotSchema.extend({
   expiresAt: z.string().datetime({ offset: true }),
 })
 
 export type CreateDocumentInput = z.infer<typeof createDocumentSchema>
 export type CreateVersionInput = z.infer<typeof createVersionSchema>
+export type StartSessionInput = z.infer<typeof startSessionSchema>
 export type RecoveryInput = z.infer<typeof recoverySchema>
 export type WrappedVaultKey = z.infer<typeof wrappedVaultKeySchema>
 export type CreateVaultKeyInput = z.infer<typeof createVaultKeySchema>

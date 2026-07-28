@@ -11,10 +11,12 @@ import {
   createVersionSchema,
   decodeBase64url,
   recoverySchema,
+  startSessionSchema,
   type CreateDocumentInput,
   type CreateVaultKeyInput,
   type CreateVersionInput,
   type RecoveryInput,
+  type StartSessionInput,
 } from './schema.js'
 import { BlobStore } from './storage.js'
 
@@ -40,6 +42,15 @@ type VersionRow = {
   parent_version_id: string | null
   label_ciphertext: string | null
   created_at: Date
+}
+type SessionRow = {
+  session_id: string
+  doc_id: string
+  relay_room: string
+  created_by_subject: string
+  created_at: Date
+  last_seen_at: Date
+  closed_at: Date | null
 }
 
 class HttpError extends Error {
@@ -113,6 +124,18 @@ function versionJson(row: VersionRow) {
     parentVersionId: row.parent_version_id,
     labelCiphertext: row.label_ciphertext,
     createdAt: row.created_at,
+  }
+}
+
+function sessionJson(row: SessionRow) {
+  return {
+    sessionId: row.session_id,
+    docId: row.doc_id,
+    relayRoom: row.relay_room,
+    createdBySubject: row.created_by_subject,
+    createdAt: row.created_at,
+    lastSeenAt: row.last_seen_at,
+    closedAt: row.closed_at,
   }
 }
 
@@ -435,6 +458,76 @@ export function buildApp(
     }
     if (previousKey && previousKey !== key) await blobs.delete(previousKey).catch(() => undefined)
     return reply.code(204).send()
+  })
+
+  app.post('/api/v1/documents/:docId/sessions', async (request, reply) => {
+    const subject = await requireAuth(request, reply, config)
+    if (!subject) return
+    const { docId } = request.params as { docId: string }
+    const input = parseBody<StartSessionInput>(startSessionSchema, request.body)
+    if (!await readDocument(db, docId, subject)) {
+      return reply.code(404).send({ error: 'not_found', message: 'The document was not found.' })
+    }
+
+    let session: SessionRow | undefined
+    if (input.sessionId) {
+      const result = await db.query<SessionRow>(`
+        SELECT session_id, doc_id, relay_room, created_by_subject, created_at, last_seen_at, closed_at
+        FROM document_sessions
+        WHERE session_id = $1 AND doc_id = $2 AND closed_at IS NULL
+      `, [input.sessionId, docId])
+      session = result.rows[0]
+      if (!session) return reply.code(404).send({ error: 'session_not_found', message: 'The hosted session was not found or is closed.' })
+      if (session.relay_room !== input.relayRoom) {
+        return reply.code(409).send({ error: 'session_room_mismatch', message: 'The session relay room does not match.' })
+      }
+      const refreshed = await db.query<SessionRow>(`
+        UPDATE document_sessions SET last_seen_at = now()
+        WHERE session_id = $1
+        RETURNING session_id, doc_id, relay_room, created_by_subject, created_at, last_seen_at, closed_at
+      `, [session.session_id])
+      session = refreshed.rows[0]
+    } else {
+      const inserted = await db.query<SessionRow>(`
+        INSERT INTO document_sessions (doc_id, relay_room, created_by_subject)
+        VALUES ($1, $2, $3)
+        ON CONFLICT DO NOTHING
+        RETURNING session_id, doc_id, relay_room, created_by_subject, created_at, last_seen_at, closed_at
+      `, [docId, input.relayRoom, subject])
+      session = inserted.rows[0]
+      if (!session) {
+        const existing = await db.query<SessionRow>(`
+          SELECT session_id, doc_id, relay_room, created_by_subject, created_at, last_seen_at, closed_at
+          FROM document_sessions
+          WHERE doc_id = $1 AND relay_room = $2 AND closed_at IS NULL
+        `, [docId, input.relayRoom])
+        session = existing.rows[0]
+        if (!session) throw new Error('The hosted session could not be resumed.')
+        const refreshed = await db.query<SessionRow>(`
+          UPDATE document_sessions SET last_seen_at = now()
+          WHERE session_id = $1
+          RETURNING session_id, doc_id, relay_room, created_by_subject, created_at, last_seen_at, closed_at
+        `, [session.session_id])
+        session = refreshed.rows[0]
+      }
+    }
+    return reply.send(sessionJson(session))
+  })
+
+  app.delete('/api/v1/documents/:docId/sessions/:sessionId', async (request, reply) => {
+    const subject = await requireAuth(request, reply, config)
+    if (!subject) return
+    const { docId, sessionId } = request.params as { docId: string; sessionId: string }
+    const document = await readDocument(db, docId, subject)
+    if (!document) return reply.code(404).send({ error: 'not_found', message: 'The document was not found.' })
+    if (document.role === 'reader') return reply.code(403).send({ error: 'forbidden', message: 'Readers cannot close hosted sessions.' })
+    const result = await db.query<SessionRow>(`
+      UPDATE document_sessions SET closed_at = now(), last_seen_at = now()
+      WHERE session_id = $1 AND doc_id = $2 AND closed_at IS NULL
+      RETURNING session_id, doc_id, relay_room, created_by_subject, created_at, last_seen_at, closed_at
+    `, [sessionId, docId])
+    if (!result.rows[0]) return reply.code(404).send({ error: 'session_not_found', message: 'The hosted session was not found or is closed.' })
+    return reply.send(sessionJson(result.rows[0]))
   })
 
   app.addHook('onClose', async () => {

@@ -31,6 +31,16 @@ export type HostedVersion = {
   createdAt: string
 }
 
+export type HostedSession = {
+  sessionId: string
+  docId: string
+  relayRoom: string
+  createdBySubject: string
+  createdAt: string
+  lastSeenAt: string
+  closedAt: string | null
+}
+
 export type HostedOidcConfig = { issuer: string; clientId: string; audience: string }
 export type HostedProfile = { sub: string; name?: string; email?: string; preferredUsername?: string }
 type WrappedVaultKey = { ciphertext: string; salt: string; nonce: string; version: number }
@@ -470,5 +480,18 @@ export async function saveHostedVersion(
   return request<HostedVersion>(`/documents/${encodeURIComponent(docId)}/versions`, {
     method: 'POST',
     body: JSON.stringify({ ...encrypted, parentVersionId }),
+  })
+}
+
+export async function startHostedSession(docId: string, relayRoom: string, sessionId?: string): Promise<HostedSession> {
+  return request<HostedSession>(`/documents/${encodeURIComponent(docId)}/sessions`, {
+    method: 'POST',
+    body: JSON.stringify({ relayRoom, ...(sessionId ? { sessionId } : {}) }),
+  })
+}
+
+export async function closeHostedSession(docId: string, sessionId: string): Promise<HostedSession> {
+  return request<HostedSession>(`/documents/${encodeURIComponent(docId)}/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
   })
 }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createDocumentSchema, createVaultKeySchema, createVersionSchema } from './schema.js'
+import { createDocumentSchema, createVaultKeySchema, createVersionSchema, startSessionSchema } from './schema.js'
 
 const valid = {
   docId: '8e8f3f26-15ad-4c6c-8b31-2cc1e3e651f1',
@@ -26,4 +26,9 @@ test('accepts an opaque wrapped vault key', () => {
   assert.equal(createVaultKeySchema.safeParse({
     wrappedKey: { ciphertext: 'Y2lwaGVydGV4dA', salt: 'c2FsdA', nonce: 'bm9uY2U', version: 1 },
   }).success, true)
+})
+
+test('accepts a scoped relay session request', () => {
+  assert.equal(startSessionSchema.safeParse({ relayRoom: 'https://bento-sync.example/d/room' }).success, true)
+  assert.equal(startSessionSchema.safeParse({ relayRoom: 'not-a-url' }).success, false)
 })
