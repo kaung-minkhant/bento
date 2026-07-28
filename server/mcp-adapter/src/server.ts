@@ -15,7 +15,7 @@ const jsonBody = async (request: import('node:http').IncomingMessage): Promise<u
   for await (const chunk of request) chunks.push(Buffer.from(chunk))
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
 }
-const corsHeaders = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'POST, OPTIONS' }
+const corsHeaders = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, authorization', 'access-control-allow-methods': 'POST, OPTIONS' }
 const sendJson = (response: import('node:http').ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
   if (response.writableEnded) return
   response.writeHead(status, { ...headers, 'content-type': 'application/json' })
