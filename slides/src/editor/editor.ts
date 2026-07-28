@@ -896,18 +896,19 @@ export class Editor {
   // --- live-collaboration Share popover ------------------------------------
 
   private openAgentPanel() {
-    const dialog = document.createElement('dialog')
-    dialog.className = 'ed-agent-dialog'
+    const dialog = document.createElement('aside')
+    dialog.className = 'ed-agent-dialog ed-agent-panel'
+    dialog.setAttribute('role', 'complementary')
+    dialog.setAttribute('aria-label', t('Connect an AI agent'))
     dialog.innerHTML =
-      `<form method="dialog"><button class="ed-agent-close" aria-label="${t('Close')}">×</button></form>` +
+      `<button class="ed-agent-close" aria-label="${t('Close')}">×</button>` +
       `<h2>${t('Connect an AI agent')}</h2>` +
       `<p>${t('Pair an agent with this open deck. The agent can read and change this deck through the normal editor, undo and collaboration paths.')}</p>` +
       `<label>${t('MCP adapter URL')}<input class="ed-agent-url" type="url" placeholder="http://127.0.0.1:8790"></label>` +
       `<button class="ed-agent-connect ed-primary" type="button">${t('Create pairing code')}</button>` +
-      `<div class="ed-agent-pairing" hidden><div class="ed-agent-status"></div><code class="ed-agent-code"></code>` +
+      `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><button class="ed-agent-disconnect" type="button">${t('Disconnect agent')}</button></div><code class="ed-agent-code"></code>` +
       `<p>${t('Tell your agent to claim this pairing code:')}</p><button class="ed-agent-copy" type="button">${ICONS.copy}<span>${t('Copy code')}</span></button>` +
-      `<button class="ed-agent-disconnect" type="button">${t('Disconnect agent')}</button></div>`
-    document.body.appendChild(dialog)
+      `<section class="ed-agent-activity" aria-live="polite"><header><strong>${t('Agent activity')}</strong><button class="ed-agent-clear" type="button">${t('Clear activity')}</button></header><div class="ed-agent-activity-empty">${t('No agent actions yet')}</div><ol class="ed-agent-activity-list"></ol></section></div>`
     const urlInput = dialog.querySelector<HTMLInputElement>('.ed-agent-url')!
     const connectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-connect')!
     const pairing = dialog.querySelector<HTMLElement>('.ed-agent-pairing')!
@@ -915,13 +916,57 @@ export class Editor {
     const code = dialog.querySelector<HTMLElement>('.ed-agent-code')!
     const copyB = dialog.querySelector<HTMLButtonElement>('.ed-agent-copy')!
     const disconnectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-disconnect')!
+    const clearB = dialog.querySelector<HTMLButtonElement>('.ed-agent-clear')!
+    const activityEmpty = dialog.querySelector<HTMLElement>('.ed-agent-activity-empty')!
+    const activityList = dialog.querySelector<HTMLOListElement>('.ed-agent-activity-list')!
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null } } }).bento?.agent
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; error?: string }>; clearActions?: () => void } } }).bento?.agent
+    const actionLabel = (operation: string) => {
+      const labels: Record<string, string> = {
+        read_document: 'Read document', summary: 'Deck summary', create_slide: 'Create slide',
+        add_text: 'Add text', update_element: 'Update element', delete_element: 'Delete element',
+        set_notes: 'Set speaker notes', replace_document: 'Replace document',
+      }
+      return labels[operation] || operation.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())
+    }
+    const renderActivity = () => {
+      const actions = api?.actions?.() ?? []
+      activityEmpty.hidden = actions.length > 0
+      activityList.textContent = ''
+      const groups: Array<{ action: typeof actions[number]; count: number }> = []
+      for (const action of actions.slice().reverse()) {
+        const previous = groups[groups.length - 1]
+        if (previous && previous.action.operation === action.operation && previous.action.phase === action.phase && previous.action.error === action.error) {
+          previous.count++
+        } else {
+          groups.push({ action, count: 1 })
+        }
+      }
+      for (const group of groups) {
+        const { action } = group
+        const item = document.createElement('li')
+        item.className = `ed-agent-activity-item ${action.phase}`
+        const heading = document.createElement('strong')
+        heading.textContent = `${actionLabel(action.operation)}${group.count > 1 ? ` x${group.count}` : ''}`
+        const state = document.createElement('span')
+        state.textContent = action.phase === 'running' ? t('Working') : action.phase === 'completed' ? t('Completed') : t('Failed')
+        item.append(heading, state)
+        if (action.error) {
+          const error = document.createElement('small')
+          error.textContent = action.error
+          item.appendChild(error)
+        }
+        activityList.appendChild(item)
+      }
+    }
+    const onAgentAction = () => renderActivity()
+    window.addEventListener('bento:agent-action', onAgentAction)
     const updateStatus = () => {
       const current = api?.status?.() || 'off'
       status.textContent = current === 'connected' ? t('Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
       status.classList.toggle('ok', current === 'connected')
+      pairing.classList.toggle('connected', current === 'connected')
     }
     const existingStatus = api?.status?.() || 'off'
     if (existingStatus !== 'off') {
@@ -931,6 +976,7 @@ export class Editor {
       updateStatus()
       timer = window.setInterval(updateStatus, 500)
     }
+    renderActivity()
     connectB.addEventListener('click', async () => {
       connectB.disabled = true
       try {
@@ -949,9 +995,14 @@ export class Editor {
       }
     })
     copyB.addEventListener('click', () => void navigator.clipboard?.writeText(code.textContent || ''))
-    disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; updateStatus() })
-    dialog.addEventListener('close', () => { if (timer !== null) window.clearInterval(timer); dialog.remove() })
-    dialog.showModal()
+    disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; pairing.classList.remove('connected'); updateStatus() })
+    clearB.addEventListener('click', () => { api?.clearActions?.(); renderActivity() })
+    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); dialog.remove() }
+    dialog.querySelector<HTMLButtonElement>('.ed-agent-close')!.addEventListener('click', closePanel)
+    dialog.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePanel() })
+    dialog.tabIndex = -1
+    document.body.appendChild(dialog)
+    dialog.focus()
   }
 
   private shareDropdown(): HTMLElement {
