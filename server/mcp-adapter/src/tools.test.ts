@@ -46,7 +46,7 @@ test('browser bridge exposes targeted deck actions', async () => {
 
   const tools = await client.listTools()
   const names = tools.tools.map((tool) => tool.name)
-  for (const name of ['get_deck_summary', 'render_slide', 'validate_slide', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
+  for (const name of ['get_deck_summary', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
     assert.ok(names.includes(name), `missing ${name}`)
   }
   await client.close()

@@ -41,6 +41,17 @@ export type RenderedSlide = {
   warnings: string[]
 }
 
+export type RenderedDeckThumbnails = {
+  mimeType: 'image/png'
+  data: string
+  width: number
+  height: number
+  bytes: number
+  truncated: boolean
+  slides: Array<{ slideId: string; index: number; name: string | null; x: number; y: number; w: number; h: number }>
+  warnings: string[]
+}
+
 type MountedSlide = { host: HTMLElement; surface: HTMLElement; slide: Slide }
 
 function requireSlide(doc: BentoDoc, slideId: string): Slide {
@@ -49,10 +60,10 @@ function requireSlide(doc: BentoDoc, slideId: string): Slide {
   return slide
 }
 
-function boundedWidth(width: number | undefined): number {
+function boundedWidth(width: number | undefined, minimum = MIN_RENDER_WIDTH): number {
   const value = width ?? 1280
-  if (!Number.isFinite(value) || value < MIN_RENDER_WIDTH || value > MAX_RENDER_WIDTH) {
-    throw new Error(`Render width must be between ${MIN_RENDER_WIDTH} and ${MAX_RENDER_WIDTH} pixels.`)
+  if (!Number.isFinite(value) || value < minimum || value > MAX_RENDER_WIDTH) {
+    throw new Error(`Render width must be between ${minimum} and ${MAX_RENDER_WIDTH} pixels.`)
   }
   return Math.round(value)
 }
@@ -64,7 +75,7 @@ function mountSlide(doc: BentoDoc, slideId: string): MountedSlide {
   host.style.cssText =
     'position:fixed;left:-100000px;top:0;pointer-events:none;z-index:-1;' +
     `width:${doc.size.width}px;height:${doc.size.height}px;overflow:hidden`
-  const surface = renderSlide(slide, doc, { svgAsImage: true, hidePlaceholders: true })
+  const surface = renderSlide(slide, doc, { svgAsImage: true, hidePlaceholders: true, offlineAssetsOnly: true })
   host.appendChild(surface)
   document.body.appendChild(host)
   return { host, surface, slide }
@@ -113,7 +124,7 @@ function inlineComputedStyles(source: Element, target: Element) {
 function embeddedFontCss(doc: BentoDoc): string {
   return (doc.fonts ?? []).map((font) => {
     const source = doc.assets?.[font.asset]
-    if (!source) return ''
+    if (!source || !/^(data|blob):/i.test(source)) return ''
     return `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(source)});` +
       `font-weight:${font.weight ?? 'normal'};font-style:${font.style ?? 'normal'};font-display:block}`
   }).join('\n')
@@ -157,9 +168,13 @@ async function svgToPng(svg: string, width: number, height: number): Promise<Blo
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Canvas rendering is unavailable.')
   context.drawImage(image, 0, 0, width, height)
+  return canvasPng(canvas)
+}
+
+async function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) throw new Error('The browser could not encode the slide preview.')
-  if (blob.size > MAX_IMAGE_BYTES) throw new Error('The rendered slide exceeds the 8 MB response limit.')
+  if (blob.size > MAX_IMAGE_BYTES) throw new Error('The rendered image exceeds the 8 MB response limit.')
   return blob
 }
 
@@ -178,16 +193,123 @@ function blobBase64(blob: Blob): Promise<string> {
 }
 
 export async function renderSlideImage(doc: BentoDoc, slideId: string, requestedWidth?: number): Promise<RenderedSlide> {
-  const width = boundedWidth(requestedWidth)
+  return renderSlideImageAtWidth(doc, slideId, requestedWidth, MIN_RENDER_WIDTH)
+}
+
+async function renderSlideImageAtWidth(doc: BentoDoc, slideId: string, requestedWidth: number | undefined, minimumWidth: number): Promise<RenderedSlide> {
+  const width = boundedWidth(requestedWidth, minimumWidth)
   const height = Math.max(1, Math.round(width * doc.size.height / doc.size.width))
   const mounted = mountSlide(doc, slideId)
   try {
-    const warnings = await settleAssets(mounted.surface)
+    const warnings = [...externalAssetWarnings(doc, mounted.slide), ...await settleAssets(mounted.surface)]
     const svg = serialisedSlideSvg(doc, mounted.surface)
     const blob = await svgToPng(svg, width, height)
     return { slideId, mimeType: 'image/png', data: await blobBase64(blob), width, height, bytes: blob.size, warnings }
   } finally {
     mounted.host.remove()
+  }
+}
+
+function externalAssetWarnings(doc: BentoDoc, slide: Slide): string[] {
+  const external = slide.elements.some((element) => {
+    if (element.type === 'image') return !/^(data|blob):/i.test(element.src.startsWith('asset:') ? (doc.assets?.[element.src.slice(6)] ?? '') : element.src)
+    if (element.type === 'media' && element.poster) return !/^(data|blob):/i.test(element.poster.startsWith('asset:') ? (doc.assets?.[element.poster.slice(6)] ?? '') : element.poster)
+    return false
+  })
+  const externalFont = (doc.fonts ?? []).some((font) => {
+    const source = doc.assets?.[font.asset] ?? ''
+    return !!source && !/^(data|blob):/i.test(source)
+  })
+  return [
+    ...(external ? ['External visual assets were omitted from the offline preview.'] : []),
+    ...(/url\s*\(/i.test(slide.background) ? ['An external slide background was omitted from the offline preview.'] : []),
+    ...(externalFont ? ['External fonts were omitted from the offline preview.'] : []),
+  ]
+}
+
+function thumbnailWidth(width: number | undefined): number {
+  const value = width ?? 240
+  if (!Number.isFinite(value) || value < 160 || value > 400) {
+    throw new Error('Thumbnail width must be between 160 and 400 pixels.')
+  }
+  return Math.round(value)
+}
+
+function thumbnailLimit(limit: number | undefined): number {
+  const value = limit ?? 20
+  if (!Number.isInteger(value) || value < 1 || value > 50) {
+    throw new Error('Thumbnail limit must be between 1 and 50 slides.')
+  }
+  return value
+}
+
+async function base64Image(data: string, mimeType: string): Promise<HTMLImageElement> {
+  const image = new Image()
+  image.decoding = 'async'
+  image.src = `data:${mimeType};base64,${data}`
+  await image.decode()
+  return image
+}
+
+export async function renderDeckThumbnailSheet(
+  doc: BentoDoc,
+  options: { width?: number; includeStates?: boolean; limit?: number } = {},
+): Promise<RenderedDeckThumbnails> {
+  const width = thumbnailWidth(options.width)
+  const limit = thumbnailLimit(options.limit)
+  const candidates = doc.slides
+    .map((slide, index) => ({ slide, index }))
+    .filter(({ slide }) => options.includeStates || !slide.stateOf)
+  const selected = candidates.slice(0, limit)
+  if (!selected.length) throw new Error('The deck has no slides to render.')
+
+  const thumbHeight = Math.max(1, Math.round(width * doc.size.height / doc.size.width))
+  const gap = 12
+  const labelHeight = 28
+  const maxColumns = Math.max(1, Math.floor((2048 - gap) / (width + gap)))
+  const columns = Math.min(selected.length, maxColumns, Math.max(1, Math.ceil(Math.sqrt(selected.length * 1.4))))
+  const rows = Math.ceil(selected.length / columns)
+  const naturalWidth = gap + columns * (width + gap)
+  const naturalHeight = gap + rows * (thumbHeight + labelHeight + gap)
+  const scale = Math.min(1, 2048 / Math.max(naturalWidth, naturalHeight))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(naturalWidth * scale))
+  canvas.height = Math.max(1, Math.round(naturalHeight * scale))
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Canvas rendering is unavailable.')
+  context.scale(scale, scale)
+  context.fillStyle = '#111827'
+  context.fillRect(0, 0, naturalWidth, naturalHeight)
+  context.font = '600 13px system-ui, sans-serif'
+  context.textBaseline = 'middle'
+
+  const slides: RenderedDeckThumbnails['slides'] = []
+  const warnings: string[] = []
+  for (let item = 0; item < selected.length; item++) {
+    const { slide, index } = selected[item]
+    const column = item % columns
+    const row = Math.floor(item / columns)
+    const x = gap + column * (width + gap)
+    const y = gap + row * (thumbHeight + labelHeight + gap)
+    const rendered = await renderSlideImageAtWidth(doc, slide.id, width, 160)
+    warnings.push(...rendered.warnings)
+    context.drawImage(await base64Image(rendered.data, rendered.mimeType), x, y, width, thumbHeight)
+    context.fillStyle = '#1F2937'
+    context.fillRect(x, y + thumbHeight, width, labelHeight)
+    context.fillStyle = '#F9FAFB'
+    const label = `${index + 1}  ${slide.name?.trim() || 'Slide'}`
+    context.fillText(label.length > 36 ? `${label.slice(0, 35)}…` : label, x + 8, y + thumbHeight + labelHeight / 2, width - 16)
+    slides.push({
+      slideId: slide.id, index, name: slide.name ?? null,
+      x: Math.round(x * scale), y: Math.round(y * scale),
+      w: Math.round(width * scale), h: Math.round(thumbHeight * scale),
+    })
+  }
+  const blob = await canvasPng(canvas)
+  return {
+    mimeType: 'image/png', data: await blobBase64(blob), width: canvas.width, height: canvas.height,
+    bytes: blob.size, truncated: candidates.length > selected.length, slides,
+    warnings: [...new Set(warnings)],
   }
 }
 

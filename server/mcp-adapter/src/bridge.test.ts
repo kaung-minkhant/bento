@@ -29,3 +29,10 @@ test('browser bridge rejects an unregistered document', async () => {
   assert.equal(bridge.register(socket as unknown as WebSocket, 'doc-1', 'wrong', 'bridge-secret', new Set(['doc-1'])), false)
   await assert.rejects(() => bridge.request('doc-1', 'read_document'), /No browser is connected/)
 })
+
+test('browser bridge times out a request that receives no response', async () => {
+  const socket = new FakeSocket()
+  const bridge = new BrowserBridge(5)
+  assert.equal(bridge.register(socket as unknown as WebSocket, 'doc-1', 'bridge-secret', 'bridge-secret', new Set(['doc-1'])), true)
+  await assert.rejects(() => bridge.request('doc-1', 'render_slide'), /timed out/)
+})

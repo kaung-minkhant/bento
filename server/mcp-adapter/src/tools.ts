@@ -11,7 +11,8 @@ function result(value: unknown) {
 function imageResult(value: unknown) {
   if (!value || typeof value !== 'object') throw new Error('The browser returned an invalid rendered slide.')
   const rendered = value as Record<string, unknown>
-  if (rendered.mimeType !== 'image/png' || typeof rendered.data !== 'string') {
+  if (rendered.mimeType !== 'image/png' || typeof rendered.data !== 'string' ||
+      rendered.data.length > 12 * 1024 * 1024 || !/^[A-Za-z0-9+/]*={0,2}$/.test(rendered.data)) {
     throw new Error('The browser returned an invalid rendered slide.')
   }
   const { data, mimeType, ...metadata } = rendered
@@ -109,6 +110,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1) },
       annotations: { readOnlyHint: true, openWorldHint: false },
     }, async ({ docId, slideId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'validate_slide', undefined, { slideId })) })
+
+    server.registerTool('render_deck_thumbnails', {
+      description: 'Render a labeled contact sheet of slides from the explicitly connected bento editor. Interactive states are excluded by default.',
+      inputSchema: {
+        docId: z.string().uuid(), width: z.number().int().min(160).max(400).optional(),
+        includeStates: z.boolean().optional(), limit: z.number().int().min(1).max(50).optional(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId, width, includeStates, limit }) => {
+      assertAllowed(docId)
+      return imageResult(await bridge.request(docId, 'render_deck_thumbnails', undefined, { width, includeStates, limit }))
+    })
 
     server.registerTool('create_slide', {
       description: 'Create one blank slide in the connected deck. Optionally place it after a specific slide ID.',

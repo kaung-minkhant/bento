@@ -737,6 +737,7 @@ export const es: Catalog = {
   'Agent changes': 'Agent changes',
   'Render slide': 'Renderizar diapositiva',
   'Validate slide': 'Validar diapositiva',
+  'Deck thumbnails': 'Miniaturas de la presentación',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

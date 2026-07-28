@@ -27,7 +27,7 @@ import {
 } from './hosted'
 import { docContentKey } from './autosave'
 import { openHostedLibrary } from './hosted-library'
-import { renderSlideImage, validateSlideVisuals } from './agent-inspect'
+import { renderDeckThumbnailSheet, renderSlideImage, validateSlideVisuals } from './agent-inspect'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -446,6 +446,12 @@ if (location.hash === '#present') {
     const agentUndoStack: AgentAction[] = []
     const agentRedoStack: AgentAction[] = []
     let agentHistoryRevision = store.revision
+    let inspectionQueue: Promise<void> = Promise.resolve()
+    const inspect = <T>(work: () => Promise<T>): Promise<T> => {
+      const next = inspectionQueue.then(work, work)
+      inspectionQueue = next.then(() => undefined, () => undefined)
+      return next
+    }
     const resetAgentHistory = () => {
       agentUndoStack.length = 0
       agentRedoStack.length = 0
@@ -513,14 +519,26 @@ if (location.hash === '#present') {
         if (message.operation === 'render_slide') {
           if (typeof params.slideId !== 'string') throw new Error('render_slide requires slideId.')
           const width = params.width === undefined ? undefined : Number(params.width)
-          const rendered = await renderSlideImage(store.doc, params.slideId, width)
-          sendResponse(message.requestId, true, { ...rendered, revision: store.revision })
+          const revision = store.revision
+          const rendered = await inspect(() => renderSlideImage(store.doc, params.slideId as string, width))
+          if (store.revision !== revision) rendered.warnings.push('The deck changed while this preview was rendering.')
+          sendResponse(message.requestId, true, { ...rendered, revision, currentRevision: store.revision })
           return
         }
         if (message.operation === 'validate_slide') {
           if (typeof params.slideId !== 'string') throw new Error('validate_slide requires slideId.')
-          const validation = await validateSlideVisuals(store.doc, params.slideId)
-          sendResponse(message.requestId, true, { ...validation, revision: store.revision })
+          const revision = store.revision
+          const validation = await inspect(() => validateSlideVisuals(store.doc, params.slideId as string))
+          sendResponse(message.requestId, true, { ...validation, revision, currentRevision: store.revision })
+          return
+        }
+        if (message.operation === 'render_deck_thumbnails') {
+          const width = params.width === undefined ? undefined : Number(params.width)
+          const limit = params.limit === undefined ? undefined : Number(params.limit)
+          const revision = store.revision
+          const rendered = await inspect(() => renderDeckThumbnailSheet(store.doc, { width, limit, includeStates: params.includeStates === true }))
+          if (store.revision !== revision) rendered.warnings.push('The deck changed while these thumbnails were rendering.')
+          sendResponse(message.requestId, true, { ...rendered, revision, currentRevision: store.revision })
           return
         }
         if (message.operation === 'create_slide') {
