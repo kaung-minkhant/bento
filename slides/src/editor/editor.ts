@@ -1500,6 +1500,7 @@ export class Editor {
       ].filter(Boolean).join('; ')
       if (!window.confirm(t('Delete this slide? {parts}.', { parts }))) return
     }
+    let nextIndex = 0
     this.store.commit(() => {
       this.store.doc.slides = this.store.doc.slides.filter((s) => !doomedIds.has(s.id))
       for (const s of this.store.doc.slides) {
@@ -1507,9 +1508,16 @@ export class Editor {
           if (el.link && doomedIds.has(el.link)) delete el.link
         }
       }
+      // Store.commit emits the document event before the slides event. Keep
+      // currentIndex valid during that first render when deleting the active
+      // last slide; otherwise the canvas reads an undefined slide.
+      nextIndex = Math.min(i, this.store.doc.slides.length - 1)
+      this.store.currentIndex = nextIndex
+      this.store.selection = []
     }, 'slides')
-    this.store.goTo(Math.min(i, this.store.doc.slides.length - 1))
+    this.store.goTo(nextIndex)
     this.store.emit('current')
+    this.store.emit('selection')
   }
 
   /**

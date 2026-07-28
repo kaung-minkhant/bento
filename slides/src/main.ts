@@ -301,6 +301,10 @@ const createOrSaveHosted = async () => {
     hostedDocId = created.docId
     hostedVersionId = created.currentVersionId
     hostedContentKey = contentKey
+    const url = new URL(location.href)
+    url.searchParams.delete('new')
+    url.searchParams.set('doc', hostedDocId)
+    history.replaceState(history.state, '', url)
     store.setDirty(false)
     await startHostedSessionRecord()
     return created
