@@ -1,6 +1,7 @@
 export type AdapterConfig = {
   documentServiceUrl: string
   documentServiceToken: string
+  mcpAccessToken?: string
   bridgeToken?: string
   host: string
   port: number
@@ -15,5 +16,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AdapterConfig 
   const port = Number(env.PORT ?? '8790')
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port')
   const allowedDocIds = new Set((env.MCP_ALLOWED_DOC_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean))
-  return { documentServiceUrl, documentServiceToken, bridgeToken: env.BENTO_AGENT_BRIDGE_TOKEN, host: env.HOST ?? '127.0.0.1', port, allowedDocIds }
+  return {
+    documentServiceUrl,
+    documentServiceToken,
+    mcpAccessToken: env.MCP_ACCESS_TOKEN,
+    bridgeToken: env.BENTO_AGENT_BRIDGE_TOKEN,
+    host: env.HOST ?? '127.0.0.1',
+    port,
+    allowedDocIds,
+  }
 }

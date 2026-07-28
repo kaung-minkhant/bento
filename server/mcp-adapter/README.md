@@ -30,6 +30,7 @@ HOST=127.0.0.1
 PORT=8790
 MCP_ALLOWED_DOC_IDS=doc-uuid-1,doc-uuid-2
 BENTO_AGENT_BRIDGE_TOKEN=...
+MCP_ACCESS_TOKEN=...
 ```
 
 `MCP_ALLOWED_DOC_IDS` is an optional deployment-level safety cap. Leave it
@@ -40,7 +41,10 @@ document service enforces the token subject's membership and role.
 `BENTO_AGENT_BRIDGE_TOKEN` enables browser connections; omit it to disable
 content tools. For hosted decks, the browser forwards its current OIDC access
 token for the one pairing authorization request; the adapter does not store
-that token.
+that token. Set `MCP_ACCESS_TOKEN` when the adapter is reachable by other
+machines; MCP clients must send `Authorization: Bearer <token>`. Leave it
+unset only when the adapter is bound to localhost or protected by an equivalent
+trusted network boundary.
 
 After starting the adapter, open the deck in bento/slides and click **Agent**.
 Enter the adapter URL and click **Create pairing code**. Tell the MCP agent to

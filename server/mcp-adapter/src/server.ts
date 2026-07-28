@@ -21,6 +21,10 @@ const sendJson = (response: import('node:http').ServerResponse, status: number, 
   response.writeHead(status, { ...headers, 'content-type': 'application/json' })
   response.end(JSON.stringify(body))
 }
+const hasMcpAuthorization = (request: import('node:http').IncomingMessage) => {
+  if (!config.mcpAccessToken) return true
+  return request.headers.authorization === `Bearer ${config.mcpAccessToken}`
+}
 const httpServer = createServer(async (request, response) => {
   if (request.url === '/healthz' && request.method === 'GET') {
     response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: true, service: 'bento-mcp-adapter' }))
@@ -48,6 +52,10 @@ const httpServer = createServer(async (request, response) => {
   }
   if (request.url !== '/mcp' || !['GET', 'POST', 'DELETE'].includes(request.method ?? '')) {
     response.writeHead(404).end()
+    return
+  }
+  if (!hasMcpAuthorization(request)) {
+    sendJson(response, 401, { error: 'invalid_authorization', message: 'A valid MCP bearer token is required.' }, { 'www-authenticate': 'Bearer' })
     return
   }
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
