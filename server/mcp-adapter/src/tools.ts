@@ -76,6 +76,42 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       inputSchema: { docId: z.string().uuid(), json: z.string().min(2).max(50_000_000) },
       annotations: { readOnlyHint: false, openWorldHint: false },
     }, async ({ docId, json }) => { assertAllowed(docId); return result(await bridge.request(docId, 'replace_document', json)) })
+
+    server.registerTool('get_deck_summary', {
+      description: 'Read a compact summary of one connected deck: title, slide IDs, and element IDs/types/text snippets without transferring the full document JSON.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'summary')) })
+
+    server.registerTool('create_slide', {
+      description: 'Create one blank slide in the connected deck. Optionally place it after a specific slide ID.',
+      inputSchema: { docId: z.string().uuid(), name: z.string().max(200).optional(), afterSlideId: z.string().optional() },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, name, afterSlideId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'create_slide', undefined, { name, afterSlideId })) })
+
+    server.registerTool('add_text', {
+      description: 'Add one text element to a connected deck slide using normal editor mutation and undo.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string().optional(), html: z.string().min(1).max(100_000), x: z.number().optional(), y: z.number().optional(), w: z.number().positive().optional(), h: z.number().positive().optional(), fontSize: z.number().positive().optional() },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, slideId, html, x, y, w, h, fontSize }) => { assertAllowed(docId); return result(await bridge.request(docId, 'add_text', undefined, { slideId, html, x, y, w, h, fontSize })) })
+
+    server.registerTool('update_element', {
+      description: 'Update selected presentation properties on one connected element. Element identity and type cannot be changed.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string(), elementId: z.string(), patch: z.record(z.unknown()) },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, slideId, elementId, patch }) => { assertAllowed(docId); return result(await bridge.request(docId, 'update_element', undefined, { slideId, elementId, patch })) })
+
+    server.registerTool('delete_element', {
+      description: 'Delete one element from one connected deck slide through the normal undoable editor path.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string(), elementId: z.string() },
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    }, async ({ docId, slideId, elementId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'delete_element', undefined, { slideId, elementId })) })
+
+    server.registerTool('set_speaker_notes', {
+      description: 'Replace speaker notes for one connected deck slide.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string(), notes: z.string().max(100_000) },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, slideId, notes }) => { assertAllowed(docId); return result(await bridge.request(docId, 'set_notes', undefined, { slideId, notes })) })
   }
 
   return server

@@ -52,13 +52,13 @@ export class BrowserBridge {
     return true
   }
 
-  request(docId: string, operation: 'read_document' | 'replace_document', json?: string): Promise<unknown> {
+  request(docId: string, operation: string, json?: string, params?: Record<string, unknown>): Promise<unknown> {
     const socket = this.clients.get(docId)
     if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('No browser is connected for this document.'))
     const requestId = `${docId}:${randomUUID()}`
     return new Promise((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject })
-      socket.send(JSON.stringify({ type: 'request', requestId, operation, ...(json === undefined ? {} : { json }) }))
+      socket.send(JSON.stringify({ type: 'request', requestId, operation, ...(json === undefined ? {} : { json }), ...(params === undefined ? {} : { params }) }))
     })
   }
 
