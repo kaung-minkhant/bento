@@ -15,13 +15,18 @@ const jsonBody = async (request: import('node:http').IncomingMessage): Promise<u
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
 }
 const corsHeaders = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'POST, OPTIONS' }
+const sendJson = (response: import('node:http').ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
+  if (response.writableEnded) return
+  response.writeHead(status, { ...headers, 'content-type': 'application/json' })
+  response.end(JSON.stringify(body))
+}
 const httpServer = createServer(async (request, response) => {
   if (request.url === '/healthz' && request.method === 'GET') {
     response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: true, service: 'bento-mcp-adapter' }))
     return
   }
   if (request.url === '/pairings' && request.method === 'OPTIONS') {
-    response.writeHead(204, corsHeaders).end()
+    if (!response.writableEnded) response.writeHead(204, corsHeaders).end()
     return
   }
   if (request.url === '/pairings' && request.method === 'POST') {
@@ -29,9 +34,9 @@ const httpServer = createServer(async (request, response) => {
       if (!config.bridgeToken) throw new Error('Browser agent pairing is disabled.')
       const body = await jsonBody(request) as { docId?: string }
       if (!body.docId) throw new Error('docId is required.')
-      response.writeHead(200, { ...corsHeaders, 'content-type': 'application/json' }).end(JSON.stringify(bridge.createPairing(body.docId, config.allowedDocIds)))
+      sendJson(response, 200, bridge.createPairing(body.docId, config.allowedDocIds), corsHeaders)
     } catch (error) {
-      response.writeHead(400, { ...corsHeaders, 'content-type': 'application/json' }).end(JSON.stringify({ error: error instanceof Error ? error.message : 'pairing failed' }))
+      sendJson(response, 400, { error: error instanceof Error ? error.message : 'pairing failed' }, corsHeaders)
     }
     return
   }
