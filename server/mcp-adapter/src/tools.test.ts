@@ -46,9 +46,30 @@ test('browser bridge exposes targeted deck actions', async () => {
 
   const tools = await client.listTools()
   const names = tools.tools.map((tool) => tool.name)
-  for (const name of ['get_deck_summary', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
+  for (const name of ['get_deck_summary', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
     assert.ok(names.includes(name), `missing ${name}`)
   }
+  await client.close()
+  await server.close()
+})
+
+test('apply_operations forwards revision, dry-run, and operation batch', async () => {
+  const calls: Array<{ docId: string; operation: string; params?: Record<string, unknown> }> = []
+  const bridge = {
+    request: async (docId: string, operation: string, _json?: string, params?: Record<string, unknown>) => {
+      calls.push({ docId, operation, params })
+      return { dryRun: true, previousRevision: 7, currentRevision: 7, operationCount: 1, created: {}, affectedSlideIds: ['slide-1'] }
+    },
+  } as unknown as BrowserBridge
+  const server = createMcpServer({ ...config, bridgeToken: 'bridge-token' }, undefined, bridge)
+  const client = new Client({ name: 'test-client', version: '1.0.0' })
+  const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+
+  const operations = [{ type: 'update_slide', slideId: 'slide-1', patch: { background: '#071E2A' } }]
+  const response = await client.callTool({ name: 'apply_operations', arguments: { docId: allowed, expectedRevision: 7, dryRun: true, operations } })
+  assert.equal(response.isError, undefined)
+  assert.deepEqual(calls, [{ docId: allowed, operation: 'apply_operations', params: { expectedRevision: 7, dryRun: true, operations } }])
   await client.close()
   await server.close()
 })

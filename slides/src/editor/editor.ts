@@ -930,7 +930,7 @@ export class Editor {
         read_document: 'Read document', summary: 'Deck summary', create_slide: 'Create slide',
         render_slide: 'Render slide', render_deck_thumbnails: 'Deck thumbnails', validate_slide: 'Validate slide',
         add_text: 'Add text', update_element: 'Update element', delete_element: 'Delete element',
-        set_notes: 'Set speaker notes', replace_document: 'Replace document',
+        set_notes: 'Set speaker notes', replace_document: 'Replace document', apply_operations: 'Apply operations',
       }
       return labels[operation] || operation.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())
     }

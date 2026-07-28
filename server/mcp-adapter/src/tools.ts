@@ -123,6 +123,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       return imageResult(await bridge.request(docId, 'render_deck_thumbnails', undefined, { width, includeStates, limit }))
     })
 
+    server.registerTool('apply_operations', {
+      description: 'Atomically apply a prevalidated batch of targeted slide and element edits. Requires the current deck revision; stale batches fail without changing the deck.',
+      inputSchema: {
+        docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(), dryRun: z.boolean().optional(),
+        operations: z.array(z.record(z.unknown())).min(1).max(100),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, expectedRevision, dryRun, operations }) => {
+      assertAllowed(docId)
+      return result(await bridge.request(docId, 'apply_operations', undefined, { expectedRevision, dryRun, operations }))
+    })
+
     server.registerTool('create_slide', {
       description: 'Create one blank slide in the connected deck. Optionally place it after a specific slide ID.',
       inputSchema: { docId: z.string().uuid(), name: z.string().max(200).optional(), afterSlideId: z.string().optional() },

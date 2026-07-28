@@ -738,6 +738,7 @@ export const ja: Catalog = {
   'Render slide': 'スライドをレンダリング',
   'Validate slide': 'スライドを検証',
   'Deck thumbnails': 'デッキのサムネイル',
+  'Apply operations': '操作を適用',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

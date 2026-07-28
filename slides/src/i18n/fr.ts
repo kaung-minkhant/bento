@@ -738,6 +738,7 @@ export const fr: Catalog = {
   'Render slide': 'Rendre la diapositive',
   'Validate slide': 'Valider la diapositive',
   'Deck thumbnails': 'Miniatures de la présentation',
+  'Apply operations': 'Appliquer les opérations',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

@@ -9,10 +9,12 @@ vault key, or relay key. Metadata and session tools use the document service.
 Content tools require an explicit browser bridge connection and then inspect or
 change the open document through the editor's normal undoable mutation path.
 Agents should prefer the targeted tools (`get_deck_summary`, `render_slide`,
-`render_deck_thumbnails`, `validate_slide`, `create_slide`, `add_text`,
+`render_deck_thumbnails`, `validate_slide`, `apply_operations`, `create_slide`, `add_text`,
 `update_element`, `delete_element`, and `set_speaker_notes`) so small edits do
 not transfer or overwrite the entire document. Rendering and validation are
 read-only browser operations: they never alter document revision or history.
+`apply_operations` prevalidates a revision-guarded batch and applies it as one
+undo checkpoint; `dryRun: true` checks the batch without changing the deck.
 The legacy
 `agent_read_document` and `agent_replace_document` tools remain available for
 clients that need full-document access.

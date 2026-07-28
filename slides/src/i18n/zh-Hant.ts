@@ -738,6 +738,7 @@ export const zhHant: Catalog = {
   'Render slide': '算繪投影片',
   'Validate slide': '檢查投影片',
   'Deck thumbnails': '簡報縮圖',
+  'Apply operations': '套用操作',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }
