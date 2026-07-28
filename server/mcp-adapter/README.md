@@ -32,14 +32,12 @@ document tool requires an explicit `docId` and the document service enforces
 the token subject's membership and role. `BENTO_AGENT_BRIDGE_TOKEN` enables
 browser connections; omit it to disable content tools.
 
-After starting the adapter, connect the open editor from its browser console:
-
-```js
-window.bento.agent.connect('ws://127.0.0.1:8790/bridge', 'your-bridge-token')
-```
-
-Use `wss://` for a remote HTTPS deployment. The browser must be open on the
-same document ID listed in `MCP_ALLOWED_DOC_IDS`.
+After starting the adapter, open the deck in bento/slides and click **Agent**.
+Enter the adapter URL and click **Create pairing code**. Tell the MCP agent to
+call `claim_agent_pairing` with the displayed short code. The browser connects
+to that exact document after the agent claims it. Use HTTPS/WSS URLs for a
+remote deployment; the browser must be open on the same document ID listed in
+`MCP_ALLOWED_DOC_IDS`.
 
 HTTP MCP endpoint:
 

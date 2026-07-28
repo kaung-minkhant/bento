@@ -74,7 +74,8 @@ subject. Sharing, multi-user access, and agent access come later.
 - Keep the adapter metadata/session-only until browser-mediated document
   capabilities are implemented: it never decrypts stored snapshots or receives
   vault or relay keys. The explicit browser bridge now provides read and
-  replace operations for one open document.
+  replace operations for one open document, with a short-lived pairing flow
+  initiated from the editor's Agent control.
 - Route content actions through normal document-model mutations so
   undo, autosave, collaboration, validation, and export continue to work.
 - Scope every agent capability to an explicit document and role.

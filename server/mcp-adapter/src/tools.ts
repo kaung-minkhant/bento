@@ -59,6 +59,12 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
   }, async ({ docId }) => { assertAllowed(docId); return result(await client.deleteDocument(docId)) })
 
   if (bridge) {
+    server.registerTool('claim_agent_pairing', {
+      description: 'Claim the short-lived pairing code shown by an open bento editor. This connects the agent to exactly one document.',
+      inputSchema: { code: z.string().regex(/^[A-Z0-9]{8}$/) },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ code }) => result(bridge.claimPairing(code)))
+
     server.registerTool('agent_read_document', {
       description: 'Read the plaintext document model from the explicitly connected browser editor. Requires an intentional browser bridge connection.',
       inputSchema: { docId: z.string().uuid() },
