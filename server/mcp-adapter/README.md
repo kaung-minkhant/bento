@@ -15,6 +15,11 @@ not transfer or overwrite the entire document. Rendering and validation are
 read-only browser operations: they never alter document revision or history.
 `apply_operations` prevalidates a revision-guarded batch and applies it as one
 undo checkpoint; `dryRun: true` checks the batch without changing the deck.
+Its operation vocabulary covers slide create/update/delete/reorder; text,
+shape, image, SVG, chart, table, and media creation; type-aware element
+updates and deletion; duplication; grouping; alignment; distribution; and
+z-order. A creation operation may declare `clientId`, which later operations
+in the same batch can use wherever a slide or element ID is expected.
 The legacy
 `agent_read_document` and `agent_replace_document` tools remain available for
 clients that need full-document access.
