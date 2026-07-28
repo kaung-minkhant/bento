@@ -732,6 +732,7 @@ export const ja: Catalog = {
   'Failed': 'Failed',
   'Undone': 'Undone',
   'Undo last agent change': 'Undo last agent change',
+  'Redo last agent change': 'エージェントの最後の変更をやり直す',
   'Stop agent': 'Stop agent',
   'Agent changes': 'Agent changes',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',

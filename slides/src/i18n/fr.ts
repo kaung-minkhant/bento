@@ -732,6 +732,7 @@ export const fr: Catalog = {
   'Failed': 'Failed',
   'Undone': 'Undone',
   'Undo last agent change': 'Undo last agent change',
+  'Redo last agent change': 'Rétablir la dernière modification de l’agent',
   'Stop agent': 'Stop agent',
   'Agent changes': 'Agent changes',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',

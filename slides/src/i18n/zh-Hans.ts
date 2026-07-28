@@ -732,6 +732,7 @@ export const zhHans: Catalog = {
   'Failed': 'Failed',
   'Undone': 'Undone',
   'Undo last agent change': 'Undo last agent change',
+  'Redo last agent change': '重做上一次智能体更改',
   'Stop agent': 'Stop agent',
   'Agent changes': 'Agent changes',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',

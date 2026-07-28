@@ -732,6 +732,7 @@ export const zhHant: Catalog = {
   'Failed': 'Failed',
   'Undone': 'Undone',
   'Undo last agent change': 'Undo last agent change',
+  'Redo last agent change': '重做上一次代理程式變更',
   'Stop agent': 'Stop agent',
   'Agent changes': 'Agent changes',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',

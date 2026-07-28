@@ -442,6 +442,14 @@ if (location.hash === '#present') {
     let pairingCode: string | null = null
     const actionHistory: AgentAction[] = []
     const actionOperations = new Map<string, AgentAction>()
+    const agentUndoStack: AgentAction[] = []
+    const agentRedoStack: AgentAction[] = []
+    let agentHistoryRevision = store.revision
+    const resetAgentHistory = () => {
+      agentUndoStack.length = 0
+      agentRedoStack.length = 0
+      agentHistoryRevision = store.revision
+    }
     const notifyAction = (action: AgentAction) => {
       window.dispatchEvent(new CustomEvent('bento:agent-action', { detail: action }))
     }
@@ -453,6 +461,13 @@ if (location.hash === '#present') {
         action.durationMs = action.finishedAt - action.startedAt
         action.afterRevision = store.revision
         if (error) action.error = error
+        if (ok && action.afterRevision > action.beforeRevision) {
+          if (action.beforeRevision !== agentHistoryRevision) resetAgentHistory()
+          agentUndoStack.push(action)
+          if (agentUndoStack.length > 50) agentUndoStack.shift()
+          agentRedoStack.length = 0
+          agentHistoryRevision = store.revision
+        }
         actionOperations.delete(requestId)
         notifyAction(action)
       }
@@ -462,6 +477,7 @@ if (location.hash === '#present') {
     const handleRequest = (message: { requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }) => {
       if (typeof message.requestId !== 'string') return
       if (typeof message.operation === 'string') {
+        if (store.revision !== agentHistoryRevision) resetAgentHistory()
         const action: AgentAction = { id: message.requestId, operation: message.operation, phase: 'running', startedAt: Date.now(), beforeRevision: store.revision }
         actionHistory.push(action)
         if (actionHistory.length > 50) actionHistory.shift()
@@ -613,7 +629,8 @@ if (location.hash === '#present') {
       })
       return { code: pairing.code, expiresAt: pairing.expiresAt, docId: store.doc.docId }
     }
-    const lastUndoableAction = () => [...actionHistory].reverse().find((item) => item.phase === 'completed' && item.afterRevision !== undefined && item.afterRevision > item.beforeRevision && item.afterRevision === store.revision)
+    const lastUndoableAction = () => store.revision === agentHistoryRevision ? agentUndoStack[agentUndoStack.length - 1] : undefined
+    const lastRedoableAction = () => store.revision === agentHistoryRevision ? agentRedoStack[agentRedoStack.length - 1] : undefined
     return {
       connect,
       connectPairing,
@@ -625,6 +642,9 @@ if (location.hash === '#present') {
       undoLast: () => {
         const action = lastUndoableAction()
         if (!action || !store.undo()) return false
+        agentUndoStack.pop()
+        agentRedoStack.push(action)
+        agentHistoryRevision = store.revision
         action.phase = 'undone'
         action.finishedAt = Date.now()
         action.durationMs = action.finishedAt - action.startedAt
@@ -632,7 +652,19 @@ if (location.hash === '#present') {
         return true
       },
       canUndoLast: () => !!lastUndoableAction(),
-      clearActions: () => { actionHistory.length = 0; actionOperations.clear() },
+      redoLast: () => {
+        const action = lastRedoableAction()
+        if (!action || !store.redo()) return false
+        agentRedoStack.pop()
+        agentUndoStack.push(action)
+        agentHistoryRevision = store.revision
+        action.phase = 'completed'
+        action.afterRevision = store.revision
+        notifyAction(action)
+        return true
+      },
+      canRedoLast: () => !!lastRedoableAction(),
+      clearActions: () => { actionHistory.length = 0; actionOperations.clear(); resetAgentHistory() },
     }
   })(),
   /**
