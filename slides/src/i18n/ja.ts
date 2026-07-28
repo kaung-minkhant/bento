@@ -739,6 +739,8 @@ export const ja: Catalog = {
   'Validate slide': 'スライドを検証',
   'Deck thumbnails': 'デッキのサムネイル',
   'Apply operations': '操作を適用',
+  'Deck style': 'デッキスタイル',
+  'Slide details': 'スライドの詳細',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

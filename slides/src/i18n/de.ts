@@ -739,6 +739,8 @@ export const de: Catalog = {
   'Validate slide': 'Folie prüfen',
   'Deck thumbnails': 'Präsentationsminiaturen',
   'Apply operations': 'Operationen anwenden',
+  'Deck style': 'Präsentationsstil',
+  'Slide details': 'Foliendetails',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

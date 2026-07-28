@@ -2,7 +2,8 @@
 // Copyright (c) 2026 The Bento/Suite authors
 
 import {
-  applyChartPalette, defaultChart, defaultImage, defaultMedia, defaultShape, defaultTable, defaultText, emptySlide, internAsset, uid,
+  applyChartPalette, applyLayout, builtinLayouts, defaultChart, defaultImage, defaultMedia, defaultShape, defaultTable,
+  defaultText, emptySlide, instantiateLayout, internAsset, layoutElementIds, uid,
   type BentoDoc, type ChartElement, type ImageElement, type MediaElement, type ShapeElement,
   type Slide, type SlideElement, type SvgElement, type TableElement, type TextElement,
   type TransitionKind,
@@ -101,8 +102,21 @@ export function prepareAgentOperations(raw: unknown[]): PreparedAgentOperation[]
         background: optionalString(operation.background, 'background', 500),
         transition: optionalString(operation.transition, 'transition', 20),
         stateOf: optionalString(operation.stateOf, 'stateOf', 200), hover: operation.hover === undefined ? undefined : object(operation.hover, 'hover'),
+        layoutId: optionalString(operation.layoutId, 'layoutId', 200),
       }
     }
+    if (type === 'update_deck') return { type, patch: cleanPatch(operation.patch, new Set(['title', 'meta', 'theme', 'present']), 'patch') }
+    if (type === 'add_asset') return {
+      type, clientId, id: uid('a'), content: string(operation.content, 'content', 20_000_000),
+    }
+    if (type === 'delete_asset') return { type, asset: string(operation.asset, 'asset', 300) }
+    if (type === 'apply_layout') return {
+      type, slideId: string(operation.slideId, 'slideId', 200), layoutId: string(operation.layoutId, 'layoutId', 200),
+    }
+    if (type === 'save_layout') return {
+      type, clientId, id: uid('layout'), slideId: string(operation.slideId, 'slideId', 200), name: string(operation.name, 'name', 200),
+    }
+    if (type === 'delete_layout') return { type, layoutId: string(operation.layoutId, 'layoutId', 200) }
     if (type === 'update_slide') {
       const patch = cleanPatch(operation.patch, new Set(['name', 'background', 'transition', 'notes', 'stateOf', 'hover']), 'patch')
       return { type, slideId: string(operation.slideId, 'slideId', 200), patch }
@@ -241,6 +255,26 @@ function safeSvgCss(value: unknown): string {
   return css
 }
 
+function safeAssetContent(value: unknown): string {
+  const content = string(value, 'content', 20_000_000)
+  if (/^\s*<svg[\s>]/i.test(content)) return safeSvgMarkup(content)
+  if (!/^data:(?:image\/(?:png|jpeg|webp|gif)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+|font\/[a-z0-9.+-]+|application\/(?:font-[a-z0-9.+-]+|vnd\.ms-fontobject|octet-stream));base64,[a-z0-9+/]+=*$/i.test(content)) {
+    throw new Error('Asset content must be safe inline SVG or an approved base64 data URI.')
+  }
+  return content
+}
+
+function assetKey(value: unknown, created: Record<string, string>): string {
+  const resolved = String(resolveId(value, created))
+  return resolved.startsWith('asset:') ? resolved.slice(6) : resolved
+}
+
+function findLayout(doc: BentoDoc, id: unknown): Slide {
+  const layout = [...builtinLayouts(), ...(doc.layouts ?? [])].find((item) => item.id === id)
+  if (!layout) throw new Error(`Layout not found: ${String(id)}.`)
+  return layout
+}
+
 function selected(slide: Slide, ids: unknown[], created: Record<string, string>): SlideElement[] {
   const result = ids.map((id) => findElement(slide, resolveId(id, created)))
   if (new Set(result.map((item) => item.id)).size !== result.length) throw new Error('elementIds must be unique.')
@@ -252,12 +286,88 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
   const created: Record<string, string> = {}
   const affected = new Set<string>()
   for (const operation of operations) {
+    if (operation.type === 'update_deck') {
+      const patch = operation.patch as JsonObject
+      if ('title' in patch && (typeof patch.title !== 'string' || !patch.title.trim() || patch.title.length > 500)) throw new Error('patch.title must be a non-empty string.')
+      if ('meta' in patch && patch.meta !== undefined && patch.meta !== null) object(patch.meta, 'patch.meta')
+      if ('theme' in patch && patch.theme !== undefined) {
+        const theme = object(patch.theme, 'patch.theme')
+        for (const key of ['background', 'color', 'accent', 'fontFamily']) if (key in theme && typeof theme[key] !== 'string') throw new Error(`patch.theme.${key} must be a string.`)
+        if ('chartPalette' in theme && (!Array.isArray(theme.chartPalette) || theme.chartPalette.some((color) => typeof color !== 'string'))) throw new Error('patch.theme.chartPalette must be an array of colors.')
+        if ('table' in theme && theme.table !== undefined) object(theme.table, 'patch.theme.table')
+        doc.theme = { ...doc.theme, ...theme }
+      }
+      if ('present' in patch && patch.present !== undefined) {
+        const present = object(patch.present, 'patch.present')
+        for (const [key, value] of Object.entries(present)) if (!['slideNumber', 'controls', 'progress'].includes(key) || typeof value !== 'boolean') throw new Error(`patch.present.${key} must be a boolean.`)
+        doc.present = { ...(doc.present ?? {}), ...present }
+      }
+      if ('title' in patch) doc.title = patch.title as string
+      if ('meta' in patch) {
+        if (patch.meta === null) delete doc.meta
+        else {
+          const meta = patch.meta as JsonObject
+          for (const [key, value] of Object.entries(meta)) if (!['author', 'company', 'subject', 'event', 'keywords'].includes(key) || typeof value !== 'string') throw new Error(`patch.meta.${key} must be a string.`)
+          doc.meta = { ...(doc.meta ?? {}), ...(meta as BentoDoc['meta']) }
+        }
+      }
+      continue
+    }
+    if (operation.type === 'add_asset') {
+      const content = safeAssetContent(operation.content)
+      const assets = (doc.assets ??= {})
+      let key = Object.keys(assets).find((item) => assets[item] === content)
+      if (!key) { key = operation.id as string; assets[key] = content }
+      if (operation.clientId) created[operation.clientId as string] = `asset:${key}`
+      continue
+    }
+    if (operation.type === 'delete_asset') {
+      const key = assetKey(operation.asset, created)
+      if (!doc.assets?.[key]) throw new Error(`Asset not found: ${key}.`)
+      const ref = `asset:${key}`
+      const used = [...doc.slides, ...(doc.layouts ?? [])].some((slide) => slide.elements.some((element) =>
+        (element.type === 'image' || element.type === 'media') ? element.src === ref || (element.type === 'media' && element.poster === ref) : element.type === 'svg' ? element.asset === key : false,
+      )) || doc.fonts?.some((font) => font.asset === key)
+      if (used) throw new Error(`Asset is still in use: ${key}.`)
+      delete doc.assets[key]
+      if (!Object.keys(doc.assets).length) delete doc.assets
+      continue
+    }
+    if (operation.type === 'apply_layout') {
+      const slide = findSlide(doc, resolveId(operation.slideId, created))
+      const layout = findLayout(doc, resolveId(operation.layoutId, created))
+      slide.elements = applyLayout(slide, layout, layoutElementIds(doc))
+      slide.background = layout.background
+      affected.add(slide.id)
+      continue
+    }
+    if (operation.type === 'save_layout') {
+      const source = findSlide(doc, resolveId(operation.slideId, created))
+      const layout = structuredClone(source)
+      layout.id = operation.id as string
+      layout.name = operation.name as string
+      layout.notes = ''
+      delete layout.stateOf
+      ;(doc.layouts ??= []).push(layout)
+      if (operation.clientId) created[operation.clientId as string] = layout.id
+      continue
+    }
+    if (operation.type === 'delete_layout') {
+      const id = resolveId(operation.layoutId, created)
+      if (builtinLayouts().some((layout) => layout.id === id)) throw new Error('Built-in layouts cannot be deleted.')
+      const before = doc.layouts?.length ?? 0
+      doc.layouts = doc.layouts?.filter((layout) => layout.id !== id)
+      if ((doc.layouts?.length ?? 0) === before) throw new Error(`Layout not found: ${String(id)}.`)
+      if (!doc.layouts?.length) delete doc.layouts
+      continue
+    }
     if (operation.type === 'create_slide') {
       if (operation.transition && !transitions.has(operation.transition as TransitionKind)) throw new Error(`Invalid transition: ${operation.transition}.`)
-      const slide = emptySlide({
+      const base = operation.layoutId ? instantiateLayout(findLayout(doc, resolveId(operation.layoutId, created))) : emptySlide()
+      const slide = Object.assign(base, {
         id: operation.id as string, name: operation.name as string | undefined,
-        background: operation.background as string | undefined,
-        transition: operation.transition as TransitionKind | undefined,
+        background: operation.background as string | undefined ?? base.background,
+        transition: operation.transition as TransitionKind | undefined ?? base.transition,
         stateOf: operation.stateOf as string | undefined,
         hover: operation.hover as Slide['hover'],
       })
@@ -343,7 +453,7 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
     }
     if (operation.type === 'create_image') {
       const props = operation.props as Partial<ImageElement>
-      const source = internAsset(doc, safeSource(props.src, 'element.src'))
+      const source = internAsset(doc, safeSource(resolveId(props.src, created), 'element.src'))
       const element = defaultImage(source, { id: operation.id as string, ...(operation.frame as Pick<ImageElement, 'x' | 'y' | 'w' | 'h'>), ...props, src: source })
       validateElementPatch(element, operation.props)
       slide.elements.push(element)
@@ -354,6 +464,7 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
       const props = operation.props as Partial<SvgElement>
       if (props.markup !== undefined) props.markup = safeSvgMarkup(props.markup)
       if (props.css !== undefined) props.css = safeSvgCss(props.css)
+      if (props.asset) props.asset = assetKey(props.asset, created)
       if (!props.markup && !props.asset) throw new Error('create_svg requires markup or an asset key.')
       if (props.asset && !doc.assets?.[props.asset]) throw new Error(`SVG asset not found: ${props.asset}.`)
       const element: SvgElement = { id: operation.id as string, type: 'svg', ...(operation.frame as Pick<SvgElement, 'x' | 'y' | 'w' | 'h'>), rotation: 0, opacity: 1, ...props }
@@ -383,7 +494,7 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
     if (operation.type === 'create_media') {
       const props = operation.props as Partial<MediaElement>
       if (props.kind !== 'audio' && props.kind !== 'video') throw new Error('Media kind must be audio or video.')
-      const source = internAsset(doc, safeSource(props.src, 'element.src'))
+      const source = internAsset(doc, safeSource(resolveId(props.src, created), 'element.src'))
       const element = defaultMedia(props.kind, source, { id: operation.id as string, ...(operation.frame as Pick<MediaElement, 'x' | 'y' | 'w' | 'h'>), ...props, src: source })
       validateElementPatch(element, operation.props)
       slide.elements.push(element)

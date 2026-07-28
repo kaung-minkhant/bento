@@ -8,7 +8,7 @@ The adapter never decrypts stored snapshots or receives a document password,
 vault key, or relay key. Metadata and session tools use the document service.
 Content tools require an explicit browser bridge connection and then inspect or
 change the open document through the editor's normal undoable mutation path.
-Agents should prefer the targeted tools (`get_deck_summary`, `render_slide`,
+Agents should prefer the targeted tools (`get_deck_summary`, `get_deck_style`, `get_slide`, `render_slide`,
 `render_deck_thumbnails`, `validate_slide`, `apply_operations`, `create_slide`, `add_text`,
 `update_element`, `delete_element`, and `set_speaker_notes`) so small edits do
 not transfer or overwrite the entire document. Rendering and validation are
@@ -20,6 +20,10 @@ shape, image, SVG, chart, table, and media creation; type-aware element
 updates and deletion; duplication; grouping; alignment; distribution; and
 z-order. A creation operation may declare `clientId`, which later operations
 in the same batch can use wherever a slide or element ID is expected.
+The same batch vocabulary also supports deck theme/presentation updates,
+safe embedded assets, built-in and custom layouts, and layout application.
+`get_deck_style` reports layout and asset metadata without returning embedded
+asset bytes.
 The legacy
 `agent_read_document` and `agent_replace_document` tools remain available for
 clients that need full-document access.

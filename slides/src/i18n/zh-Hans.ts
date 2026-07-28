@@ -739,6 +739,8 @@ export const zhHans: Catalog = {
   'Validate slide': '检查幻灯片',
   'Deck thumbnails': '演示文稿缩略图',
   'Apply operations': '应用操作',
+  'Deck style': '演示文稿样式',
+  'Slide details': '幻灯片详情',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

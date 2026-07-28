@@ -99,6 +99,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       annotations: { readOnlyHint: true, openWorldHint: false },
     }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'summary')) })
 
+    server.registerTool('get_deck_style', {
+      description: 'Read the connected deck size, theme, presentation settings, layout catalog, asset metadata, and current revision without transferring asset contents.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'deck_style')) })
+
+    server.registerTool('get_slide', {
+      description: 'Read one slide and its complete element model from the explicitly connected deck, together with the current revision.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1) },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId, slideId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'slide_detail', undefined, { slideId })) })
+
     server.registerTool('render_slide', {
       description: 'Render one slide from the explicitly connected bento editor as a PNG preview. This is read-only and does not change document history.',
       inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1), width: z.number().int().min(320).max(1600).optional() },
