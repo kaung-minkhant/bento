@@ -1,6 +1,6 @@
 # bento implementation roadmap
 
-Updated 2026-07-26.
+Updated 2026-07-28.
 
 ## Phase 1: deployment foundation
 
@@ -15,8 +15,7 @@ Complete. The self-hosted deployment chain is working end to end:
 
 ## Phase 2: document-service vertical slice
 
-This is the current phase. Build one complete hosted-document path before
-adding agent features:
+Complete. The encrypted hosted-document path works end to end:
 
 ```text
 create document
@@ -60,12 +59,17 @@ subject. Sharing, multi-user access, and agent access come later.
 
 ## Phase 3: live sessions
 
+Complete.
+
 - Connect hosted documents to the existing CRDT relay.
 - Start and resume scoped sessions.
 - Support presence and session lifecycle metadata.
 - Preserve the blind-relay and client-owned-key model.
 
 ## Phase 4: MCP agent adapter
+
+Complete. The generic adapter and explicit browser bridge are deployed and
+working through both production and local MCP endpoints.
 
 - Expose document and session operations through a generic MCP server. The
   first adapter slice now lives in `server/mcp-adapter` and supports both
@@ -82,13 +86,24 @@ subject. Sharing, multi-user access, and agent access come later.
 
 ## Phase 5: library and agent workflow
 
+Complete. The hosted library and open-document agent workflow are deployed.
+Agent activity is visible in the editor, targeted document tools mutate through
+the normal store path, and guarded multi-level agent undo/redo supports review
+and iteration without crossing intervening user edits.
+
 - Add the document library/explorer UI.
 - Let a user ask an agent to build a deck in an open document.
 - Show progress and changes live in the editor.
 - Support review, iteration, and approval without JSON copy/paste.
 
-## Current boundary
+## Completion boundary
 
-Phase 2 should not expand into MCP, full collaboration, server-side content
-search, or a broad library UI. Finish the encrypted create/open/save path and
-validate it in the deployed environment first.
+Phases 1–5 are complete. Production acceptance on 2026-07-28 verified MCP
+pairing, targeted text mutations, repeated undo and redo, redo invalidation
+after a manual edit, and activity-history clearing without changing document
+content. The file remains authoritative, hosted snapshots remain encrypted,
+and agent content access still requires an explicit browser pairing.
+
+Future work belongs in a new roadmap rather than expanding these phases.
+Fine-grained collaboration access-control phases are tracked separately in
+`docs/collab-design.md`.
