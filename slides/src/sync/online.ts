@@ -598,6 +598,15 @@ export class OnlineTransport implements Transport {
     })()
   }
 
+  /** Send an encrypted leave frame before closing so peers remove us now
+   * instead of waiting for their presence TTL to expire. */
+  async leave(frame: Frame): Promise<void> {
+    if (!this.key || !this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    const enc = await this.encrypt(JSON.stringify(frame))
+    if (!enc || !this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    this.ws.send(JSON.stringify(enc))
+  }
+
   close() {
     this.closed = true
     if (this.pauseTimer) { clearTimeout(this.pauseTimer); this.pauseTimer = null }
@@ -699,16 +708,16 @@ export async function startSharing(session: SyncSession, store: Store): Promise<
  */
 export function disconnectOnline(session: SyncSession) {
   if (active) {
-    session.removeTransport(active)
+    void session.removeTransport(active)
     active = null
   }
 }
 
 /** flip sharing off and disconnect. Credentials stay — copies saved during
  * the session can rejoin if sharing is turned back on. */
-export function stopSharing(session: SyncSession, store: Store) {
+export async function stopSharing(session: SyncSession, store: Store) {
   if (active) {
-    session.removeTransport(active)
+    await session.removeTransport(active)
     active = null
   }
   if (store.doc.collab && store.doc.collab.on !== false) {

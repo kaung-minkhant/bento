@@ -66,6 +66,7 @@ export type Frame = (HelloFrame | OpsFrame | NeedFrame | PresFrame | ByeFrame | 
 export interface Transport {
   readonly kind: string
   send(frame: Frame): void
+  leave?(frame: Frame): Promise<void>
   close(): void
 }
 
@@ -239,7 +240,8 @@ export class SyncSession {
     return tr
   }
 
-  removeTransport(tr: Transport) {
+  async removeTransport(tr: Transport) {
+    await tr.leave?.({ t: 'bye', a: this.actor })
     tr.close()
     this.transports = this.transports.filter((x) => x !== tr)
     this.makeExtraTransports = []
