@@ -6,8 +6,13 @@ clients can use the same endpoint.
 
 The adapter never decrypts stored snapshots or receives a document password,
 vault key, or relay key. Metadata and session tools use the document service.
-Content tools require an explicit browser bridge connection and then read or
-replace the open document through the editor's normal undoable mutation path.
+Content tools require an explicit browser bridge connection and then inspect or
+change the open document through the editor's normal undoable mutation path.
+Agents should prefer the targeted tools (`get_deck_summary`, `create_slide`,
+`add_text`, `update_element`, `delete_element`, and `set_speaker_notes`) so
+small edits do not transfer or overwrite the entire document. The legacy
+`agent_read_document` and `agent_replace_document` tools remain available for
+clients that need full-document access.
 
 ## Run
 
