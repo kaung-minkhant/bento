@@ -370,9 +370,12 @@ export async function validateSlideVisuals(doc: BentoDoc, slideId: string): Prom
     for (const entry of entries) {
       const { x, y, w, h } = entry.bounds
       if (x < -1 || y < -1 || x + w > doc.size.width + 1 || y + h > doc.size.height + 1) {
+        const element = elementById(mounted.slide, entry.id)
+        const contentRisk = element?.type === 'text' || element?.type === 'table' || element?.type === 'chart'
         findings.push({
-          code: 'off_canvas', severity: 'warning', confidence: 'high', elementIds: [entry.id],
-          message: 'Element extends outside the slide bounds.', bounds: entry.bounds,
+          code: 'off_canvas', severity: contentRisk ? 'warning' : 'info', confidence: contentRisk ? 'high' : 'medium', elementIds: [entry.id],
+          message: contentRisk ? 'Content element extends outside the slide bounds.' : 'Visual element extends outside the slide bounds; this may be an intentional bleed.',
+          bounds: entry.bounds,
         })
       }
       const element = elementById(mounted.slide, entry.id)
@@ -391,15 +394,19 @@ export async function validateSlideVisuals(doc: BentoDoc, slideId: string): Prom
       for (let second = first + 1; second < entries.length; second++) {
         const a = entries[first]
         const b = entries[second]
-        if (contains(a.bounds, b.bounds) || contains(b.bounds, a.bounds)) continue
+        const aElement = elementById(mounted.slide, a.id)
+        const bElement = elementById(mounted.slide, b.id)
+        const bothText = aElement?.type === 'text' && bElement?.type === 'text'
+        // Elements paint in document order. Text over an earlier visual is a
+        // normal composition; a later visual covering text is worth review.
+        const textCovered = aElement?.type === 'text' && bElement?.type !== 'text'
+        if (!bothText && !textCovered) continue
+        if (!textCovered && (contains(a.bounds, b.bounds) || contains(b.bounds, a.bounds))) continue
         const area = intersection(a.bounds, b.bounds)
         const smaller = Math.min(a.bounds.w * a.bounds.h, b.bounds.w * b.bounds.h)
         if (!area || !smaller) continue
         const ratio = area / smaller
         if (ratio < 0.15) continue
-        const aElement = elementById(mounted.slide, a.id)
-        const bElement = elementById(mounted.slide, b.id)
-        const bothText = aElement?.type === 'text' && bElement?.type === 'text'
         findings.push({
           code: 'possible_overlap', severity: bothText ? 'warning' : 'info', confidence: 'low',
           elementIds: [a.id, b.id], message: 'Elements overlap significantly; review the rendered slide to confirm intent.',
