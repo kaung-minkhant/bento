@@ -27,6 +27,7 @@ import {
 } from './hosted'
 import { docContentKey } from './autosave'
 import { openHostedLibrary } from './hosted-library'
+import { renderSlideImage, validateSlideVisuals } from './agent-inspect'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -474,7 +475,7 @@ if (location.hash === '#present') {
       if (socket?.readyState !== WebSocket.OPEN) return
       socket.send(JSON.stringify({ type: 'response', requestId, ok, ...(value === undefined ? {} : { value }), ...(error ? { error } : {}) }))
     }
-    const handleRequest = (message: { requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }) => {
+    const handleRequest = async (message: { requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }) => {
       if (typeof message.requestId !== 'string') return
       if (typeof message.operation === 'string') {
         if (store.revision !== agentHistoryRevision) resetAgentHistory()
@@ -507,6 +508,19 @@ if (location.hash === '#present') {
               })),
             })),
           })
+          return
+        }
+        if (message.operation === 'render_slide') {
+          if (typeof params.slideId !== 'string') throw new Error('render_slide requires slideId.')
+          const width = params.width === undefined ? undefined : Number(params.width)
+          const rendered = await renderSlideImage(store.doc, params.slideId, width)
+          sendResponse(message.requestId, true, { ...rendered, revision: store.revision })
+          return
+        }
+        if (message.operation === 'validate_slide') {
+          if (typeof params.slideId !== 'string') throw new Error('validate_slide requires slideId.')
+          const validation = await validateSlideVisuals(store.doc, params.slideId)
+          sendResponse(message.requestId, true, { ...validation, revision: store.revision })
           return
         }
         if (message.operation === 'create_slide') {
@@ -594,7 +608,7 @@ if (location.hash === '#present') {
         if (message.type === 'registered' || message.type === 'paired') state = 'connected'
         if (message.type === 'waiting') state = 'waiting'
         if (message.type !== 'request') return
-        handleRequest(message)
+        void handleRequest(message)
       })
       return { status: 'connecting', docId: store.doc.docId }
     }
@@ -625,7 +639,7 @@ if (location.hash === '#present') {
         try { message = JSON.parse(String(event.data)) } catch { return }
         if (message.type === 'paired') state = 'connected'
         if (message.type !== 'request') return
-        handleRequest(message)
+        void handleRequest(message)
       })
       return { code: pairing.code, expiresAt: pairing.expiresAt, docId: store.doc.docId }
     }

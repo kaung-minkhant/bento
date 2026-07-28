@@ -735,6 +735,8 @@ export const de: Catalog = {
   'Redo last agent change': 'Letzte Agentenänderung wiederholen',
   'Stop agent': 'Stop agent',
   'Agent changes': 'Agent changes',
+  'Render slide': 'Folie rendern',
+  'Validate slide': 'Folie prüfen',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

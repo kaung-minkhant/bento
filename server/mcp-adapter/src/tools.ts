@@ -8,6 +8,21 @@ function result(value: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value) }] }
 }
 
+function imageResult(value: unknown) {
+  if (!value || typeof value !== 'object') throw new Error('The browser returned an invalid rendered slide.')
+  const rendered = value as Record<string, unknown>
+  if (rendered.mimeType !== 'image/png' || typeof rendered.data !== 'string') {
+    throw new Error('The browser returned an invalid rendered slide.')
+  }
+  const { data, mimeType, ...metadata } = rendered
+  return {
+    content: [
+      { type: 'image' as const, data, mimeType },
+      { type: 'text' as const, text: JSON.stringify(metadata) },
+    ],
+  }
+}
+
 export function createMcpServer(config: AdapterConfig, client = new DocumentServiceClient(config), bridge?: BrowserBridge) {
   const server = new McpServer({ name: 'bento-document-service', version: '1.0.0' })
   const assertAllowed = (docId: string) => {
@@ -82,6 +97,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       inputSchema: { docId: z.string().uuid() },
       annotations: { readOnlyHint: true, openWorldHint: false },
     }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'summary')) })
+
+    server.registerTool('render_slide', {
+      description: 'Render one slide from the explicitly connected bento editor as a PNG preview. This is read-only and does not change document history.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1), width: z.number().int().min(320).max(1600).optional() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId, slideId, width }) => { assertAllowed(docId); return imageResult(await bridge.request(docId, 'render_slide', undefined, { slideId, width })) })
+
+    server.registerTool('validate_slide', {
+      description: 'Inspect one slide in the explicitly connected bento editor for off-canvas elements, text overflow, possible overlap, and measurable contrast problems.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1) },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId, slideId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'validate_slide', undefined, { slideId })) })
 
     server.registerTool('create_slide', {
       description: 'Create one blank slide in the connected deck. Optionally place it after a specific slide ID.',

@@ -735,6 +735,8 @@ export const ja: Catalog = {
   'Redo last agent change': 'エージェントの最後の変更をやり直す',
   'Stop agent': 'Stop agent',
   'Agent changes': 'Agent changes',
+  'Render slide': 'スライドをレンダリング',
+  'Validate slide': 'スライドを検証',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

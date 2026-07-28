@@ -735,6 +735,8 @@ export const zhHans: Catalog = {
   'Redo last agent change': '重做上一次智能体更改',
   'Stop agent': 'Stop agent',
   'Agent changes': 'Agent changes',
+  'Render slide': '渲染幻灯片',
+  'Validate slide': '检查幻灯片',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }
