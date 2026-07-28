@@ -6,6 +6,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 const migrations = [
   ['001_initial', '001_initial.sql'],
   ['002_vault_keys', '002_vault_keys.sql'],
+  ['003_session_room_index', '003_session_room_index.sql'],
 ] as const
 
 const client = await pool.connect()

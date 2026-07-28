@@ -281,10 +281,13 @@ recovery checkpoints.
 POST /api/v1/documents/{docId}/sessions
 ```
 
-Creates or resumes service metadata for a live session and returns an opaque
-session reference plus the configured relay endpoint. The document key and
-encrypted relay payload remain client-owned. Session authorization must be
-checked against `document_members` before returning the reference.
+The request body is `{ "relayRoom": "https://...", "sessionId": "..." }`.
+`sessionId` is optional: omitting it creates or resumes the active service
+record for that document and relay room; supplying it refreshes that record.
+The response returns the opaque session reference, relay room, creator, and
+timestamps. The document key and encrypted relay payload remain client-owned.
+Session authorization is checked against `document_members` before returning
+the reference.
 
 ### Revoke or close a session
 
@@ -292,9 +295,11 @@ checked against `document_members` before returning the reference.
 DELETE /api/v1/documents/{docId}/sessions/{sessionId}
 ```
 
-This closes the service record and asks the client/relay integration to stop
-the session. Key rotation remains the document-level mechanism for revoking
-previously distributed collaboration credentials.
+This closes the service record and returns its final metadata. The caller must
+have owner or editor access. The relay remains blind and is not called by the
+document service; clients stop their relay transport separately. Key rotation
+remains the document-level mechanism for revoking previously distributed
+collaboration credentials.
 
 ## Versioning policy
 
