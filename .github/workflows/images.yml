@@ -10,6 +10,7 @@ on:
       - 'slides/**'
       - 'kernel/**'
       - 'server/document-service/**'
+      - 'server/mcp-adapter/**'
       - '.github/workflows/images.yml'
   workflow_dispatch:
 
@@ -55,3 +56,11 @@ jobs:
           file: slides/Dockerfile
           push: true
           tags: ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.value }}
+
+      - name: Build and push MCP adapter
+        uses: docker/build-push-action@v6
+        with:
+          context: server/mcp-adapter
+          file: server/mcp-adapter/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/mcp-adapter:${{ steps.tag.outputs.value }}

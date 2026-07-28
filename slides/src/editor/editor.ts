@@ -292,7 +292,8 @@ export class Editor {
     history.append(undoB, redoB)
     const saveGroup = div('ed-split')
     saveGroup.append(saveB, this.saveDropdown())
-    actions.append(pdfB, this.avatarsBox, this.profileBox, this.shareDropdown(), saveGroup, this.languageDropdown(), helpB)
+    const agentB = btn(ICONS.code, t('Agent'), () => this.openAgentPanel(), t('Connect an AI agent to this open deck'))
+    actions.append(pdfB, this.avatarsBox, this.profileBox, agentB, this.shareDropdown(), saveGroup, this.languageDropdown(), helpB)
     const left = div('ed-topbar-left')
     left.append(logo, this.updatesB, title, history)
     const middle = div('ed-topbar-middle')
@@ -893,6 +894,65 @@ export class Editor {
   }
 
   // --- live-collaboration Share popover ------------------------------------
+
+  private openAgentPanel() {
+    const dialog = document.createElement('dialog')
+    dialog.className = 'ed-agent-dialog'
+    dialog.innerHTML =
+      `<form method="dialog"><button class="ed-agent-close" aria-label="${t('Close')}">×</button></form>` +
+      `<h2>${t('Connect an AI agent')}</h2>` +
+      `<p>${t('Pair an agent with this open deck. The agent can read and change this deck through the normal editor, undo and collaboration paths.')}</p>` +
+      `<label>${t('MCP adapter URL')}<input class="ed-agent-url" type="url" placeholder="http://127.0.0.1:8790"></label>` +
+      `<button class="ed-agent-connect ed-primary" type="button">${t('Create pairing code')}</button>` +
+      `<div class="ed-agent-pairing" hidden><div class="ed-agent-status"></div><code class="ed-agent-code"></code>` +
+      `<p>${t('Tell your agent to claim this pairing code:')}</p><button class="ed-agent-copy" type="button">${ICONS.copy}<span>${t('Copy code')}</span></button>` +
+      `<button class="ed-agent-disconnect" type="button">${t('Disconnect agent')}</button></div>`
+    document.body.appendChild(dialog)
+    const urlInput = dialog.querySelector<HTMLInputElement>('.ed-agent-url')!
+    const connectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-connect')!
+    const pairing = dialog.querySelector<HTMLElement>('.ed-agent-pairing')!
+    const status = dialog.querySelector<HTMLElement>('.ed-agent-status')!
+    const code = dialog.querySelector<HTMLElement>('.ed-agent-code')!
+    const copyB = dialog.querySelector<HTMLButtonElement>('.ed-agent-copy')!
+    const disconnectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-disconnect')!
+    try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
+    let timer: number | null = null
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null } } }).bento?.agent
+    const updateStatus = () => {
+      const current = api?.status?.() || 'off'
+      status.textContent = current === 'connected' ? t('Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
+      status.classList.toggle('ok', current === 'connected')
+    }
+    const existingStatus = api?.status?.() || 'off'
+    if (existingStatus !== 'off') {
+      pairing.hidden = false
+      code.textContent = api?.pairingCode?.() || ''
+      connectB.hidden = true
+      updateStatus()
+      timer = window.setInterval(updateStatus, 500)
+    }
+    connectB.addEventListener('click', async () => {
+      connectB.disabled = true
+      try {
+        try { localStorage.setItem('bento-agent-adapter-url', urlInput.value.trim()) } catch { /* storage unavailable */ }
+        const result = await api?.connectPairing?.(urlInput.value.trim())
+        if (!result) throw new Error(t('The agent bridge is unavailable.'))
+        pairing.hidden = false
+        code.textContent = result.code
+        connectB.hidden = true
+        updateStatus()
+        timer = window.setInterval(updateStatus, 500)
+      } catch (error) {
+        this.toast(error instanceof Error ? error.message : t('Pairing failed'))
+      } finally {
+        connectB.disabled = false
+      }
+    })
+    copyB.addEventListener('click', () => void navigator.clipboard?.writeText(code.textContent || ''))
+    disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; updateStatus() })
+    dialog.addEventListener('close', () => { if (timer !== null) window.clearInterval(timer); dialog.remove() })
+    dialog.showModal()
+  }
 
   private shareDropdown(): HTMLElement {
     const wrap = div('ed-dropdown')

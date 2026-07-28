@@ -12,7 +12,7 @@ import {
 } from './save'
 import { APP_VERSION, checkForUpdates, buildUpdatedFile, applyUpdate } from './update'
 import { i18nApi, t } from './i18n'
-import { newDoc, parseDoc, type BentoDoc } from './model'
+import { defaultText, emptySlide, newDoc, parseDoc, type BentoDoc } from './model'
 import { starterDoc } from './starterdeck'
 import { injectFonts } from './fonts'
 import { Store } from './store'
@@ -420,6 +420,170 @@ if (location.hash === '#present') {
     open: (docId: string) => openHostedIntoEditor(docId),
     get current() { return { docId: hostedDocId, versionId: hostedVersionId } },
   },
+  /** Explicit browser bridge for a trusted MCP agent. */
+  agent: (() => {
+    let socket: WebSocket | null = null
+    let state: 'off' | 'connecting' | 'waiting' | 'connected' = 'off'
+    let pairingCode: string | null = null
+    const sendResponse = (requestId: string, ok: boolean, value?: unknown, error?: string) => {
+      if (socket?.readyState !== WebSocket.OPEN) return
+      socket.send(JSON.stringify({ type: 'response', requestId, ok, ...(value === undefined ? {} : { value }), ...(error ? { error } : {}) }))
+    }
+    const handleRequest = (message: { requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }) => {
+      if (typeof message.requestId !== 'string') return
+      try {
+        const params = message.params ?? {}
+        if (message.operation === 'read_document') {
+          sendResponse(message.requestId, true, store.doc)
+          return
+        }
+        if (message.operation === 'summary') {
+          sendResponse(message.requestId, true, {
+            docId: store.doc.docId,
+            title: store.doc.title,
+            size: store.doc.size,
+            slides: store.doc.slides.map((slide, index) => ({
+              id: slide.id,
+              index,
+              name: slide.name ?? null,
+              elementCount: slide.elements.length,
+              elements: slide.elements.map((element) => ({
+                id: element.id,
+                type: element.type,
+                text: element.type === 'text' ? element.html.replace(/<[^>]+>/g, '').slice(0, 200) : undefined,
+              })),
+            })),
+          })
+          return
+        }
+        if (message.operation === 'create_slide') {
+          const afterSlideId = typeof params.afterSlideId === 'string' ? params.afterSlideId : undefined
+          const name = typeof params.name === 'string' && params.name.trim() ? params.name.trim() : undefined
+          const slide = emptySlide({ name })
+          let index = store.doc.slides.length
+          store.commit(() => {
+            const after = afterSlideId ? store.doc.slides.findIndex((item) => item.id === afterSlideId) : -1
+            index = after >= 0 ? after + 1 : store.doc.slides.length
+            store.doc.slides.splice(index, 0, slide)
+          }, 'slides')
+          sendResponse(message.requestId, true, { slideId: slide.id, index })
+          return
+        }
+        if (message.operation === 'add_text') {
+          if (typeof params.html !== 'string') throw new Error('add_text requires html.')
+          const slide = typeof params.slideId === 'string' ? store.doc.slides.find((item) => item.id === params.slideId) : store.slide
+          if (!slide) throw new Error('The requested slide was not found.')
+          const number = (key: string, fallback: number) => typeof params[key] === 'number' && Number.isFinite(params[key]) ? params[key] as number : fallback
+          const element = defaultText({
+            html: params.html,
+            x: number('x', 340), y: number('y', 300), w: number('w', 600), h: number('h', 120),
+            fontSize: number('fontSize', 32),
+          })
+          store.commit(() => { slide.elements.push(element) })
+          sendResponse(message.requestId, true, { slideId: slide.id, elementId: element.id })
+          return
+        }
+        if (message.operation === 'update_element') {
+          if (typeof params.slideId !== 'string' || typeof params.elementId !== 'string' || !params.patch || typeof params.patch !== 'object') throw new Error('update_element requires slideId, elementId and patch.')
+          const slide = store.doc.slides.find((item) => item.id === params.slideId)
+          const element = slide?.elements.find((item) => item.id === params.elementId)
+          if (!element) throw new Error('The requested element was not found.')
+          const allowed = ['x', 'y', 'w', 'h', 'rotation', 'opacity', 'html', 'fontSize', 'fontWeight', 'color', 'align', 'valign', 'lineHeight', 'fill', 'stroke', 'strokeWidth', 'radius']
+          const patch = params.patch as Record<string, unknown>
+          store.commit(() => {
+            for (const key of allowed) if (key in patch) (element as unknown as Record<string, unknown>)[key] = patch[key]
+          })
+          sendResponse(message.requestId, true, { slideId: slide!.id, elementId: element.id })
+          return
+        }
+        if (message.operation === 'delete_element') {
+          if (typeof params.slideId !== 'string' || typeof params.elementId !== 'string') throw new Error('delete_element requires slideId and elementId.')
+          const slide = store.doc.slides.find((item) => item.id === params.slideId)
+          if (!slide || !slide.elements.some((item) => item.id === params.elementId)) throw new Error('The requested element was not found.')
+          store.commit(() => { slide.elements = slide.elements.filter((item) => item.id !== params.elementId) })
+          sendResponse(message.requestId, true, { slideId: slide.id, elementId: params.elementId })
+          return
+        }
+        if (message.operation === 'set_notes') {
+          if (typeof params.slideId !== 'string' || typeof params.notes !== 'string') throw new Error('set_notes requires slideId and notes.')
+          const slide = store.doc.slides.find((item) => item.id === params.slideId)
+          if (!slide) throw new Error('The requested slide was not found.')
+          store.commit(() => { slide.notes = params.notes as string })
+          sendResponse(message.requestId, true, { slideId: slide.id })
+          return
+        }
+        if (message.operation === 'replace_document' && typeof message.json === 'string') {
+          const nextDoc = parseDoc(message.json)
+          if (!nextDoc || nextDoc.docId !== store.doc.docId) throw new Error('The replacement must be a valid document with the same docId.')
+          store.replaceDoc(nextDoc)
+          const titleInput = document.querySelector<HTMLInputElement>('.ed-title')
+          if (titleInput) titleInput.value = nextDoc.title
+          document.title = `${nextDoc.title} — ${appConfig().appName}`
+          sendResponse(message.requestId, true, { ok: true, docId: nextDoc.docId })
+          return
+        }
+        sendResponse(message.requestId, false, undefined, 'Unsupported browser bridge operation.')
+      } catch (error) {
+        sendResponse(message.requestId, false, undefined, error instanceof Error ? error.message : 'Browser bridge operation failed.')
+      }
+    }
+    const connect = (url: string, token: string) => {
+      socket?.close()
+      const next = new WebSocket(url)
+      socket = next
+      state = 'connecting'
+      next.addEventListener('open', () => {
+        next.send(JSON.stringify({ type: 'register', docId: store.doc.docId, token }))
+      })
+      next.addEventListener('message', (event) => {
+        let message: { type?: string; requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }
+        try { message = JSON.parse(String(event.data)) } catch { return }
+        if (message.type === 'registered' || message.type === 'paired') state = 'connected'
+        if (message.type === 'waiting') state = 'waiting'
+        if (message.type !== 'request') return
+        handleRequest(message)
+      })
+      return { status: 'connecting', docId: store.doc.docId }
+    }
+    const connectPairing = async (adapterUrl: string) => {
+      const base = adapterUrl.replace(/\/$/, '')
+      const response = await fetch(`${base}/pairings`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(hostedDocId && getHostedToken() ? { authorization: `Bearer ${getHostedToken()}` } : {}),
+        },
+        body: JSON.stringify({ docId: store.doc.docId }),
+      })
+      const pairing = await response.json() as { pairingId?: string; code?: string; expiresAt?: number; error?: string }
+      if (!response.ok || !pairing.pairingId || !pairing.code) throw new Error(pairing.error || 'Agent pairing failed.')
+      pairingCode = pairing.code
+      const wsUrl = base.replace(/^http/, 'ws') + '/bridge'
+      socket?.close()
+      const next = new WebSocket(wsUrl)
+      socket = next
+      state = 'connecting'
+      next.addEventListener('open', () => {
+        state = 'waiting'
+        next.send(JSON.stringify({ type: 'pair', pairingId: pairing.pairingId, docId: store.doc.docId }))
+      })
+      next.addEventListener('message', (event) => {
+        let message: { type?: string; requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }
+        try { message = JSON.parse(String(event.data)) } catch { return }
+        if (message.type === 'paired') state = 'connected'
+        if (message.type !== 'request') return
+        handleRequest(message)
+      })
+      return { code: pairing.code, expiresAt: pairing.expiresAt, docId: store.doc.docId }
+    }
+    return {
+      connect,
+      connectPairing,
+      disconnect: () => { socket?.close(); socket = null; state = 'off'; pairingCode = null },
+      status: () => state,
+      pairingCode: () => pairingCode,
+    }
+  })(),
   /**
    * AI/tooling round-trip: replace the whole document from a JSON string
    * (the contents of #bento-doc). Validates via parseDoc; returns false and
