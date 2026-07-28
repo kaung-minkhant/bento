@@ -594,6 +594,8 @@ export function startPresentation(
   // that handoff; visibility preserves layout, so runMorph can still measure
   // formula symbols and initialise every layer before the section is revealed.
   let primedMorphSection: HTMLElement | null = null
+  let morphHandoffCover: HTMLElement | null = null
+  let morphHandoffFrame = 0
   deck.on('beforeslidechange', ((event: any) => {
     const fromIdx = deck.getIndices().h
     const toIdx = Number(event.indexh)
@@ -605,6 +607,16 @@ export function startPresentation(
     if (!morphing || reduceMotion) return
     const to = slidesEl.children[toIdx] as HTMLElement | undefined
     if (!to) return
+    cancelAnimationFrame(morphHandoffFrame)
+    morphHandoffCover?.remove()
+    const from = slidesEl.children[fromIdx] as HTMLElement | undefined
+    const surface = from?.querySelector<HTMLElement>('.bento-slide')
+    if (surface) {
+      morphHandoffCover = surface.cloneNode(true) as HTMLElement
+      morphHandoffCover.classList.add('bento-morph-handoff')
+      morphHandoffCover.style.cssText += ';position:absolute;inset:0;z-index:100;pointer-events:none'
+      slidesEl.appendChild(morphHandoffCover)
+    }
     to.style.visibility = 'hidden'
     primeMorphStart(doc, to, fromIdx, toIdx)
     // Commit the start frame while this is still Reveal's hidden destination.
@@ -665,6 +677,17 @@ export function startPresentation(
     if (primedMorphSection) {
       primedMorphSection.style.visibility = ''
       primedMorphSection = null
+      // Keep the outgoing pixels above the newly promoted compositor layer for
+      // one committed frame. Chromium can otherwise display a cached texture
+      // from the destination's previous visit even though its DOM state was
+      // primed before Reveal changed slides.
+      const cover = morphHandoffCover
+      morphHandoffFrame = requestAnimationFrame(() => {
+        morphHandoffFrame = requestAnimationFrame(() => {
+          cover?.remove()
+          if (morphHandoffCover === cover) morphHandoffCover = null
+        })
+      })
     }
     updateSpeaker()
   }) as any)
