@@ -55,7 +55,10 @@ option { background: #fff; color: #1e2a3a; }
 
 .ed-topbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Keep document identity/history and output controls in their own
+     content-sized partitions. Only the insert toolbar is allowed to absorb
+     the remaining width, so history buttons cannot overflow into it. */
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
@@ -70,9 +73,9 @@ option { background: #fff; color: #1e2a3a; }
   align-items: center;
   min-width: 0;
 }
-.ed-topbar-left { gap: 10px; }
-.ed-topbar-middle { justify-content: center; }
-.ed-topbar-right { justify-content: flex-end; margin-left: 0; }
+.ed-topbar-left { gap: 10px; min-width: 0; }
+.ed-topbar-middle { justify-content: center; min-width: 0; }
+.ed-topbar-right { justify-content: flex-end; margin-left: 0; min-width: 0; }
 
 .ed-logo { display: flex; align-items: center; gap: 7px; font-size: 15px; white-space: nowrap; }
 .ed-logo-mark { display: block; border-radius: 5px; }
@@ -1978,6 +1981,20 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
   .ed-topbar .ed-menu .ed-btn > span,
   .ed-topbar .ed-menu button > span { display: inline; }
   .ed-topbar { gap: 6px; padding: 8px 8px; }
+  /* Preserve room for the complete icon toolbar. The account name remains
+     available from its tooltip/profile surface at this width. */
+  .ed-title { width: 140px; min-width: 90px; }
+  .ed-profile-name { display: none; }
+  .ed-topbar-left,
+  .ed-topbar-right { gap: 4px; }
+  .ed-topbar-middle .ed-insert { gap: 4px; }
+  .ed-topbar-middle {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .ed-topbar-middle::-webkit-scrollbar { display: none; }
 }
 @media (max-width: 760px) {
   .ed-topbar { gap: 4px; padding: 6px 6px; }
