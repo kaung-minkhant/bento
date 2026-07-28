@@ -8,7 +8,7 @@ import Reveal from 'reveal.js'
 import 'reveal.js/dist/reveal.css'
 import { anim, resetXform } from './anim'
 import { chartSnapshotSvg, mountChart } from './charts'
-import type { BentoDoc, GradientFill, ShapeElement, Slide, SlideElement } from './model'
+import type { BentoDoc, GradientFill, ShapeElement, Slide, SlideElement, TextElement } from './model'
 import { morphKey } from './model'
 import { applyElementFrame, gradientLineCoords, renderSlide } from './render'
 import { paintSpeaker, setSpeakerWindow, speakerIdleBody, speakerWindow } from './screens'
@@ -1148,7 +1148,13 @@ function morphMathSymbols(
   return true
 }
 
-function applyMorphGeometry(node: HTMLElement, a: SlideElement, b: SlideElement, p: number) {
+function applyMorphGeometry(
+  node: HTMLElement,
+  a: SlideElement,
+  b: SlideElement,
+  p: number,
+  base: SlideElement = b,
+) {
   const x = a.x + (b.x - a.x) * p
   const y = a.y + (b.y - a.y) * p
   const w = a.w + (b.w - a.w) * p
@@ -1156,9 +1162,30 @@ function applyMorphGeometry(node: HTMLElement, a: SlideElement, b: SlideElement,
   const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
   node.style.transformOrigin = '0 0'
   node.style.transform =
-    `translate(${x - b.x}px, ${y - b.y}px)` +
+    `translate(${x - base.x}px, ${y - base.y}px)` +
     (r ? ` rotate(${r}deg)` : '') +
-    ` scale(${w / Math.max(b.w, 0.01)}, ${h / Math.max(b.h, 0.01)})`
+    ` scale(${w / Math.max(base.w, 0.01)}, ${h / Math.max(base.h, 0.01)})`
+}
+
+function textMorphNeedsCrossfade(a: TextElement, b: TextElement): boolean {
+  const sx = a.w / Math.max(b.w, 0.01)
+  const sy = a.h / Math.max(b.h, 0.01)
+  const formattingMatches =
+    a.html === b.html &&
+    a.fontFamily === b.fontFamily &&
+    a.fontWeight === b.fontWeight &&
+    a.align === b.align &&
+    a.valign === b.valign &&
+    a.lineHeight === b.lineHeight &&
+    (a.letterSpacing ?? 0) === (b.letterSpacing ?? 0) &&
+    JSON.stringify(a.colorGradient ?? null) === JSON.stringify(b.colorGradient ?? null) &&
+    JSON.stringify(a.textStroke ?? null) === JSON.stringify(b.textStroke ?? null)
+  // Direct box scaling is pixel-compatible only when it is uniform and also
+  // turns the destination font back into the source font size. Otherwise the
+  // browser lays out different glyphs inside the transformed destination box,
+  // which visibly jumps when the compositor handoff cover is removed.
+  const scaleMatches = Math.abs(sx - sy) < 0.001 && Math.abs(b.fontSize * sx - a.fontSize) < 0.25
+  return !formattingMatches || !scaleMatches
 }
 
 /** Seed the hidden destination before Reveal promotes it to `.present`. */
@@ -1175,8 +1202,9 @@ function primeMorphStart(doc: BentoDoc, toSection: HTMLElement, fromIdx: number,
     if (a.x !== b.x || a.y !== b.y || a.w !== b.w || a.h !== b.h || (a.rotation ?? 0) !== (b.rotation ?? 0)) {
       applyMorphGeometry(node, a, b, 0)
     }
-    node.style.opacity = String(a.opacity)
-    if (a.type === 'text' && b.type === 'text') {
+    const crossfadeText = a.type === 'text' && b.type === 'text' && textMorphNeedsCrossfade(a, b)
+    node.style.opacity = crossfadeText ? '0' : String(a.opacity)
+    if (!crossfadeText && a.type === 'text' && b.type === 'text') {
       const inner = node.querySelector<HTMLElement>('.bento-text-inner')
       if (inner) inner.style.color = a.color
     }
@@ -1197,6 +1225,11 @@ function runMorph(
   const toEls = elementsById(toSection)
   const fromModel = modelByMorphKey(doc, fromIdx)
   const toModel = modelByMorphKey(doc, toIdx)
+  const crossfadeText = new Set<string>()
+  for (const [id, a] of fromModel) {
+    const b = toModel.get(id)
+    if (a.type === 'text' && b?.type === 'text' && textMorphNeedsCrossfade(a, b)) crossfadeText.add(id)
+  }
 
   const matchedFrom: HTMLElement[] = []
   const matchedTo: HTMLElement[] = []
@@ -1280,7 +1313,46 @@ function runMorph(
     const a = fromModel.get(id)
     const b = toModel.get(id)
     if (!a || !b) continue
-    morphMathSymbols(symCache.get(symKey(fromIdx, id)), to, a, b)
+    if (!crossfadeText.has(id)) morphMathSymbols(symCache.get(symKey(fromIdx, id)), to, a, b)
+  }
+
+  // Text whose layout or formatting changes uses two rendered layers. The
+  // exact outgoing glyphs travel and fade out while the destination glyphs
+  // travel and fade in. Non-text elements keep the direct morph path above.
+  for (const id of crossfadeText) {
+    const from = fromEls.get(id)
+    const to = toEls.get(id)
+    const a = fromModel.get(id)
+    const b = toModel.get(id)
+    if (!from || !to || a?.type !== 'text' || b?.type !== 'text') continue
+    const surface = toSection.querySelector<HTMLElement>('.bento-slide')
+    if (!surface) continue
+    const sourceLayer = from.cloneNode(true) as HTMLElement
+    sourceLayer.classList.add('bento-morph-text-source')
+    delete sourceLayer.dataset.elId
+    delete sourceLayer.dataset.flipId
+    sourceLayer.style.pointerEvents = 'none'
+    surface.insertBefore(sourceLayer, to.nextSibling)
+
+    const travel = { p: 0 }
+    applyMorphGeometry(sourceLayer, a, b, 0, a)
+    anim.to(travel, {
+      p: 1,
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+      onUpdate() { applyMorphGeometry(sourceLayer, a, b, travel.p, a) },
+    })
+    anim.fromTo(sourceLayer, { opacity: a.opacity }, {
+      opacity: 0,
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+      onComplete() { sourceLayer.remove() },
+    })
+    anim.fromTo(to, { opacity: 0 }, {
+      opacity: b.opacity,
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+    })
   }
 
   // Styles morph straight from the model — exact values, no DOM sniffing.
@@ -1289,14 +1361,14 @@ function runMorph(
     const a = fromModel.get(id)
     const b = toModel.get(id)
     if (!a || !b) continue
-    if (a.opacity !== b.opacity) {
+    if (!crossfadeText.has(id) && a.opacity !== b.opacity) {
       anim.fromTo(to, { opacity: a.opacity }, { opacity: b.opacity, duration: MORPH_DURATION, ease: MORPH_EASE })
     }
     if (a.type === 'shape' && b.type === 'shape') {
       const target = to.querySelector<SVGElement>('rect,ellipse,polygon,line,path')
       if (target) morphShapeFill(target, a, b)
     }
-    if (a.type === 'text' && b.type === 'text' && a.color !== b.color) {
+    if (!crossfadeText.has(id) && a.type === 'text' && b.type === 'text' && a.color !== b.color) {
       const inner = to.querySelector<HTMLElement>('.bento-text-inner')
       if (inner) {
         anim.fromTo(inner, { color: a.color }, { color: b.color, duration: MORPH_DURATION, ease: MORPH_EASE })
