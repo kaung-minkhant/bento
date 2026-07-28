@@ -2182,6 +2182,45 @@ dialog.ed-agent-dialog .ed-agent-close { position: absolute; top: 12px; right: 1
 .ed-agent-code { display: block; margin: 8px 0 10px; font-size: 28px; letter-spacing: 3px; color: #16273E; }
 .ed-agent-copy { display: inline-flex; align-items: center; gap: 6px; }
 .ed-agent-disconnect { float: right; color: #9B3A2C; }
+.ed-agent-activity {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #E3E8EF;
+}
+.ed-agent-activity header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.ed-agent-clear { padding: 4px 8px !important; font-size: 11px; color: #66758A; }
+.ed-agent-activity-empty { color: #8A98AA; font-size: 12px; }
+.ed-agent-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 190px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ed-agent-activity-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: #F5F7FA;
+  font-size: 12px;
+}
+.ed-agent-activity-item > span { color: #66758A; font-size: 11px; }
+.ed-agent-activity-item.running { border-left: 3px solid #E7A51B; }
+.ed-agent-activity-item.completed { border-left: 3px solid #38A169; }
+.ed-agent-activity-item.failed { border-left: 3px solid #C75045; }
+.ed-agent-activity-item small { grid-column: 1 / -1; color: #9B3A2C; white-space: normal; }
 .ed-dialog-actions {
   display: flex;
   justify-content: flex-end;

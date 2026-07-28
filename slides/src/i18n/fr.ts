@@ -724,6 +724,12 @@ export const fr: Catalog = {
   'Disconnect agent': 'Disconnect agent',
   'Agent connected': 'Agent connected',
   'Waiting for your agent…': 'Waiting for your agent…',
+  'Agent activity': 'Agent activity',
+  'Clear activity': 'Clear activity',
+  'No agent actions yet': 'No agent actions yet',
+  'Working': 'Working',
+  'Completed': 'Completed',
+  'Failed': 'Failed',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

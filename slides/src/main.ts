@@ -426,15 +426,43 @@ if (location.hash === '#present') {
   },
   /** Explicit browser bridge for a trusted MCP agent. */
   agent: (() => {
+    type AgentAction = {
+      id: string
+      operation: string
+      phase: 'running' | 'completed' | 'failed'
+      startedAt: number
+      finishedAt?: number
+      error?: string
+    }
     let socket: WebSocket | null = null
     let state: 'off' | 'connecting' | 'waiting' | 'connected' = 'off'
     let pairingCode: string | null = null
+    const actionHistory: AgentAction[] = []
+    const actionOperations = new Map<string, AgentAction>()
+    const notifyAction = (action: AgentAction) => {
+      window.dispatchEvent(new CustomEvent('bento:agent-action', { detail: action }))
+    }
     const sendResponse = (requestId: string, ok: boolean, value?: unknown, error?: string) => {
       if (socket?.readyState !== WebSocket.OPEN) return
+      const action = actionOperations.get(requestId)
+      if (action) {
+        action.phase = ok ? 'completed' : 'failed'
+        action.finishedAt = Date.now()
+        if (error) action.error = error
+        actionOperations.delete(requestId)
+        notifyAction(action)
+      }
       socket.send(JSON.stringify({ type: 'response', requestId, ok, ...(value === undefined ? {} : { value }), ...(error ? { error } : {}) }))
     }
     const handleRequest = (message: { requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }) => {
       if (typeof message.requestId !== 'string') return
+      if (typeof message.operation === 'string') {
+        const action: AgentAction = { id: message.requestId, operation: message.operation, phase: 'running', startedAt: Date.now() }
+        actionHistory.push(action)
+        if (actionHistory.length > 50) actionHistory.shift()
+        actionOperations.set(message.requestId, action)
+        notifyAction(action)
+      }
       try {
         const params = message.params ?? {}
         if (message.operation === 'read_document') {
@@ -586,6 +614,8 @@ if (location.hash === '#present') {
       disconnect: () => { socket?.close(); socket = null; state = 'off'; pairingCode = null },
       status: () => state,
       pairingCode: () => pairingCode,
+      actions: () => actionHistory.map((action) => ({ ...action })),
+      clearActions: () => { actionHistory.length = 0; actionOperations.clear() },
     }
   })(),
   /**
