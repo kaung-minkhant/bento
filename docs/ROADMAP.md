@@ -115,14 +115,16 @@ undoable mutations rather than replacing the whole document JSON.
 
 ### Phase 6: visual feedback loop
 
-- Render one slide to a preview image through the explicit browser bridge.
-- Render compact deck thumbnails for narrative and consistency review.
-- Validate overflow, clipping, off-canvas geometry, unintended overlap, and
-  low-contrast text.
-- Keep rendered content scoped to the explicitly paired document.
+Complete. Production acceptance on 2026-07-28 verified slide rendering, deck
+thumbnail rendering, visual validation, targeted cleanup, and a full creative
+redesign through an explicitly paired document. Inspection stayed read-only;
+render and validation revisions remained stable.
 
 ### Phase 7: rich creation vocabulary
 
+- Add revision preconditions and atomic, prevalidated operation batches so
+  concurrent manual edits fail safely instead of being overwritten.
+- Apply each successful batch as one activity entry and one undo checkpoint.
 - Add targeted tools for shapes, images, lines, charts, and tables.
 - Add slide background, transition, and layout controls.
 - Expand element updates to the presentation properties already supported by
@@ -142,12 +144,10 @@ undoable mutations rather than replacing the whole document JSON.
 
 ### Phase 9: transactional agent workflow
 
-- Apply several targeted operations atomically as one activity entry and one
-  undo checkpoint.
-- Require revision preconditions so stale plans fail safely.
-- Validate a batch before mutation and leave the document unchanged on error.
 - Support the full inspect, plan, apply, render, critique, refine, validate,
   and approve loop in the editor.
+- Add explicit agent proposals and human approval checkpoints for broad or
+  destructive changes.
 
 The implementation order starts with slide rendering and validation. Richer
 creation tools follow only once agents can see and evaluate what they produce.
