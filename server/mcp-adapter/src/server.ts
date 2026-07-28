@@ -35,9 +35,10 @@ const httpServer = createServer(async (request, response) => {
       if (!config.bridgeToken) throw new Error('Browser agent pairing is disabled.')
       const body = await jsonBody(request) as { docId?: string }
       if (!body.docId) throw new Error('docId is required.')
-      // Pairing is dynamic: the document service remains the source of truth
-      // for membership, while MCP_ALLOWED_DOC_IDS is only an optional cap.
-      await documentService.getDocument(body.docId)
+      // Hosted browsers forward their current OIDC token for this one
+      // membership check. The adapter does not persist the token.
+      const browserToken = /^Bearer (.+)$/.exec(request.headers.authorization ?? '')?.[1]
+      await documentService.getDocument(body.docId, browserToken)
       sendJson(response, 200, bridge.createPairing(body.docId, config.allowedDocIds), corsHeaders)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'pairing failed'

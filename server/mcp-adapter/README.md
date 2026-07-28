@@ -33,7 +33,9 @@ the document service, so users do not edit deployment configuration for every
 new deck. Every document tool still requires an explicit `docId`, and the
 document service enforces the token subject's membership and role.
 `BENTO_AGENT_BRIDGE_TOKEN` enables browser connections; omit it to disable
-content tools.
+content tools. For hosted decks, the browser forwards its current OIDC access
+token for the one pairing authorization request; the adapter does not store
+that token.
 
 After starting the adapter, open the deck in bento/slides and click **Agent**.
 Enter the adapter URL and click **Create pairing code**. Tell the MCP agent to

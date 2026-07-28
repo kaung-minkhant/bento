@@ -3,11 +3,11 @@ import type { AdapterConfig } from './config.js'
 export class DocumentServiceClient {
   constructor(private readonly config: AdapterConfig, private readonly fetchImpl: typeof fetch = fetch) {}
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T>(path: string, init?: RequestInit, bearerToken = this.config.documentServiceToken): Promise<T> {
     const response = await this.fetchImpl(`${this.config.documentServiceUrl}${path}`, {
       ...init,
       headers: {
-        authorization: `Bearer ${this.config.documentServiceToken}`,
+        authorization: `Bearer ${bearerToken}`,
         accept: 'application/json',
         ...(init?.headers ?? {}),
       },
@@ -26,8 +26,8 @@ export class DocumentServiceClient {
     return this.request<{ documents: unknown[]; nextCursor?: string | null }>(`/api/v1/documents?${query}`)
   }
 
-  getDocument(docId: string) {
-    return this.request(`/api/v1/documents/${encodeURIComponent(docId)}`)
+  getDocument(docId: string, bearerToken?: string) {
+    return this.request(`/api/v1/documents/${encodeURIComponent(docId)}`, undefined, bearerToken)
   }
 
   listVersions(docId: string) {

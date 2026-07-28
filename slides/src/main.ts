@@ -468,7 +468,10 @@ if (location.hash === '#present') {
       const base = adapterUrl.replace(/\/$/, '')
       const response = await fetch(`${base}/pairings`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(hostedDocId && getHostedToken() ? { authorization: `Bearer ${getHostedToken()}` } : {}),
+        },
         body: JSON.stringify({ docId: store.doc.docId }),
       })
       const pairing = await response.json() as { pairingId?: string; code?: string; expiresAt?: number; error?: string }
