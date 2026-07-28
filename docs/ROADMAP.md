@@ -67,10 +67,15 @@ subject. Sharing, multi-user access, and agent access come later.
 
 ## Phase 4: MCP agent adapter
 
-- Expose document and session operations through a generic MCP server.
+- Expose document and session operations through a generic MCP server. The
+  first adapter slice now lives in `server/mcp-adapter` and supports both
+  Streamable HTTP and stdio transports.
 - Keep the adapter agent-agnostic rather than integrating individual agents.
-- Route agent actions through normal document-model mutations so undo,
-  autosave, collaboration, validation, and export continue to work.
+- Keep the adapter metadata/session-only until browser-mediated document
+  capabilities are implemented: it never decrypts snapshots or receives vault
+  or relay keys.
+- Route future content actions through normal document-model mutations so
+  undo, autosave, collaboration, validation, and export continue to work.
 - Scope every agent capability to an explicit document and role.
 
 ## Phase 5: library and agent workflow

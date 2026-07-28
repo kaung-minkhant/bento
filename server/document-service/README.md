@@ -68,4 +68,7 @@ recovery checkpoints. `GET /api/v1/vault/key` returns the caller's opaque
 wrapped vault key, and `POST /api/v1/vault/key` creates it once. The browser
 generates the random vault key and wraps it with the user's recovery password;
 the service never receives either plaintext value. It does not parse document
-contents. Live sessions remain a later phase.
+contents. Live sessions are available through the existing session endpoints.
+The agent-facing MCP adapter is a separate package at `server/mcp-adapter`; the
+document service remains responsible for authentication, membership, and role
+checks.
