@@ -20,6 +20,9 @@ export interface RenderOpts {
   liveMedia?: boolean
   /** dynamic-field values ({{page}} etc.) for this slide; auto-filled by renderSlide */
   fields?: FieldContext
+  /** refuse http(s) media sources — agent previews must never initiate new
+   *  network requests while inspecting an explicitly paired document */
+  offlineAssetsOnly?: boolean
 }
 
 /** Values dynamic field tokens resolve against, computed per slide. */
@@ -77,6 +80,11 @@ export function resolveFields(html: string, ctx?: FieldContext): string {
 /** Resolve "asset:<key>" references against the document's asset table. */
 export function resolveAsset(doc: BentoDoc, ref: string): string {
   return ref.startsWith('asset:') ? (doc.assets?.[ref.slice(6)] ?? '') : ref
+}
+
+function renderSource(doc: BentoDoc, ref: string, opts: RenderOpts): string {
+  const source = resolveAsset(doc, ref)
+  return opts.offlineAssetsOnly && !/^(data|blob):/i.test(source) ? '' : source
 }
 
 function svgMarkup(el: SvgElement, doc: BentoDoc): string {
@@ -557,7 +565,7 @@ export function renderElement(el: SlideElement, doc: BentoDoc, opts: RenderOpts 
       break
     case 'image': {
       const img = document.createElement('img')
-      img.src = resolveAsset(doc, el.src)
+      img.src = renderSource(doc, el.src, opts)
       img.draggable = false
       img.style.cssText = `width:100%;height:100%;object-fit:${el.fit};border-radius:${el.radius}px;display:block`
       node.appendChild(img)
@@ -572,7 +580,7 @@ export function renderElement(el: SlideElement, doc: BentoDoc, opts: RenderOpts 
         still.style.cssText = `width:100%;height:100%;border-radius:${radius}px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:${el.kind === 'video' ? '#0b0f14' : '#e7edf4'}`
         if (el.kind === 'video' && el.poster) {
           const img = document.createElement('img')
-          img.src = resolveAsset(doc, el.poster)
+          img.src = renderSource(doc, el.poster, opts)
           img.style.cssText = `width:100%;height:100%;object-fit:${el.fit ?? 'contain'};display:block`
           still.appendChild(img)
         } else {
@@ -591,7 +599,7 @@ export function renderElement(el: SlideElement, doc: BentoDoc, opts: RenderOpts 
         // and looked odd) — only centre it in the element box. Size the box to
         // the control's ~54px intrinsic height (defaultMedia audio uses 56).
         const audio = document.createElement('audio')
-        if (el.src) audio.src = resolveAsset(doc, el.src)
+        if (el.src) audio.src = renderSource(doc, el.src, opts)
         audio.controls = el.controls !== false
         audio.loop = !!el.loop
         audio.preload = 'metadata'
@@ -607,8 +615,8 @@ export function renderElement(el: SlideElement, doc: BentoDoc, opts: RenderOpts 
         break
       }
       const video = document.createElement('video')
-      if (el.src) video.src = resolveAsset(doc, el.src)
-      if (el.poster) video.poster = resolveAsset(doc, el.poster)
+      if (el.src) video.src = renderSource(doc, el.src, opts)
+      if (el.poster) video.poster = renderSource(doc, el.poster, opts)
       video.controls = el.controls !== false
       video.loop = !!el.loop
       video.muted = el.muted !== false
@@ -675,7 +683,7 @@ export function renderSlide(slide: Slide, doc: BentoDoc, opts: RenderOpts = {}):
   surface.dataset.slideId = slide.id
   surface.style.width = `${doc.size.width}px`
   surface.style.height = `${doc.size.height}px`
-  surface.style.background = slide.background
+  surface.style.background = opts.offlineAssetsOnly && /url\s*\(/i.test(slide.background) ? '#ffffff' : slide.background
   const fields = opts.fields ?? fieldContext(doc, slide)
   for (const el of slide.elements) surface.appendChild(renderElement(el, doc, { ...opts, fields }))
   return surface

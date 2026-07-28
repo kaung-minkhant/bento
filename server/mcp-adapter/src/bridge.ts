@@ -1,13 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { WebSocket } from 'ws'
 
-type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void }
+type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
 type Pairing = { id: string; code: string; docId: string; expiresAt: number; claimed: boolean; socket?: WebSocket }
+
+const MAX_BRIDGE_RESPONSE_BYTES = 12 * 1024 * 1024
 
 export class BrowserBridge {
   private readonly clients = new Map<string, WebSocket>()
   private readonly pending = new Map<string, Pending>()
   private readonly pairings = new Map<string, Pairing>()
+
+  constructor(private readonly requestTimeoutMs = 30_000) {}
 
   createPairing(docId: string, allowedDocIds: Set<string>): { pairingId: string; code: string; expiresAt: number } {
     if (allowedDocIds.size > 0 && !allowedDocIds.has(docId)) throw new Error('This MCP adapter is not authorized for that document.')
@@ -57,7 +61,11 @@ export class BrowserBridge {
     if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('No browser is connected for this document.'))
     const requestId = `${docId}:${randomUUID()}`
     return new Promise((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject })
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId)
+        reject(new Error('The browser bridge request timed out.'))
+      }, this.requestTimeoutMs)
+      this.pending.set(requestId, { resolve, reject, timer })
       socket.send(JSON.stringify({ type: 'request', requestId, operation, ...(json === undefined ? {} : { json }), ...(params === undefined ? {} : { params }) }))
     })
   }
@@ -68,12 +76,17 @@ export class BrowserBridge {
   }
 
   private receive(docId: string, raw: string) {
+    if (Buffer.byteLength(raw) > MAX_BRIDGE_RESPONSE_BYTES) {
+      this.rejectPending(docId, 'The browser bridge response exceeded the 12 MB limit.')
+      return
+    }
     let message: { type?: string; requestId?: string; ok?: boolean; value?: unknown; error?: string }
     try { message = JSON.parse(raw) } catch { return }
     if (message.type !== 'response' || typeof message.requestId !== 'string' || !message.requestId.startsWith(`${docId}:`)) return
     const pending = this.pending.get(message.requestId)
     if (!pending) return
     this.pending.delete(message.requestId)
+    clearTimeout(pending.timer)
     if (message.ok) pending.resolve(message.value)
     else pending.reject(new Error(message.error || 'The browser bridge rejected the request.'))
   }
@@ -88,6 +101,7 @@ export class BrowserBridge {
     for (const [requestId, pending] of this.pending) {
       if (requestId.startsWith(`${docId}:`)) {
         this.pending.delete(requestId)
+        clearTimeout(pending.timer)
         pending.reject(new Error(message))
       }
     }
