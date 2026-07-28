@@ -917,11 +917,19 @@ export class Editor {
     const disconnectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-disconnect')!
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string } } }).bento?.agent
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null } } }).bento?.agent
     const updateStatus = () => {
       const current = api?.status?.() || 'off'
       status.textContent = current === 'connected' ? t('Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
       status.classList.toggle('ok', current === 'connected')
+    }
+    const existingStatus = api?.status?.() || 'off'
+    if (existingStatus !== 'off') {
+      pairing.hidden = false
+      code.textContent = api?.pairingCode?.() || ''
+      connectB.hidden = true
+      updateStatus()
+      timer = window.setInterval(updateStatus, 500)
     }
     connectB.addEventListener('click', async () => {
       connectB.disabled = true
@@ -931,6 +939,7 @@ export class Editor {
         if (!result) throw new Error(t('The agent bridge is unavailable.'))
         pairing.hidden = false
         code.textContent = result.code
+        connectB.hidden = true
         updateStatus()
         timer = window.setInterval(updateStatus, 500)
       } catch (error) {
@@ -940,7 +949,7 @@ export class Editor {
       }
     })
     copyB.addEventListener('click', () => void navigator.clipboard?.writeText(code.textContent || ''))
-    disconnectB.addEventListener('click', () => { api?.disconnect?.(); updateStatus() })
+    disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; updateStatus() })
     dialog.addEventListener('close', () => { if (timer !== null) window.clearInterval(timer); dialog.remove() })
     dialog.showModal()
   }

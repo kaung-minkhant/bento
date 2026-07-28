@@ -424,6 +424,7 @@ if (location.hash === '#present') {
   agent: (() => {
     let socket: WebSocket | null = null
     let state: 'off' | 'connecting' | 'waiting' | 'connected' = 'off'
+    let pairingCode: string | null = null
     const sendResponse = (requestId: string, ok: boolean, value?: unknown, error?: string) => {
       if (socket?.readyState !== WebSocket.OPEN) return
       socket.send(JSON.stringify({ type: 'response', requestId, ok, ...(value === undefined ? {} : { value }), ...(error ? { error } : {}) }))
@@ -476,6 +477,7 @@ if (location.hash === '#present') {
       })
       const pairing = await response.json() as { pairingId?: string; code?: string; expiresAt?: number; error?: string }
       if (!response.ok || !pairing.pairingId || !pairing.code) throw new Error(pairing.error || 'Agent pairing failed.')
+      pairingCode = pairing.code
       const wsUrl = base.replace(/^http/, 'ws') + '/bridge'
       socket?.close()
       const next = new WebSocket(wsUrl)
@@ -512,8 +514,9 @@ if (location.hash === '#present') {
     return {
       connect,
       connectPairing,
-      disconnect: () => { socket?.close(); socket = null; state = 'off' },
+      disconnect: () => { socket?.close(); socket = null; state = 'off'; pairingCode = null },
       status: () => state,
+      pairingCode: () => pairingCode,
     }
   })(),
   /**
