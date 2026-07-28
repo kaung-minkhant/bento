@@ -122,16 +122,13 @@ render and validation revisions remained stable.
 
 ### Phase 7: rich creation vocabulary
 
-- Add revision preconditions and atomic, prevalidated operation batches so
-  concurrent manual edits fail safely instead of being overwritten.
-- Apply each successful batch as one activity entry and one undo checkpoint.
-- Add targeted tools for shapes, images, lines, charts, and tables.
-- Add slide background, transition, and layout controls.
-- Expand element updates to the presentation properties already supported by
-  the editor, including typography, fills, borders, shadows, and effects.
-- Support duplication, alignment, distribution, grouping, and z-order without
-  requiring full-document replacement.
-- Add safe asset ingestion and reuse for embedded and generated images.
+Complete. Local acceptance on 2026-07-28 verified revision-guarded dry runs,
+atomic application and undo/redo, stale-revision rejection after concurrent
+manual slide deletion, and all-or-nothing rejection of invalid batches. Rich
+creation covered text, shapes, images, SVG, charts, tables, embedded assets,
+grouping, alignment, distribution, custom layouts, theme controls, targeted
+slide reads, rendering, and visual validation. Unsafe SVG and deletion of an
+in-use asset were rejected without changing the document.
 
 ### Phase 8: composition system
 
