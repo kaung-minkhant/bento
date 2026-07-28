@@ -8,6 +8,7 @@ import { BrowserBridge } from './bridge.js'
 
 const config = loadConfig()
 const bridge = new BrowserBridge()
+const documentService = new DocumentServiceClient(config)
 const webSockets = new WebSocketServer({ noServer: true })
 const jsonBody = async (request: import('node:http').IncomingMessage): Promise<unknown> => {
   const chunks: Buffer[] = []
@@ -34,9 +35,13 @@ const httpServer = createServer(async (request, response) => {
       if (!config.bridgeToken) throw new Error('Browser agent pairing is disabled.')
       const body = await jsonBody(request) as { docId?: string }
       if (!body.docId) throw new Error('docId is required.')
+      // Pairing is dynamic: the document service remains the source of truth
+      // for membership, while MCP_ALLOWED_DOC_IDS is only an optional cap.
+      await documentService.getDocument(body.docId)
       sendJson(response, 200, bridge.createPairing(body.docId, config.allowedDocIds), corsHeaders)
     } catch (error) {
-      sendJson(response, 400, { error: error instanceof Error ? error.message : 'pairing failed' }, corsHeaders)
+      const message = error instanceof Error ? error.message : 'pairing failed'
+      sendJson(response, /^Document service (401|403):/.test(message) ? 403 : 400, { error: message }, corsHeaders)
     }
     return
   }
@@ -45,7 +50,7 @@ const httpServer = createServer(async (request, response) => {
     return
   }
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-  const server = createMcpServer(config, new DocumentServiceClient(config), config.bridgeToken ? bridge : undefined)
+  const server = createMcpServer(config, documentService, config.bridgeToken ? bridge : undefined)
   try {
     await server.connect(transport)
     await transport.handleRequest(request, response)

@@ -27,10 +27,13 @@ MCP_ALLOWED_DOC_IDS=doc-uuid-1,doc-uuid-2
 BENTO_AGENT_BRIDGE_TOKEN=...
 ```
 
-`MCP_ALLOWED_DOC_IDS` is a deployment-level allowlist. Even without it, every
-document tool requires an explicit `docId` and the document service enforces
-the token subject's membership and role. `BENTO_AGENT_BRIDGE_TOKEN` enables
-browser connections; omit it to disable content tools.
+`MCP_ALLOWED_DOC_IDS` is an optional deployment-level safety cap. Leave it
+unset for normal use: pairing checks the requested document dynamically through
+the document service, so users do not edit deployment configuration for every
+new deck. Every document tool still requires an explicit `docId`, and the
+document service enforces the token subject's membership and role.
+`BENTO_AGENT_BRIDGE_TOKEN` enables browser connections; omit it to disable
+content tools.
 
 After starting the adapter, open the deck in bento/slides and click **Agent**.
 Enter the adapter URL and click **Create pairing code**. Tell the MCP agent to
