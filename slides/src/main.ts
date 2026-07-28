@@ -455,6 +455,9 @@ if (location.hash === '#present') {
               return
             }
             store.replaceDoc(nextDoc)
+            const titleInput = document.querySelector<HTMLInputElement>('.ed-title')
+            if (titleInput) titleInput.value = nextDoc.title
+            document.title = `${nextDoc.title} — ${appConfig().appName}`
             sendResponse(message.requestId, true, { ok: true, docId: nextDoc.docId })
             return
           }
@@ -501,6 +504,9 @@ if (location.hash === '#present') {
               return
             }
             store.replaceDoc(nextDoc)
+            const titleInput = document.querySelector<HTMLInputElement>('.ed-title')
+            if (titleInput) titleInput.value = nextDoc.title
+            document.title = `${nextDoc.title} — ${appConfig().appName}`
             sendResponse(message.requestId, true, { ok: true, docId: nextDoc.docId })
             return
           }
