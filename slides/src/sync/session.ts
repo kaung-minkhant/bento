@@ -693,8 +693,8 @@ export class SyncSession {
    * as a true fork later. Called by the save/serialize paths; only shared
    * documents carry it (never-shared files stay clean).
    */
-  stampInto(doc: BentoDoc) {
-    if (!doc.collab || doc.collab.on === false) return
+  stampInto(doc: BentoDoc, includeOffline = false) {
+    if (!doc.collab || (doc.collab.on === false && !includeOffline)) return
     this.flush()
     doc.collab.sync = JSON.parse(JSON.stringify(this.state.toJSON()))
   }

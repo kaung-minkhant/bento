@@ -256,9 +256,12 @@ const hostedMetadata = () => ({
 // A deck's auto-minted collab credentials do not mean the user went live. Do
 // not make a hosted save join the relay unless this editor is actually live.
 const hostedHtml = () => {
-  const snapshot = store.doc.collab && !onlineTransport()
-    ? { ...store.doc, collab: { ...store.doc.collab, on: false } }
-    : store.doc
+  const snapshot = JSON.parse(JSON.stringify(store.doc)) as BentoDoc
+  // Preserve CRDT tombstones/registers even for an offline hosted save. The
+  // relay may still hold an older snapshot; without this state, rejoining can
+  // briefly resurrect deleted elements before local values win again.
+  session.stampInto(snapshot, true)
+  if (snapshot.collab && !onlineTransport()) snapshot.collab.on = false
   return serializeFile(snapshot)
 }
 
@@ -288,7 +291,10 @@ const startHostedSessionRecord = async (): Promise<import('./hosted').HostedSess
 
 const createOrSaveHosted = async () => {
   const contentKey = hostedSaveKey(store.doc)
-  if (hostedDocId && hostedContentKey === contentKey) return null
+  if (hostedDocId && hostedContentKey === contentKey) {
+    store.setDirty(false)
+    return null
+  }
   const html = await hostedHtml()
   if (!hostedDocId) {
     const created = await createHostedDocument(store.doc.docId, store.doc.format, hostedMetadata(), await html)
