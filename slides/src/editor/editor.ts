@@ -906,9 +906,8 @@ export class Editor {
       `<p>${t('Pair an agent with this open deck. The agent can read and change this deck through the normal editor, undo and collaboration paths.')}</p>` +
       `<label>${t('MCP adapter URL')}<input class="ed-agent-url" type="url" placeholder="http://127.0.0.1:8790"></label>` +
       `<button class="ed-agent-connect ed-primary" type="button">${t('Create pairing code')}</button>` +
-      `<div class="ed-agent-pairing" hidden><div class="ed-agent-status"></div><code class="ed-agent-code"></code>` +
+      `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><button class="ed-agent-disconnect" type="button">${t('Disconnect agent')}</button></div><code class="ed-agent-code"></code>` +
       `<p>${t('Tell your agent to claim this pairing code:')}</p><button class="ed-agent-copy" type="button">${ICONS.copy}<span>${t('Copy code')}</span></button>` +
-      `<button class="ed-agent-disconnect" type="button">${t('Disconnect agent')}</button>` +
       `<section class="ed-agent-activity" aria-live="polite"><header><strong>${t('Agent activity')}</strong><button class="ed-agent-clear" type="button">${t('Clear activity')}</button></header><div class="ed-agent-activity-empty">${t('No agent actions yet')}</div><ol class="ed-agent-activity-list"></ol></section></div>`
     const urlInput = dialog.querySelector<HTMLInputElement>('.ed-agent-url')!
     const connectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-connect')!
