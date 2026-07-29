@@ -56,6 +56,9 @@ MCP receives structured change metadata rather than duplicated image payloads.
 Human change requests appear in `list_agent_proposals`. Submit a revised batch
 with `replacesProposalId` to preserve the review thread and supersede the prior
 proposal after successful preflight.
+Applied proposals are verified asynchronously in the paired editor. The
+proposal status response includes revision-tagged validation findings and
+render warnings; applied-result images remain browser-local.
 Presenter-controlled builds use the common `buildStep` element property. Read
 the `elements` and `motion` topics for grouping, reverse navigation, entrance
 effects, reduced motion, and morph behavior before authoring them.

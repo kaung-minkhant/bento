@@ -65,3 +65,12 @@ to three affected slides before and after the preflighted batch. Created and
 deleted slides show an explicit empty endpoint; destructive operations receive
 a warning. Preview images remain page-local and are not transferred through
 MCP or saved with the document.
+
+After approval, the editor snapshots the applied revision and verifies up to
+ten affected slides in its serialized inspection queue. It renders the actual
+applied result and checks overflow, off-canvas content, possible overlap, and
+measurable contrast. Verification is page-local, read-only, and independent of
+the proposal's `applied` status. Compact history reports checking, passed,
+failed, or issue-count state; expanded history shows per-slide evidence.
+Intervening edits mark results as belonging to an earlier revision. MCP status
+includes structured findings but not the browser-local rendered images.
