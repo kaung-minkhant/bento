@@ -50,6 +50,9 @@ The open editor preflights and displays each proposal for a person to approve
 or reject; `list_agent_proposals` reports lifecycle status. MCP intentionally
 has no approval tool, and any intervening document edit makes a pending
 proposal stale.
+The review card derives operation details and bounded before/after previews
+from the exact prepared batch. Preview images stay inside the paired browser;
+MCP receives structured change metadata rather than duplicated image payloads.
 Presenter-controlled builds use the common `buildStep` element property. Read
 the `elements` and `motion` topics for grouping, reverse navigation, entrance
 effects, reduced motion, and morph behavior before authoring them.

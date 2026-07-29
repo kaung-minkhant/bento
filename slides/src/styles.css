@@ -2298,6 +2298,22 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal > span { color: #66758A; font-size: 11px; text-transform: capitalize; }
 .ed-agent-proposal > p, .ed-agent-proposal > small { grid-column: 1 / -1; margin: 0; color: #66758A; font-size: 12px; line-height: 1.35; }
 .ed-agent-proposal > small { font-size: 11px; }
+.ed-agent-proposal-warning { grid-column: 1 / -1; padding: 7px 9px; border-radius: 7px; background: #FFF0EC; color: #9B3A2C; font-size: 12px; font-weight: 750; }
+.ed-agent-proposal-details { grid-column: 1 / -1; }
+.ed-agent-proposal-details summary { color: #34445A; font-size: 12px; font-weight: 750; cursor: pointer; }
+.ed-agent-proposal-details ol { display: grid; gap: 5px; margin: 7px 0 0; padding-left: 20px; }
+.ed-agent-proposal-details li { color: #66758A; font-size: 11px; }
+.ed-agent-proposal-details li strong { color: #34445A; margin-right: 6px; }
+.ed-agent-proposal-details li span, .ed-agent-proposal-details li small { display: block; overflow-wrap: anywhere; }
+.ed-agent-proposal-details li.destructive strong { color: #9B3A2C; }
+.ed-agent-proposal-previews { grid-column: 1 / -1; display: grid; gap: 9px; }
+.ed-agent-proposal-previews > section { display: grid; gap: 5px; }
+.ed-agent-proposal-previews > section > strong { color: #34445A; font-size: 11px; }
+.ed-agent-proposal-previews > section > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.ed-agent-proposal-previews figure { margin: 0; min-width: 0; }
+.ed-agent-proposal-previews figcaption { margin-bottom: 3px; color: #66758A; font-size: 10px; }
+.ed-agent-proposal-previews img, .ed-agent-proposal-preview-empty { display: block; width: 100%; aspect-ratio: 16 / 9; border: 1px solid #D8E0EA; border-radius: 6px; background: #EEF2F7; object-fit: cover; }
+.ed-agent-proposal-preview-empty { display: grid; place-items: center; color: #77869A; font-size: 10px; }
 .ed-agent-proposal.applied { border-left-color: #38A169; }
 .ed-agent-proposal.rejected, .ed-agent-proposal.stale { border-left-color: #8A98AA; opacity: .72; }
 .ed-agent-proposal-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 7px; margin-top: 4px; }

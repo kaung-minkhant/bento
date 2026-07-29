@@ -451,6 +451,9 @@ if (location.hash === '#present') {
     const agentUndoStack: AgentAction[] = []
     const agentRedoStack: AgentAction[] = []
     const proposals = new AgentProposalRegistry()
+    type ProposalPreview = { slideId: string; name: string | null; before?: string; after?: string; warning?: string }
+    type ProposalEvidence = { previews: ProposalPreview[]; truncated: boolean }
+    const proposalEvidence = new Map<string, ProposalEvidence>()
     let agentHistoryRevision = store.revision
     let inspectionQueue: Promise<void> = Promise.resolve()
     const inspect = <T>(work: () => Promise<T>): Promise<T> => {
@@ -566,12 +569,37 @@ if (location.hash === '#present') {
         }
         if (message.operation === 'propose_operations') {
           if (!Array.isArray(params.operations)) throw new Error('propose_operations requires an operations array.')
-          const proposal = proposals.create(store.doc, store.revision, {
+          const baseDoc = structuredClone(store.doc)
+          const proposal = proposals.create(baseDoc, store.revision, {
             expectedRevision: Number(params.expectedRevision),
             title: params.title as string,
             summary: params.summary as string | undefined,
             operations: params.operations,
           })
+          const draft = proposals.previewDocument(proposal.id, baseDoc, proposal.baseRevision)
+          let previewIds = [...proposal.affectedSlideIds]
+          if (!previewIds.length && proposal.changes.some((change) => change.type === 'update_deck' && change.properties.includes('theme'))) {
+            previewIds = baseDoc.slides.filter((slide) => !slide.stateOf).slice(0, 3).map((slide) => slide.id)
+          }
+          const boundedIds = previewIds.slice(0, 3)
+          const previews = await inspect(async () => {
+            const result: ProposalPreview[] = []
+            for (const slideId of boundedIds) {
+              const beforeSlide = baseDoc.slides.find((slide) => slide.id === slideId)
+              const afterSlide = draft.slides.find((slide) => slide.id === slideId)
+              const row: ProposalPreview = { slideId, name: afterSlide?.name ?? beforeSlide?.name ?? null }
+              try {
+                if (beforeSlide) row.before = `data:image/png;base64,${(await renderSlideImage(baseDoc, slideId, 400)).data}`
+                if (afterSlide) row.after = `data:image/png;base64,${(await renderSlideImage(draft, slideId, 400)).data}`
+              } catch (error) {
+                row.warning = error instanceof Error ? error.message : 'Preview rendering failed.'
+              }
+              result.push(row)
+            }
+            return result
+          })
+          const evidence = { previews, truncated: previewIds.length > boundedIds.length }
+          proposalEvidence.set(proposal.id, evidence)
           notifyProposals()
           sendResponse(message.requestId, true, { proposal, revision: store.revision })
           return
@@ -813,7 +841,7 @@ if (location.hash === '#present') {
       status: () => state,
       pairingCode: () => pairingCode,
       actions: () => actionHistory.map((action) => ({ ...action })),
-      proposals: () => proposals.list(store.revision),
+      proposals: () => proposals.list(store.revision).map((proposal) => ({ ...proposal, evidence: proposalEvidence.get(proposal.id) })),
       approveProposal,
       rejectProposal: (proposalId: string) => {
         const proposal = proposals.reject(proposalId, store.revision)

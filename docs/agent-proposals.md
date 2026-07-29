@@ -50,3 +50,9 @@ The first complete slice requires proposal submission and inspection through
 MCP, a visible editor review card, human approve/reject controls, stale-state
 feedback after manual edits, atomic application, undo/redo compatibility, and
 tests proving that agents cannot approve their own proposals.
+
+Review cards derive an exact change list from prepared operations and render up
+to three affected slides before and after the preflighted batch. Created and
+deleted slides show an explicit empty endpoint; destructive operations receive
+a warning. Preview images remain page-local and are not transferred through
+MCP or saved with the document.

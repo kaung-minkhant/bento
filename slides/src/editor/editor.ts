@@ -928,7 +928,12 @@ export class Editor {
     const proposalsList = dialog.querySelector<HTMLOListElement>('.ed-agent-proposals-list')!
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
-    type Proposal = { id: string; title: string; summary?: string; status: 'pending' | 'applied' | 'rejected' | 'stale'; baseRevision: number; operationCount: number; affectedSlideIds: string[] }
+    type Proposal = {
+      id: string; title: string; summary?: string; status: 'pending' | 'applied' | 'rejected' | 'stale'; baseRevision: number
+      operationCount: number; affectedSlideIds: string[]; destructive: boolean
+      changes: Array<{ type: string; slideId?: string; elementId?: string; properties: string[]; value?: string; destructive: boolean }>
+      evidence?: { previews: Array<{ slideId: string; name: string | null; before?: string; after?: string; warning?: string }>; truncated: boolean }
+    }
     const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
@@ -995,6 +1000,53 @@ export class Editor {
         const meta = document.createElement('small')
         meta.textContent = `${proposal.operationCount} ${t('operations')} · ${proposal.affectedSlideIds.length} ${t('affected slides')}`
         item.appendChild(meta)
+        if (proposal.destructive) {
+          const warning = document.createElement('div')
+          warning.className = 'ed-agent-proposal-warning'
+          warning.textContent = t('Destructive proposal')
+          item.appendChild(warning)
+        }
+        const details = document.createElement('details')
+        details.className = 'ed-agent-proposal-details'
+        details.open = proposal.status === 'pending'
+        const detailsSummary = document.createElement('summary')
+        detailsSummary.textContent = t('Proposed changes')
+        const changes = document.createElement('ol')
+        for (const change of proposal.changes) {
+          const row = document.createElement('li')
+          const label = document.createElement('strong')
+          label.textContent = actionLabel(change.type)
+          row.appendChild(label)
+          if (change.value) row.appendChild(Object.assign(document.createElement('span'), { textContent: `“${change.value}”` }))
+          const target = [change.slideId, change.elementId, ...change.properties].filter(Boolean).join(' · ')
+          if (target) row.appendChild(Object.assign(document.createElement('small'), { textContent: target }))
+          if (change.destructive) row.classList.add('destructive')
+          changes.appendChild(row)
+        }
+        details.append(detailsSummary, changes)
+        item.appendChild(details)
+        if (proposal.evidence?.previews.length) {
+          const previews = document.createElement('div')
+          previews.className = 'ed-agent-proposal-previews'
+          for (const preview of proposal.evidence.previews) {
+            const row = document.createElement('section')
+            const name = document.createElement('strong')
+            name.textContent = preview.name || preview.slideId
+            row.appendChild(name)
+            const pair = document.createElement('div')
+            for (const [label, src, empty] of [[t('Before'), preview.before, t('New slide')], [t('After'), preview.after, t('Removed')]] as const) {
+              const figure = document.createElement('figure')
+              figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: label }))
+              if (src) figure.appendChild(Object.assign(document.createElement('img'), { src, alt: `${label}: ${preview.name || preview.slideId}` }))
+              else figure.appendChild(Object.assign(document.createElement('div'), { className: 'ed-agent-proposal-preview-empty', textContent: preview.warning || empty }))
+              pair.appendChild(figure)
+            }
+            row.appendChild(pair)
+            previews.appendChild(row)
+          }
+          if (proposal.evidence.truncated) previews.appendChild(Object.assign(document.createElement('small'), { textContent: t('Additional affected slides not shown') }))
+          item.appendChild(previews)
+        }
         if (proposal.status === 'pending') {
           const actions = document.createElement('div')
           actions.className = 'ed-agent-proposal-actions'
