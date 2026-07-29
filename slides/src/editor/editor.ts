@@ -1380,28 +1380,7 @@ export class Editor {
       t.textContent = i18nT('Apply layout to this slide')
       pick.appendChild(t)
     }
-    if (action.kind === 'insert') {
-      const h = div('ed-layoutpick-h')
-      h.textContent = t('Recipes')
-      pick.appendChild(h)
-      const grid = div('ed-layoutpick-grid')
-      for (const recipe of COMPOSITION_RECIPES) {
-        const item = div('ed-layoutpick-item')
-        item.title = t(recipe.description)
-        item.appendChild(renderThumbnail(instantiateCompositionRecipe(doc, recipe.id, recipe.sample), doc, 104))
-        const name = div('ed-layoutpick-name')
-        name.textContent = t(recipe.name)
-        item.appendChild(name)
-        item.addEventListener('click', () => {
-          this.openRecipeForm(pick, recipe, action.at)
-        })
-        grid.appendChild(item)
-      }
-      pick.appendChild(grid)
-    }
-    const sections: Array<[string, Slide[], boolean]> = [[t('Built-in'), builtinLayouts(), false]]
-    if (doc.layouts?.length) sections.push([t('This document'), doc.layouts, true])
-    for (const [label, layouts, custom] of sections) {
+    const appendLayouts = (label: string, layouts: Slide[], custom: boolean) => {
       const h = div('ed-layoutpick-h')
       h.textContent = label
       pick.appendChild(h)
@@ -1436,11 +1415,44 @@ export class Editor {
       }
       pick.appendChild(grid)
     }
+
+    appendLayouts(t('Built-in'), builtinLayouts(), false)
+    if (action.kind === 'insert') {
+      const h = div('ed-layoutpick-h')
+      h.textContent = t('Recipes')
+      pick.appendChild(h)
+      const grid = div('ed-layoutpick-grid')
+      for (const recipe of COMPOSITION_RECIPES) {
+        const item = div('ed-layoutpick-item')
+        item.title = t(recipe.description)
+        item.appendChild(renderThumbnail(instantiateCompositionRecipe(doc, recipe.id, recipe.sample), doc, 104))
+        const name = div('ed-layoutpick-name')
+        name.textContent = t(recipe.name)
+        item.appendChild(name)
+        item.addEventListener('click', () => {
+          this.openRecipeForm(pick, recipe, action.at)
+        })
+        grid.appendChild(item)
+      }
+      pick.appendChild(grid)
+    }
+    if (doc.layouts?.length) appendLayouts(t('This document'), doc.layouts, true)
     const r = anchor.getBoundingClientRect()
     if (anchor.classList.contains('ed-add-slide')) {
-      // bottom-of-sidebar button: open upward from it
+      // Prefer the side with more usable room. With a short deck the "New
+      // slide" button sits near the top; always opening upward placed a tall
+      // recipe catalog above the viewport even though the popover itself was
+      // scrollable.
+      const above = Math.max(0, r.top - 8)
+      const below = Math.max(0, window.innerHeight - r.bottom - 8)
       pick.style.left = `${Math.max(8, r.left)}px`
-      pick.style.bottom = `${window.innerHeight - r.top + 8}px`
+      if (below >= above) {
+        pick.style.top = `${r.bottom + 8}px`
+        pick.style.maxHeight = `${Math.min(window.innerHeight * 0.7, below)}px`
+      } else {
+        pick.style.bottom = `${window.innerHeight - r.top + 8}px`
+        pick.style.maxHeight = `${Math.min(window.innerHeight * 0.7, above)}px`
+      }
     } else {
       // insert-gap or panel button: open beside the anchor, clamped on-screen
       pick.style.left = `${Math.max(8, Math.min(r.right + 10, window.innerWidth - 440))}px`

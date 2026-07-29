@@ -83,7 +83,7 @@ test('authoring guide covers every implemented operation and recipe id', () => {
   assert.deepEqual([...documented].sort(), [...implemented].sort())
 
   const recipeSource = readFileSync(new URL('../../../slides/src/composition-recipes.ts', import.meta.url), 'utf8')
-  const recipeIds = [...recipeSource.matchAll(/\bid: '(title-thesis|comparison|academic-results)'/g)].map((match) => match[1])
+  const recipeIds = [...recipeSource.matchAll(/\bid: '([a-z-]+)'/g)].map((match) => match[1])
   const recipeGuide = authoringGuide('recipes').markdown
   for (const id of recipeIds) assert.match(recipeGuide, new RegExp(`\\b${id}\\b`))
 

@@ -146,8 +146,10 @@ element properties remain the rendered source of truth so old decks do not
 change appearance.
 
 - Expose deck themes, palettes, and named typography roles.
-- Expand reusable composition recipes beyond the first three common
-  presentation structures without forcing every deck into one visual style.
+- Ten reusable composition recipes now cover thesis, comparison, academic
+  results, section dividers, agendas, quotes, processes, chart-led findings,
+  image narratives, and closing decisions without forcing every deck into one
+  visual style.
 - Let agents inspect and reuse the current deck's visual language.
 - Expand the read-only deck-quality audit, which now checks hierarchy, rhythm,
   density, consistency, composition variety, and narrative landing, with
