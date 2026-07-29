@@ -92,10 +92,14 @@ export function startPresentation(
     if (slide && section) {
       const move = buildState.forward(slide)
       if (move.kind === 'reveal') {
-        applyBuildVisibility(slide, section, buildState)
         const revealedIds = new Set(slide.elements.filter((element) => element.buildStep === move.step).map((element) => element.id))
+        // Prime entrance tweens while the build-hidden class still suppresses
+        // paint. fromTo applies its starting opacity/transform synchronously;
+        // revealing first would expose the model's final frame for one paint
+        // before the tween rewound it, producing a destination-state flash.
+        if (!reduceMotion) runEnterFx(slide, section, move.step)
+        applyBuildVisibility(slide, section, buildState)
         if (!reduceMotion) {
-          runEnterFx(slide, section, move.step)
           runAmbientFx(slide, section, move.step)
           restartSvgAnimations(section, revealedIds)
         }
