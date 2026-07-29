@@ -9,9 +9,11 @@ An agent submits a title, optional rationale, the current document revision,
 and a normal `apply_operations` batch. The editor fully prepares and preflights
 that batch against a cloned document before accepting the proposal.
 
-Proposals have four observable states:
+Proposals have six observable states:
 
 - `pending` — valid at its base revision and waiting for a person.
+- `changes_requested` — a person supplied revision feedback without changing the document.
+- `superseded` — an agent submitted a valid replacement linked to that feedback.
 - `applied` — approved by a person and committed atomically.
 - `rejected` — declined without changing the document.
 - `stale` — the document revision changed before approval.
@@ -19,6 +21,13 @@ Proposals have four observable states:
 Approval applies the prepared batch as one normal store commit and therefore
 one undo checkpoint. A rejected, stale, or applied proposal cannot be reused.
 Agents can submit and inspect proposals, but cannot approve them through MCP.
+
+A person may request changes from a pending proposal in the editor. The feedback
+is page-lifetime proposal metadata and is visible through
+`list_agent_proposals`. An agent responds by calling `propose_operations` with
+`replacesProposalId`; successful preflight links the new proposal to the old one
+and marks the old proposal superseded. The deck must remain at the same base
+revision throughout this exchange.
 
 ## Storage boundary
 
@@ -48,7 +57,7 @@ portable-file or explicit-pairing boundaries.
 
 The first complete slice requires proposal submission and inspection through
 MCP, a visible editor review card, human approve/reject controls, stale-state
-feedback after manual edits, atomic application, undo/redo compatibility, and
+feedback and linked replacement proposals, stale-state feedback after manual edits, atomic application, undo/redo compatibility, and
 tests proving that agents cannot approve their own proposals.
 
 Review cards derive an exact change list from prepared operations and render up

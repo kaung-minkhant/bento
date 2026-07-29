@@ -201,12 +201,13 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       inputSchema: {
         docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(),
         title: z.string().trim().min(1).max(160), summary: z.string().trim().max(1200).optional(),
+        replacesProposalId: z.string().optional(),
         operations: z.array(z.record(z.unknown())).min(1).max(100),
       },
       annotations: { readOnlyHint: false, openWorldHint: false },
-    }, async ({ docId, expectedRevision, title, summary, operations }) => {
+    }, async ({ docId, expectedRevision, title, summary, replacesProposalId, operations }) => {
       assertAllowed(docId)
-      return result(await bridge.request(docId, 'propose_operations', undefined, { expectedRevision, title, summary, operations }))
+      return result(await bridge.request(docId, 'propose_operations', undefined, { expectedRevision, title, summary, replacesProposalId, operations }))
     })
 
     server.registerTool('list_agent_proposals', {

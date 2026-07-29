@@ -176,7 +176,8 @@ was removed atomically after verification.
 In progress. The proposal contract is defined in `docs/agent-proposals.md`:
 proposals are page-lifetime editor workflow state, preflight at a guarded base
 revision, become stale after any intervening edit, and can only be approved or
-rejected by a person in the editor.
+rejected by a person in the editor. Reviewers can request changes without
+mutating the deck, and agents can answer with an explicitly linked replacement.
 
 - Support the full inspect, plan, propose, review, apply, render, critique,
   refine, validate, and approve loop in the editor.
