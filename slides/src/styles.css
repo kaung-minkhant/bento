@@ -839,6 +839,9 @@ option { background: #fff; color: #1e2a3a; }
   opacity: 0 !important;
   pointer-events: none !important;
 }
+.bento-present-overlay .bento-build-entering {
+  opacity: 0 !important;
+}
 /* Reduced motion (M / speaker toggle / OS prefers-reduced-motion): JS fx are
    skipped in present.ts; this neutralises CSS-driven motion too — Reveal's
    slide transitions cut instantly and svg keyframe animations don't play. */

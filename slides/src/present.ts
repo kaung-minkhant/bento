@@ -93,13 +93,27 @@ export function startPresentation(
       const move = buildState.forward(slide)
       if (move.kind === 'reveal') {
         const revealedIds = new Set(slide.elements.filter((element) => element.buildStep === move.step).map((element) => element.id))
+        const revealedNodes = [...revealedIds].map((id) =>
+          section.querySelector<HTMLElement>(`[data-el-id="${CSS.escape(id)}"]`),
+        ).filter((node): node is HTMLElement => !!node)
         // Prime entrance tweens while the build-hidden class still suppresses
         // paint. fromTo applies its starting opacity/transform synchronously;
         // revealing first would expose the model's final frame for one paint
         // before the tween rewound it, producing a destination-state flash.
-        if (!reduceMotion) runEnterFx(slide, section, move.step)
+        if (!reduceMotion) {
+          // Chromium may coalesce the hidden-class removal and tween priming
+          // into a paint sourced from its previously cached final texture.
+          // Keep a transparent gate through one committed frame, then release
+          // it. This is scoped to build reveals and leaves slide/morph layers
+          // untouched.
+          revealedNodes.forEach((node) => node.classList.add('bento-build-entering'))
+          runEnterFx(slide, section, move.step)
+        }
         applyBuildVisibility(slide, section, buildState)
         if (!reduceMotion) {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            revealedNodes.forEach((node) => node.classList.remove('bento-build-entering'))
+          }))
           runAmbientFx(slide, section, move.step)
           restartSvgAnimations(section, revealedIds)
         }
