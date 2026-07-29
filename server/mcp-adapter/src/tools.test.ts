@@ -46,7 +46,7 @@ test('browser bridge exposes targeted deck actions', async () => {
 
   const tools = await client.listTools()
   const names = tools.tools.map((tool) => tool.name)
-  for (const name of ['get_deck_summary', 'get_deck_style', 'inspect_design_system', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
+  for (const name of ['get_deck_summary', 'get_deck_style', 'inspect_design_system', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
     assert.ok(names.includes(name), `missing ${name}`)
   }
   await client.close()
@@ -90,6 +90,27 @@ test('inspect_design_system forwards a read-only design-language request', async
   const response = await client.callTool({ name: 'inspect_design_system', arguments: { docId: allowed } })
   assert.equal(response.isError, undefined)
   assert.deepEqual(calls, [{ docId: allowed, operation: 'design_language' }])
+  await client.close()
+  await server.close()
+})
+
+test('create_slide_from_recipe forwards structured content and revision', async () => {
+  const calls: Array<{ docId: string; operation: string; params?: Record<string, unknown> }> = []
+  const bridge = {
+    request: async (docId: string, operation: string, _json?: string, params?: Record<string, unknown>) => {
+      calls.push({ docId, operation, params })
+      return { slideId: 'slide-recipe', index: 2, previousRevision: 4, currentRevision: 5 }
+    },
+  } as unknown as BrowserBridge
+  const server = createMcpServer({ ...config, bridgeToken: 'bridge-token' }, undefined, bridge)
+  const client = new Client({ name: 'test-client', version: '1.0.0' })
+  const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+
+  const content = { title: 'Evidence', thesis: 'One clear result.' }
+  const response = await client.callTool({ name: 'create_slide_from_recipe', arguments: { docId: allowed, expectedRevision: 4, recipeId: 'title-thesis', content, afterSlideId: 'slide-1' } })
+  assert.equal(response.isError, undefined)
+  assert.deepEqual(calls, [{ docId: allowed, operation: 'create_slide_from_recipe', params: { expectedRevision: 4, recipeId: 'title-thesis', content, afterSlideId: 'slide-1' } }])
   await client.close()
   await server.close()
 })

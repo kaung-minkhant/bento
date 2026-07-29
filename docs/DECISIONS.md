@@ -14,6 +14,13 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Composition recipes have one engine for UI and MCP
+Recipe definitions own structured fields, sample previews, and ordinary slide
+generation. The New Slide picker and revision-guarded MCP tools call that same
+engine, so recipes remain fully editable and cannot drift between agent and
+human authoring. Recipes consume advisory design tokens with deck-theme
+fallbacks; they do not introduce a new rendered document primitive.
+
 ## 2026-07-29 — Phase 8 design tokens begin as advisory composition metadata
 `theme.design` stores optional named color, typography, spacing, and radius
 tokens, while `inspect_design_system` also infers the visual language actually

@@ -138,14 +138,16 @@ then removed atomically.
 
 ### Phase 8: composition system
 
-In progress. The first slice adds optional named design tokens to the deck
-theme and a read-only MCP visual-language inspector. Tokens are advisory until
-the recipe system consumes them; existing element properties remain the
-rendered source of truth so old decks do not change appearance.
+In progress. Optional named design tokens and the read-only MCP
+visual-language inspector now feed a shared recipe engine. The first three
+recipes (title/thesis, comparison, and academic results) are available in the
+editor's New Slide picker and through revision-guarded MCP creation. Existing
+element properties remain the rendered source of truth so old decks do not
+change appearance.
 
 - Expose deck themes, palettes, and named typography roles.
-- Provide reusable layout recipes for common presentation structures without
-  forcing every deck into one visual style.
+- Expand reusable composition recipes beyond the first three common
+  presentation structures without forcing every deck into one visual style.
 - Let agents inspect and reuse the current deck's visual language.
 - Add design-quality checks across slides for hierarchy, rhythm, consistency,
   and narrative flow.

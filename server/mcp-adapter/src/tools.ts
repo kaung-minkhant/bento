@@ -111,6 +111,24 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       annotations: { readOnlyHint: true, openWorldHint: false },
     }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'design_language')) })
 
+    server.registerTool('list_composition_recipes', {
+      description: 'List the shared bento/slides composition recipes and their structured content fields. Recipes adapt to the connected deck design system.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'composition_recipes')) })
+
+    server.registerTool('create_slide_from_recipe', {
+      description: 'Create a styled, fully editable slide from a shared composition recipe. Requires the current deck revision; stale requests fail without changing the deck.',
+      inputSchema: {
+        docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(), recipeId: z.string().min(1),
+        content: z.record(z.string()), afterSlideId: z.string().optional(),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, expectedRevision, recipeId, content, afterSlideId }) => {
+      assertAllowed(docId)
+      return result(await bridge.request(docId, 'create_slide_from_recipe', undefined, { expectedRevision, recipeId, content, afterSlideId }))
+    })
+
     server.registerTool('get_slide', {
       description: 'Read one slide and its complete element model from the explicitly connected deck, together with the current revision.',
       inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1) },

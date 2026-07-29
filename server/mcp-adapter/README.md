@@ -32,6 +32,11 @@ statistical fingerprint of the deck's observed colors, typography roles,
 spacing, radii, transitions, element mix, and recurring slide structures. It
 lets an agent match the current visual language without transferring every
 slide model.
+`list_composition_recipes` describes the shared structured recipe catalog.
+`create_slide_from_recipe` creates a normal editable slide from one of those
+recipes, adapts it to the deck's tokens/theme, and requires the current
+revision so a stale request cannot overwrite concurrent work. The editor's
+New Slide picker uses the same recipe definitions and generation engine.
 The legacy
 `agent_read_document` and `agent_replace_document` tools remain available for
 clients that need full-document access.

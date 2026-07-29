@@ -30,6 +30,7 @@ import { openHostedLibrary } from './hosted-library'
 import { renderDeckThumbnailSheet, renderSlideImage, validateSlideVisuals } from './agent-inspect'
 import { inspectDesignLanguage } from './agent-design'
 import { applyAgentOperations, prepareAgentOperations } from './agent-operations'
+import { COMPOSITION_RECIPES, instantiateCompositionRecipe } from './composition-recipes'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -540,6 +541,30 @@ if (location.hash === '#present') {
             revision: store.revision,
             ...inspectDesignLanguage(store.doc),
           })
+          return
+        }
+        if (message.operation === 'composition_recipes') {
+          sendResponse(message.requestId, true, {
+            recipes: COMPOSITION_RECIPES.map(({ sample: _sample, ...recipe }) => recipe),
+          })
+          return
+        }
+        if (message.operation === 'create_slide_from_recipe') {
+          const expectedRevision = Number(params.expectedRevision)
+          if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw new Error('create_slide_from_recipe requires a non-negative expectedRevision.')
+          if (expectedRevision !== store.revision) throw new Error(`Revision conflict: expected ${expectedRevision}, current ${store.revision}. Refresh the deck and retry.`)
+          if (typeof params.recipeId !== 'string') throw new Error('create_slide_from_recipe requires recipeId.')
+          if (!params.content || typeof params.content !== 'object' || Array.isArray(params.content)) throw new Error('create_slide_from_recipe requires a content object.')
+          const afterSlideId = typeof params.afterSlideId === 'string' ? params.afterSlideId : undefined
+          const slide = instantiateCompositionRecipe(store.doc, params.recipeId, params.content as Record<string, unknown>)
+          let index = store.doc.slides.length
+          const previousRevision = store.revision
+          store.commit(() => {
+            const after = afterSlideId ? store.doc.slides.findIndex((item) => item.id === afterSlideId) : -1
+            index = after >= 0 ? after + 1 : store.doc.slides.length
+            store.doc.slides.splice(index, 0, slide)
+          }, 'slides')
+          sendResponse(message.requestId, true, { slideId: slide.id, index, previousRevision, currentRevision: store.revision })
           return
         }
         if (message.operation === 'slide_detail') {
