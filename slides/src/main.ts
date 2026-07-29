@@ -28,6 +28,7 @@ import {
 import { docContentKey } from './autosave'
 import { openHostedLibrary } from './hosted-library'
 import { renderDeckThumbnailSheet, renderSlideImage, validateSlideVisuals } from './agent-inspect'
+import { completeProposalVerification, type ProposalVerification, type ProposalVerificationSlide } from './agent-verification'
 import { inspectDesignLanguage } from './agent-design'
 import { applyAgentOperations, prepareAgentOperations } from './agent-operations'
 import { COMPOSITION_RECIPES, instantiateCompositionRecipe } from './composition-recipes'
@@ -455,6 +456,9 @@ if (location.hash === '#present') {
     type ProposalEvidence = { previews: ProposalPreview[]; truncated: boolean }
     const PROPOSAL_PREVIEW_WIDTH = 960
     const proposalEvidence = new Map<string, ProposalEvidence>()
+    const PROPOSAL_VERIFICATION_WIDTH = 960
+    const MAX_VERIFICATION_SLIDES = 10
+    const proposalVerifications = new Map<string, ProposalVerification>()
     let agentHistoryRevision = store.revision
     let inspectionQueue: Promise<void> = Promise.resolve()
     const inspect = <T>(work: () => Promise<T>): Promise<T> => {
@@ -565,7 +569,20 @@ if (location.hash === '#present') {
           return
         }
         if (message.operation === 'list_proposals') {
-          sendResponse(message.requestId, true, { proposals: proposals.list(store.revision), revision: store.revision })
+          sendResponse(message.requestId, true, {
+            proposals: proposals.list(store.revision).map((proposal) => {
+              const verification = proposalVerifications.get(proposal.id)
+              return {
+                ...proposal,
+                verification: verification ? {
+                  ...verification,
+                  outdated: verification.revision !== store.revision,
+                  slides: verification.slides.map(({ image: _image, ...slide }) => slide),
+                } : undefined,
+              }
+            }),
+            revision: store.revision,
+          })
           return
         }
         if (message.operation === 'propose_operations') {
@@ -806,6 +823,43 @@ if (location.hash === '#present') {
     }
     const lastUndoableAction = () => store.revision === agentHistoryRevision ? agentUndoStack[agentUndoStack.length - 1] : undefined
     const lastRedoableAction = () => store.revision === agentHistoryRevision ? agentRedoStack[agentRedoStack.length - 1] : undefined
+    const verifyAppliedProposal = async (proposal: ReturnType<AgentProposalRegistry['get']>) => {
+      const revision = store.revision
+      const snapshot = structuredClone(store.doc)
+      const slideIds = proposal.affectedSlideIds.filter((slideId) => snapshot.slides.some((slide) => slide.id === slideId))
+      const boundedIds = slideIds.slice(0, MAX_VERIFICATION_SLIDES)
+      const verification: ProposalVerification = {
+        status: 'checking', revision, startedAt: Date.now(), issueCount: 0, slides: [],
+        truncated: slideIds.length > boundedIds.length,
+      }
+      proposalVerifications.set(proposal.id, verification)
+      notifyProposals()
+      const slides = await inspect(async () => {
+        const results: ProposalVerificationSlide[] = []
+        for (const slideId of boundedIds) {
+          const slide = snapshot.slides.find((item) => item.id === slideId)!
+          const result: ProposalVerificationSlide = { slideId, name: slide.name ?? null, warnings: [], findings: [] }
+          const errors: string[] = []
+          try {
+            const rendered = await renderSlideImage(snapshot, slideId, PROPOSAL_VERIFICATION_WIDTH)
+            result.image = `data:${rendered.mimeType};base64,${rendered.data}`
+            result.warnings = rendered.warnings
+          } catch (error) {
+            errors.push(error instanceof Error ? error.message : 'Post-approval render failed.')
+          }
+          try {
+            result.findings = (await validateSlideVisuals(snapshot, slideId)).findings
+          } catch (error) {
+            errors.push(error instanceof Error ? error.message : 'Post-approval validation failed.')
+          }
+          if (errors.length) result.error = errors.join(' ')
+          results.push(result)
+        }
+        return results
+      })
+      proposalVerifications.set(proposal.id, completeProposalVerification(verification, slides))
+      notifyProposals()
+    }
     const approveProposal = (proposalId: string) => {
       const prepared = proposals.operationsForApproval(proposalId, store.revision)
       const beforeRevision = store.revision
@@ -834,6 +888,7 @@ if (location.hash === '#present') {
       agentHistoryRevision = store.revision
       notifyAction(action)
       notifyProposals()
+      void verifyAppliedProposal(proposal)
       return proposal
     }
     return {
@@ -843,7 +898,10 @@ if (location.hash === '#present') {
       status: () => state,
       pairingCode: () => pairingCode,
       actions: () => actionHistory.map((action) => ({ ...action })),
-      proposals: () => proposals.list(store.revision).map((proposal) => ({ ...proposal, evidence: proposalEvidence.get(proposal.id) })),
+      proposals: () => proposals.list(store.revision).map((proposal) => {
+        const verification = proposalVerifications.get(proposal.id)
+        return { ...proposal, evidence: proposalEvidence.get(proposal.id), verification: verification ? { ...verification, outdated: verification.revision !== store.revision } : undefined }
+      }),
       approveProposal,
       rejectProposal: (proposalId: string) => {
         const proposal = proposals.reject(proposalId, store.revision)
