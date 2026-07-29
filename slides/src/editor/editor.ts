@@ -939,12 +939,13 @@ export class Editor {
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
     type Proposal = {
-      id: string; title: string; summary?: string; status: 'pending' | 'applied' | 'rejected' | 'stale'; baseRevision: number
+      id: string; title: string; summary?: string; status: 'pending' | 'changes_requested' | 'superseded' | 'applied' | 'rejected' | 'stale'; baseRevision: number
+      feedback?: string; feedbackAt?: number; parentProposalId?: string; replacementProposalId?: string
       operationCount: number; affectedSlideIds: string[]; destructive: boolean
       changes: Array<{ type: string; slideId?: string; elementId?: string; properties: string[]; value?: string; destructive: boolean }>
       evidence?: { previews: Array<{ slideId: string; name: string | null; before?: string; after?: string; warning?: string }>; truncated: boolean }
     }
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
         read_document: 'Read document', summary: 'Deck summary', deck_style: 'Deck style', slide_detail: 'Slide details', create_slide: 'Create slide',
@@ -1016,12 +1017,19 @@ export class Editor {
         const heading = document.createElement('strong')
         heading.textContent = proposal.title
         const state = document.createElement('span')
-        state.textContent = t(proposal.status === 'pending' ? 'Pending' : proposal.status === 'applied' ? 'Applied' : proposal.status === 'rejected' ? 'Rejected' : 'Stale')
+        const stateLabel = proposal.status === 'pending' ? 'Pending' : proposal.status === 'changes_requested' ? 'Changes requested' : proposal.status === 'superseded' ? 'Superseded' : proposal.status === 'applied' ? 'Applied' : proposal.status === 'rejected' ? 'Rejected' : 'Stale'
+        state.textContent = t(stateLabel)
         item.append(heading, state)
         if (proposal.summary) item.appendChild(Object.assign(document.createElement('p'), { textContent: proposal.summary }))
         const meta = document.createElement('small')
         meta.textContent = `${proposal.operationCount} ${t('operations')} · ${proposal.affectedSlideIds.length} ${t('affected slides')}`
         item.appendChild(meta)
+        if (proposal.feedback) {
+          const feedback = document.createElement('div')
+          feedback.className = 'ed-agent-proposal-feedback'
+          feedback.append(Object.assign(document.createElement('strong'), { textContent: t('Requested changes') }), Object.assign(document.createElement('p'), { textContent: proposal.feedback }))
+          item.appendChild(feedback)
+        }
         if (proposal.destructive) {
           const warning = document.createElement('div')
           warning.className = 'ed-agent-proposal-warning'
@@ -1080,12 +1088,38 @@ export class Editor {
         if (proposal.status === 'pending') {
           const actions = document.createElement('div')
           actions.className = 'ed-agent-proposal-actions'
+          const revise = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Request changes') })
           const reject = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Reject') })
           const approve = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Approve') })
           approve.className = 'ed-primary'
+          revise.addEventListener('click', () => {
+            const form = document.createElement('form')
+            form.className = 'ed-agent-proposal-feedback-form'
+            const label = document.createElement('label')
+            label.textContent = t('What should the agent revise?')
+            const input = document.createElement('textarea')
+            input.maxLength = 1200
+            input.required = true
+            input.rows = 3
+            label.appendChild(input)
+            const formActions = document.createElement('div')
+            const cancel = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Cancel') })
+            const send = Object.assign(document.createElement('button'), { type: 'submit', textContent: t('Send request') })
+            send.className = 'ed-primary'
+            cancel.addEventListener('click', () => { form.remove(); actions.hidden = false })
+            form.addEventListener('submit', (event) => {
+              event.preventDefault()
+              try { api?.requestProposalChanges?.(proposal.id, input.value); renderProposals() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) }
+            })
+            formActions.append(cancel, send)
+            form.append(label, formActions)
+            actions.hidden = true
+            item.appendChild(form)
+            input.focus()
+          })
           reject.addEventListener('click', () => { try { api?.rejectProposal?.(proposal.id); renderProposals() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) } })
           approve.addEventListener('click', () => { try { api?.approveProposal?.(proposal.id); renderProposals(); renderActivity() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) } })
-          actions.append(reject, approve)
+          actions.append(revise, reject, approve)
           item.appendChild(actions)
         }
         proposalsList.appendChild(item)

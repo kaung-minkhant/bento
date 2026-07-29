@@ -2299,6 +2299,9 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal > p, .ed-agent-proposal > small { grid-column: 1 / -1; margin: 0; color: #66758A; font-size: 12px; line-height: 1.35; }
 .ed-agent-proposal > small { font-size: 11px; }
 .ed-agent-proposal-warning { grid-column: 1 / -1; padding: 7px 9px; border-radius: 7px; background: #FFF0EC; color: #9B3A2C; font-size: 12px; font-weight: 750; }
+.ed-agent-proposal-feedback { grid-column: 1 / -1; padding: 8px 9px; border-radius: 7px; background: #EEF4FF; color: #34445A; }
+.ed-agent-proposal-feedback strong { font-size: 11px; }
+.ed-agent-proposal-feedback p { margin: 3px 0 0; font-size: 12px; line-height: 1.4; white-space: pre-wrap; }
 .ed-agent-proposal-details { grid-column: 1 / -1; }
 .ed-agent-proposal-details summary { color: #34445A; font-size: 12px; font-weight: 750; cursor: pointer; }
 .ed-agent-proposal-details ol { display: grid; gap: 5px; margin: 7px 0 0; padding-left: 20px; }
@@ -2329,10 +2332,18 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-preview-dialog figcaption { margin-bottom: 6px; color: #526176; font-size: 12px; font-weight: 700; }
 .ed-agent-preview-dialog img, .ed-agent-preview-dialog .ed-agent-proposal-preview-empty { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #E7ECF3; object-fit: contain; }
 .ed-agent-proposal.applied { border-left-color: #38A169; }
-.ed-agent-proposal.rejected, .ed-agent-proposal.stale { border-left-color: #8A98AA; opacity: .72; }
+.ed-agent-proposal.changes_requested { border-left-color: #2D6CDF; }
+.ed-agent-proposal.rejected, .ed-agent-proposal.stale, .ed-agent-proposal.superseded { border-left-color: #8A98AA; opacity: .72; }
 .ed-agent-proposal-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 7px; margin-top: 4px; }
 .ed-agent-proposal-actions button { padding: 6px 12px; border: 1px solid #C8D2DF; border-radius: 999px; background: #FFF; font-weight: 650; cursor: pointer; }
 .ed-agent-proposal-actions button.ed-primary { border-color: #F0A23A; background: #F7A600; color: #172235; }
+.ed-agent-proposal-feedback-form { grid-column: 1 / -1; display: grid; gap: 8px; margin-top: 4px; }
+.ed-agent-proposal-feedback-form label { display: grid; gap: 5px; color: #34445A; font-size: 12px; font-weight: 700; }
+.ed-agent-proposal-feedback-form textarea { box-sizing: border-box; width: 100%; resize: vertical; padding: 8px 9px; border: 1px solid #AEBACA; border-radius: 7px; background: #FFF; color: #172235; font: inherit; line-height: 1.4; }
+.ed-agent-proposal-feedback-form textarea:focus-visible { outline: 2px solid #2D6CDF; outline-offset: 1px; }
+.ed-agent-proposal-feedback-form > div { display: flex; justify-content: flex-end; gap: 7px; }
+.ed-agent-proposal-feedback-form button { padding: 6px 12px; border: 1px solid #C8D2DF; border-radius: 999px; background: #FFF; font-weight: 650; cursor: pointer; }
+.ed-agent-proposal-feedback-form button.ed-primary { border-color: #2D6CDF; background: #2D6CDF; color: #FFF; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }
   .ed-agent-preview-dialog { width: calc(100vw - 24px); padding: 12px; }

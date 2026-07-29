@@ -575,6 +575,7 @@ if (location.hash === '#present') {
             expectedRevision: Number(params.expectedRevision),
             title: params.title as string,
             summary: params.summary as string | undefined,
+            replacesProposalId: params.replacesProposalId as string | undefined,
             operations: params.operations,
           })
           const draft = proposals.previewDocument(proposal.id, baseDoc, proposal.baseRevision)
@@ -846,6 +847,11 @@ if (location.hash === '#present') {
       approveProposal,
       rejectProposal: (proposalId: string) => {
         const proposal = proposals.reject(proposalId, store.revision)
+        notifyProposals()
+        return proposal
+      },
+      requestProposalChanges: (proposalId: string, feedback: string) => {
+        const proposal = proposals.requestChanges(proposalId, store.revision, feedback)
         notifyProposals()
         return proposal
       },
