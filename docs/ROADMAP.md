@@ -128,7 +128,13 @@ manual slide deletion, and all-or-nothing rejection of invalid batches. Rich
 creation covered text, shapes, images, SVG, charts, tables, embedded assets,
 grouping, alignment, distribution, custom layouts, theme controls, targeted
 slide reads, rendering, and visual validation. Unsafe SVG and deletion of an
-in-use asset were rejected without changing the document.
+in-use asset were rejected without changing the document. Production
+acceptance on 2026-07-29 created and visually validated an eight-slide academic
+deck through targeted operations, then verified a revision-guarded atomic batch
+containing an embedded SVG asset, chart, table, and audio element. Media played
+in presentation mode and stopped on slide exit; agent undo removed the complete
+batch and redo restored it. The temporary acceptance slide and its assets were
+then removed atomically.
 
 ### Phase 8: composition system
 
