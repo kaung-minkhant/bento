@@ -224,8 +224,8 @@ export function instantiateCompositionRecipe(doc: BentoDoc, recipeId: string, ra
   } else if (recipe.id === 'quote-insight') {
     const quoteX = m + Math.round(w * 0.08)
     elements = [
-      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 42, fontSize: 17, fontWeight: 800, color: s.accent, letterSpacing: 2 }),
-      text('“', { ...base, x: m, y: m + 84, w: 92, h: 100, fontFamily: s.family, fontSize: 112, fontWeight: 700, color: s.accent, lineHeight: 0.8 }),
+      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 42, fontSize: 17, fontWeight: 800, color: s.ink, letterSpacing: 2 }),
+      text('“', { ...base, x: m, y: m + 72, w: 92, h: 140, fontFamily: s.family, fontSize: 112, fontWeight: 700, color: s.ink, lineHeight: 1 }),
       text(lines(content.quote), { ...base, x: quoteX, y: m + 100, w: w - quoteX - m, h: 290, fontFamily: s.family, fontSize: Math.max(36, s.titleSize - 12), fontWeight: 600, lineHeight: 1.16 }),
       defaultShape('rect', { x: quoteX, y: h - m - 142, w: 64, h: 5, fill: s.accent, radius: 3 }),
       text(lines(content.attribution), { ...base, x: quoteX + 86, y: h - m - 156, w: w - quoteX - m - 86, h: 42, fontSize: 19, fontWeight: 750 }),
@@ -240,9 +240,9 @@ export function instantiateCompositionRecipe(doc: BentoDoc, recipeId: string, ra
       ...steps.flatMap((n, i) => {
         const cx = m + segment * i + segment / 2, accent = i === steps.length - 1
         return [
-          text(String(n).padStart(2, '0'), { ...base, x: cx - 35, y: Math.round(h * 0.34), w: 70, h: 38, fontSize: 16, fontWeight: 800, color: accent ? s.accent : s.muted, align: 'center' }),
+          text(String(n).padStart(2, '0'), { ...base, x: cx - 35, y: Math.round(h * 0.34), w: 70, h: 38, fontSize: 16, fontWeight: 800, color: s.muted, align: 'center' }),
           defaultShape('ellipse', { x: cx - 14, y: Math.round(h * 0.49) - 14, w: 28, h: 28, fill: accent ? s.accent : s.bg, stroke: accent ? s.accent : s.ink, strokeWidth: 3 }),
-          text(lines(content[`step${n}`]), { ...base, x: cx - segment / 2 + 12, y: Math.round(h * 0.57), w: segment - 24, h: 58, fontSize: 24, fontWeight: 750, color: accent ? s.accent : s.ink, align: 'center' }),
+          text(lines(content[`step${n}`]), { ...base, x: cx - segment / 2 + 12, y: Math.round(h * 0.57), w: segment - 24, h: 58, fontSize: 24, fontWeight: 750, color: s.ink, align: 'center' }),
           text(lines(content[`detail${n}`]), { ...base, x: cx - segment / 2 + 12, y: Math.round(h * 0.67), w: segment - 24, h: 52, fontSize: 17, color: s.muted, align: 'center' }),
         ]
       }),
@@ -278,7 +278,7 @@ export function instantiateCompositionRecipe(doc: BentoDoc, recipeId: string, ra
   } else if (recipe.id === 'closing-decision') {
     const stripY = h - m - 118
     elements = [
-      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 72, fontSize: 18, fontWeight: 800, color: s.accent, letterSpacing: 1.5 }),
+      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 72, fontSize: 18, fontWeight: 800, color: s.ink, letterSpacing: 1.5 }),
       text(lines(content.decision), { ...base, x: m, y: m + 105, w: w - m * 2, h: 280, fontFamily: s.family, fontSize: s.titleSize - 2, fontWeight: s.titleWeight, lineHeight: 1.08 }),
       defaultShape('rect', { x: m, y: stripY, w: w - m * 2, h: 118, fill: s.accent, radius: s.radius }),
       text(lines(content.nextStep), { ...base, x: m + 30, y: stripY + 24, w: Math.round((w - m * 2) * 0.52), h: 70, fontSize: 24, fontWeight: 800, color: readableInk(s.accent), valign: 'middle' }),
