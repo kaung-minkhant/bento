@@ -14,6 +14,13 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Quality scoring measures meaningful content, not model complexity
+Density ignores decorative/background geometry and combines word count with
+occupied visual area; nearby colors and radii form families; heterogeneous
+decks soften typography penalties. Data visualizations without a visible
+assertion are checked explicitly. This calibration prevents richly constructed
+but visually sparse slides from being penalized for raw element count.
+
 ## 2026-07-29 — Deck-quality diagnostics are conservative and read-only
 `inspect_deck_quality` reports evidence-backed hierarchy, density, rhythm,
 consistency, variety, and narrative findings against stable slide/element ids.

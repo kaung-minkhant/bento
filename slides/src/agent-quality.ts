@@ -37,18 +37,41 @@ const signature = (slide: Slide) => {
   return [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([type, count]) => `${type}:${count}`).join('|') || 'blank'
 }
 
+function meaningfulElements(doc: BentoDoc, slide: Slide): SlideElement[] {
+  const canvasArea = doc.size.width * doc.size.height
+  return slide.elements.filter((item) => {
+    if (item.opacity <= .05 || item.w * item.h > canvasArea * .88) return false
+    if (item.type !== 'shape') return true
+    if (item.shape === 'line' || item.shape === 'path') return false
+    return item.w * item.h > canvasArea * .002
+  })
+}
+
+function occupiedRatio(doc: BentoDoc, elements: SlideElement[]): number {
+  const columns = 16, rows = 9, occupied = new Set<number>()
+  for (const item of elements) {
+    const x0 = Math.max(0, Math.floor(item.x / doc.size.width * columns))
+    const x1 = Math.min(columns - 1, Math.floor((item.x + item.w) / doc.size.width * columns))
+    const y0 = Math.max(0, Math.floor(item.y / doc.size.height * rows))
+    const y1 = Math.min(rows - 1, Math.floor((item.y + item.h) / doc.size.height * rows))
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) occupied.add(y * columns + x)
+  }
+  return occupied.size / (columns * rows)
+}
+
 function margins(doc: BentoDoc, slide: Slide) {
-  if (!slide.elements.length) return null
+  const elements = meaningfulElements(doc, slide)
+  if (!elements.length) return null
   return {
-    left: Math.min(...slide.elements.map((item) => item.x)),
-    right: doc.size.width - Math.max(...slide.elements.map((item) => item.x + item.w)),
-    top: Math.min(...slide.elements.map((item) => item.y)),
-    bottom: doc.size.height - Math.max(...slide.elements.map((item) => item.y + item.h)),
+    left: Math.min(...elements.map((item) => item.x)),
+    right: doc.size.width - Math.max(...elements.map((item) => item.x + item.w)),
+    top: Math.min(...elements.map((item) => item.y)),
+    bottom: doc.size.height - Math.max(...elements.map((item) => item.y + item.h)),
   }
 }
 
 function styleKey(element: TextElement) {
-  return [element.fontFamily, round(element.fontSize), element.fontWeight, element.color, element.align, element.lineHeight].join('|')
+  return [element.fontFamily, Math.round(element.fontSize / 2) * 2, Math.round(element.fontWeight / 100) * 100].join('|')
 }
 
 /** Conservative, model-only deck audit. Findings are evidence, not automatic edits. */
@@ -60,6 +83,8 @@ export function inspectDeckQuality(doc: BentoDoc): DeckQualityReport {
   for (const slide of slides) {
     const texts = slide.elements.filter((item): item is TextElement => item.type === 'text' && !!textOf(item))
     const wordCount = words(slide)
+    const content = meaningfulElements(doc, slide)
+    const coverage = occupiedRatio(doc, content)
     if (texts.length >= 2) {
       const sizes = texts.map((item) => item.fontSize)
       const largest = Math.max(...sizes), second = [...sizes].sort((a, b) => b - a)[1]
@@ -69,10 +94,17 @@ export function inspectDeckQuality(doc: BentoDoc): DeckQualityReport {
         suggestion: 'Make the main assertion visibly larger or heavier than supporting copy.',
       })
     }
-    if (slide.elements.length > 14 || wordCount > 170 || texts.length > 8) add({
+    const dataVisuals = slide.elements.filter((item) => item.type === 'chart' || item.type === 'table')
+    const hasTitle = texts.some((item) => item.role === 'title' || (item.fontSize >= 28 && item.y < doc.size.height * .38))
+    if (dataVisuals.length && !hasTitle) add({
+      code: 'unframed_data_visualization', category: 'narrative', severity: 'warning', slideIds: [slide.id], elementIds: dataVisuals.map((item) => item.id),
+      message: 'A chart or table has no visible title or assertion framing it.', evidence: { chartOrTableCount: dataVisuals.length, textBoxCount: texts.length },
+      suggestion: 'Add a concise assertion that tells the audience what to notice, plus a source or takeaway when relevant.',
+    })
+    if (wordCount > 170 || (wordCount > 110 && texts.length > 8) || (wordCount > 90 && coverage > .72)) add({
       code: 'dense_slide', category: 'density', severity: 'warning', slideIds: [slide.id], elementIds: slide.elements.map((item) => item.id),
       message: 'This slide carries substantially more material than audiences can scan quickly.',
-      evidence: { elementCount: slide.elements.length, textBoxCount: texts.length, wordCount },
+      evidence: { meaningfulElementCount: content.length, textBoxCount: texts.length, wordCount, occupiedPercent: round(coverage * 100) },
       suggestion: 'Remove secondary detail, split the idea, or reveal supporting groups progressively.',
     })
   }
@@ -98,10 +130,11 @@ export function inspectDeckQuality(doc: BentoDoc): DeckQualityReport {
   const textElements = slides.flatMap((slide) => slide.elements.filter((item): item is TextElement => item.type === 'text').map((element) => ({ slide, element })))
   const styles = new Map<string, typeof textElements>()
   for (const row of textElements) styles.set(styleKey(row.element), [...(styles.get(styleKey(row.element)) ?? []), row])
-  if (textElements.length >= 10 && styles.size > Math.max(7, Math.ceil(textElements.length * .55))) {
+  if (textElements.length >= 10 && styles.size > Math.max(7, Math.ceil(textElements.length * .48))) {
     const oneOffs = [...styles.values()].filter((rows) => rows.length === 1).flat()
+    const heterogeneous = new Set(slides.map((slide) => colorFamily(slide.background))).size > 2
     add({
-      code: 'typography_fragmentation', category: 'consistency', severity: 'warning', slideIds: [...new Set(oneOffs.map((row) => row.slide.id))], elementIds: oneOffs.map((row) => row.element.id),
+      code: 'typography_fragmentation', category: 'consistency', severity: heterogeneous ? 'info' : 'warning', slideIds: [...new Set(oneOffs.map((row) => row.slide.id))], elementIds: oneOffs.map((row) => row.element.id),
       message: 'Typography is fragmented across many one-off styles.', evidence: { textElementCount: textElements.length, distinctStyleCount: styles.size, oneOffStyleCount: oneOffs.length },
       suggestion: 'Consolidate repeated roles into a small title, body, label, and caption scale.',
     })
@@ -110,14 +143,16 @@ export function inspectDeckQuality(doc: BentoDoc): DeckQualityReport {
   const colors = new Set<string>()
   const radii = new Set<number>()
   for (const slide of slides) for (const element of slide.elements) collectSurfaceTokens(element, colors, radii)
-  if (colors.size > 12) add({
+  const colorFamilies = clusteredColors([...colors])
+  const radiusFamilies = clusteredNumbers([...radii].filter((value) => value > 4), 4)
+  if (colorFamilies.length > 9) add({
     code: 'palette_fragmentation', category: 'consistency', severity: 'info', slideIds: slides.map((slide) => slide.id), elementIds: [],
-    message: 'The deck uses a broad set of explicit colors.', evidence: { distinctColorCount: colors.size, colors: [...colors].slice(0, 20) },
+    message: 'The deck uses a broad set of visually distinct color families.', evidence: { explicitColorCount: colors.size, colorFamilyCount: colorFamilies.length, colors: colorFamilies.slice(0, 20) },
     suggestion: 'Map incidental colors back to a compact background, ink, accent, surface, and data palette.',
   })
-  if (radii.size > 5) add({
+  if (radiusFamilies.length > 4) add({
     code: 'radius_fragmentation', category: 'consistency', severity: 'info', slideIds: slides.map((slide) => slide.id), elementIds: [],
-    message: 'Rounded surfaces use many unrelated corner radii.', evidence: { distinctRadiusCount: radii.size, radii: [...radii].sort((a, b) => a - b).map(String) },
+    message: 'Rounded surfaces use many unrelated corner-radius families.', evidence: { explicitRadiusCount: radii.size, radiusFamilyCount: radiusFamilies.length, radii: radiusFamilies.map(String) },
     suggestion: 'Reduce corners to two or three intentional radius tokens.',
   })
 
@@ -134,19 +169,49 @@ export function inspectDeckQuality(doc: BentoDoc): DeckQualityReport {
 
   if (slides.length >= 4) {
     const last = slides.at(-1)!
-    if (last.elements.length > 8 || words(last) > 100) add({
+    if (words(last) > 100) add({
       code: 'dense_ending', category: 'narrative', severity: 'info', slideIds: [last.id], elementIds: last.elements.map((item) => item.id),
-      message: 'The deck ends on a detail-heavy slide rather than a concise landing point.', evidence: { elementCount: last.elements.length, wordCount: words(last) },
+      message: 'The deck ends on a detail-heavy slide rather than a concise landing point.', evidence: { meaningfulElementCount: meaningfulElements(doc, last).length, wordCount: words(last) },
       suggestion: 'Consider ending with the conclusion, decision, or next action the audience should retain.',
     })
   }
 
   const warnings = findings.filter((item) => item.severity === 'warning').length
   const info = findings.length - warnings
-  const score = Math.max(0, 100 - Math.min(60, warnings * 9) - Math.min(25, info * 3))
+  const score = Math.max(0, 100 - Math.min(56, warnings * 8) - Math.min(12, info))
   const categories: DeckQualityReport['summary']['categories'] = {}
   for (const finding of findings) categories[finding.category] = (categories[finding.category] ?? 0) + 1
   return { score, rating: score >= 90 ? 'excellent' : score >= 72 ? 'good' : 'needs-attention', slideCount: slides.length, findings, summary: { warnings, info, categories }, checked }
+}
+
+function rgb(color: string): [number, number, number] | null {
+  const match = /^#([0-9a-f]{6})$/i.exec(color.trim())
+  if (!match) return null
+  const value = parseInt(match[1], 16)
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+}
+
+function colorFamily(color: string): string {
+  const value = rgb(color)
+  return value ? value.map((channel) => Math.round(channel / 64) * 64).join(',') : color.trim().toLowerCase()
+}
+
+function clusteredColors(colors: string[]): string[] {
+  const families: Array<{ sample: string; rgb: [number, number, number] | null }> = []
+  for (const color of colors) {
+    const value = rgb(color)
+    const similar = families.some((family) => value && family.rgb
+      ? Math.hypot(value[0] - family.rgb[0], value[1] - family.rgb[1], value[2] - family.rgb[2]) < 62
+      : family.sample.trim().toLowerCase() === color.trim().toLowerCase())
+    if (!similar) families.push({ sample: color, rgb: value })
+  }
+  return families.map((family) => family.sample)
+}
+
+function clusteredNumbers(values: number[], tolerance: number): number[] {
+  const families: number[] = []
+  for (const value of values.sort((a, b) => a - b)) if (!families.some((family) => Math.abs(family - value) <= tolerance)) families.push(value)
+  return families
 }
 
 function collectSurfaceTokens(element: SlideElement, colors: Set<string>, radii: Set<number>) {
@@ -154,7 +219,7 @@ function collectSurfaceTokens(element: SlideElement, colors: Set<string>, radii:
   else if (element.type === 'shape') {
     if (element.fill && element.fill !== 'transparent') colors.add(element.fill)
     if (element.stroke && element.stroke !== 'transparent') colors.add(element.stroke)
-    if (element.radius !== undefined) radii.add(round(element.radius))
+    if (element.shape === 'rect' && element.radius !== undefined) radii.add(round(element.radius))
   } else if (element.type === 'table') {
     for (const color of [element.style.headerBg, element.style.headerColor, element.style.borderColor, element.style.color]) if (color) colors.add(color)
     if (element.style.radius !== undefined) radii.add(round(element.style.radius))
