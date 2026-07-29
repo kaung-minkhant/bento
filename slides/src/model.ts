@@ -32,6 +32,13 @@ export interface ElementBase {
   rotationOrigin?: { x: number; y: number }
   opacity: number
   /**
+   * Presenter-controlled reveal group. Omitted elements are visible when the
+   * slide opens; positive integers reveal in ascending order, with equal
+   * values appearing together. Older viewers ignore this optional property
+   * and show the complete slide.
+   */
+  buildStep?: number
+  /**
    * Drop shadow(s), rendered with CSS drop-shadow so they follow the
    * element's alpha shape (rounded corners, ellipses, glyphs, image
    * cutouts). An array stacks: e.g. a dark elevation shadow plus a soft

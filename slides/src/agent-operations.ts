@@ -25,7 +25,7 @@ const transitions = new Set<TransitionKind>(['none', 'fade', 'slide', 'zoom', 'm
 const shapeKinds = new Set<ShapeElement['shape']>(['rect', 'ellipse', 'triangle', 'arrow', 'line', 'path'])
 const commonElementKeys = new Set([
   'x', 'y', 'w', 'h', 'rotation', 'opacity', 'shadow', 'blur', 'blend', 'backdropFilter',
-  'rotationOrigin', 'fx', 'link', 'group', 'groupId', 'showOnHover', 'role', 'morphId',
+  'rotationOrigin', 'fx', 'link', 'group', 'groupId', 'showOnHover', 'role', 'morphId', 'buildStep',
 ])
 const textKeys = new Set([
   ...commonElementKeys, 'html', 'fontSize', 'fontFamily', 'fontWeight', 'color',
@@ -250,6 +250,10 @@ function validateElementPatch(element: SlideElement, value: unknown): JsonObject
   if ('opacity' in patch) {
     const opacity = finite(patch.opacity, 'patch.opacity')
     if (opacity < 0 || opacity > 1) throw new Error('patch.opacity must be between 0 and 1.')
+  }
+  if ('buildStep' in patch && patch.buildStep !== null) {
+    const step = finite(patch.buildStep, 'patch.buildStep')
+    if (!Number.isInteger(step) || step < 1 || step > 999) throw new Error('patch.buildStep must be an integer between 1 and 999, or null to clear it.')
   }
   if ('rotationOrigin' in patch) {
     const origin = object(patch.rotationOrigin, 'patch.rotationOrigin')
@@ -594,6 +598,7 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
       if (element.type === 'svg' && 'markup' in patch && patch.markup !== undefined) patch.markup = safeSvgMarkup(patch.markup)
       if (element.type === 'svg' && 'css' in patch && patch.css !== undefined) patch.css = safeSvgCss(patch.css)
       if (element.type === 'svg' && 'asset' in patch && patch.asset && !doc.assets?.[String(patch.asset)]) throw new Error(`SVG asset not found: ${String(patch.asset)}.`)
+      if (patch.buildStep === null) { delete element.buildStep; delete patch.buildStep }
       Object.assign(element, patch)
       if (element.type === 'table' && (!Array.isArray(element.columns) || !element.columns.length || !Array.isArray(element.rows) || !element.rows.length || element.rows.some((row) => !Array.isArray(row.cells) || row.cells.length !== element.columns.length))) throw new Error('Table rows and columns must be non-empty and rectangular.')
       if (element.type === 'media' && element.kind !== 'audio' && element.kind !== 'video') throw new Error('Media kind must be audio or video.')
