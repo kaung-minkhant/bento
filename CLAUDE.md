@@ -20,6 +20,11 @@ names provisional.
 ## Architecture (slides/)
 
 - `src/model.ts` — the `bento/slides` JSON document model. This is the format.
+- `src/agent-design.ts` — read-only visual-language analysis for agents. It
+  reports declared `theme.design` tokens plus inferred color, typography,
+  spacing, radius, transition, element-mix, and slide-structure statistics.
+  The first token format is advisory: existing element properties remain the
+  rendered source of truth, preserving old-deck output exactly.
 - `src/starterdeck.ts` — the showcase starter deck (what a fresh build opens
   with): four 'sd-tile-*' elements morph through EVERY slide (the id-continuity
   demo), one deliberate 'fade' beat exists because entrance staggers/count-ups

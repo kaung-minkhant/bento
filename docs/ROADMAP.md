@@ -138,6 +138,11 @@ then removed atomically.
 
 ### Phase 8: composition system
 
+In progress. The first slice adds optional named design tokens to the deck
+theme and a read-only MCP visual-language inspector. Tokens are advisory until
+the recipe system consumes them; existing element properties remain the
+rendered source of truth so old decks do not change appearance.
+
 - Expose deck themes, palettes, and named typography roles.
 - Provide reusable layout recipes for common presentation structures without
   forcing every deck into one visual style.

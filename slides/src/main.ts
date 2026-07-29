@@ -28,6 +28,7 @@ import {
 import { docContentKey } from './autosave'
 import { openHostedLibrary } from './hosted-library'
 import { renderDeckThumbnailSheet, renderSlideImage, validateSlideVisuals } from './agent-inspect'
+import { inspectDesignLanguage } from './agent-design'
 import { applyAgentOperations, prepareAgentOperations } from './agent-operations'
 
 // Tell the kernel who this app is — must precede any kernel module use
@@ -530,6 +531,14 @@ if (location.hash === '#present') {
             theme: store.doc.theme, present: store.doc.present ?? {},
             layouts: [...builtIns, ...(store.doc.layouts ?? [])].map((layout) => ({ id: layout.id, name: layout.name ?? null, builtIn: builtInIds.has(layout.id), elementCount: layout.elements.length })),
             assets: assetMetadata,
+          })
+          return
+        }
+        if (message.operation === 'design_language') {
+          sendResponse(message.requestId, true, {
+            docId: store.doc.docId,
+            revision: store.revision,
+            ...inspectDesignLanguage(store.doc),
           })
           return
         }

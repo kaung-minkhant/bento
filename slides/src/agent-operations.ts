@@ -83,6 +83,30 @@ function cleanPatch(value: unknown, allowed: Set<string>, label: string): JsonOb
   return clean
 }
 
+function validateDesignTokens(value: unknown) {
+  const design = object(value, 'patch.theme.design')
+  for (const key of Object.keys(design)) if (!['colors', 'typography', 'spacing', 'radii'].includes(key)) throw new Error(`patch.theme.design.${key} is not supported.`)
+  for (const group of ['colors', 'spacing', 'radii'] as const) {
+    if (design[group] === undefined) continue
+    const entries = object(design[group], `patch.theme.design.${group}`)
+    for (const [name, token] of Object.entries(entries)) {
+      if (!name.trim() || name.length > 80) throw new Error(`patch.theme.design.${group} has an invalid token name.`)
+      if (group === 'colors' ? typeof token !== 'string' : typeof token !== 'number' || !Number.isFinite(token)) throw new Error(`patch.theme.design.${group}.${name} is invalid.`)
+    }
+  }
+  if (design.typography !== undefined) {
+    const typography = object(design.typography, 'patch.theme.design.typography')
+    for (const [name, raw] of Object.entries(typography)) {
+      if (!name.trim() || name.length > 80) throw new Error('patch.theme.design.typography has an invalid token name.')
+      const token = object(raw, `patch.theme.design.typography.${name}`)
+      for (const [key, entry] of Object.entries(token)) {
+        if (!['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color'].includes(key)) throw new Error(`patch.theme.design.typography.${name}.${key} is not supported.`)
+        if (['fontFamily', 'color'].includes(key) ? typeof entry !== 'string' : typeof entry !== 'number' || !Number.isFinite(entry)) throw new Error(`patch.theme.design.typography.${name}.${key} is invalid.`)
+      }
+    }
+  }
+}
+
 /** Validate syntax and allocate permanent ids once, before preflight and commit. */
 export function prepareAgentOperations(raw: unknown[]): PreparedAgentOperation[] {
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > 100) throw new Error('operations must contain between 1 and 100 items.')
@@ -302,6 +326,7 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
         for (const key of ['background', 'color', 'accent', 'fontFamily']) if (key in theme && typeof theme[key] !== 'string') throw new Error(`patch.theme.${key} must be a string.`)
         if ('chartPalette' in theme && (!Array.isArray(theme.chartPalette) || theme.chartPalette.some((color) => typeof color !== 'string'))) throw new Error('patch.theme.chartPalette must be an array of colors.')
         if ('table' in theme && theme.table !== undefined) object(theme.table, 'patch.theme.table')
+        if ('design' in theme && theme.design !== undefined) validateDesignTokens(theme.design)
         doc.theme = { ...doc.theme, ...theme }
       }
       if ('present' in patch && patch.present !== undefined) {

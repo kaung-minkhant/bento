@@ -14,6 +14,13 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Phase 8 design tokens begin as advisory composition metadata
+`theme.design` stores optional named color, typography, spacing, and radius
+tokens, while `inspect_design_system` also infers the visual language actually
+used by the deck. Existing element properties remain the rendered source of
+truth in this first slice, so adding or editing token metadata cannot silently
+restyle shipped documents. Recipes may consume tokens in the next slice.
+
 ## 2026-07-24 — Naming: the platform is `bento`, the mark is `bento/.`, all lowercase
 Settled after working through the whole namespace. **Do not reopen these** —
 each rejected candidate was rejected for a specific reason, recorded below.

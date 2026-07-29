@@ -105,6 +105,12 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       annotations: { readOnlyHint: true, openWorldHint: false },
     }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'deck_style')) })
 
+    server.registerTool('inspect_design_system', {
+      description: 'Read a statistical visual-language fingerprint of the connected deck: declared design tokens plus inferred colors, typography roles, spacing, radii, transitions, element mix, and recurring slide structures.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'design_language')) })
+
     server.registerTool('get_slide', {
       description: 'Read one slide and its complete element model from the explicitly connected deck, together with the current revision.',
       inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1) },
