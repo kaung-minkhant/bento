@@ -2313,7 +2313,21 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal-previews figure { margin: 0; min-width: 0; }
 .ed-agent-proposal-previews figcaption { margin-bottom: 3px; color: #66758A; font-size: 10px; }
 .ed-agent-proposal-previews img, .ed-agent-proposal-preview-empty { display: block; width: 100%; aspect-ratio: 16 / 9; border: 1px solid #D8E0EA; border-radius: 6px; background: #EEF2F7; object-fit: cover; }
+.ed-agent-proposal-preview-button { display: block; width: 100%; padding: 0; border: 0; border-radius: 6px; background: transparent; cursor: zoom-in; }
+.ed-agent-proposal-preview-button:hover img { border-color: #8C9BAE; }
+.ed-agent-proposal-preview-button:focus-visible { outline: 2px solid #2D6CDF; outline-offset: 2px; }
 .ed-agent-proposal-preview-empty { display: grid; place-items: center; color: #77869A; font-size: 10px; }
+.ed-agent-preview-dialog { width: min(1120px, calc(100vw - 48px)); max-width: none; padding: 16px; border: 0; border-radius: 12px; background: #F8FAFC; color: #172235; }
+.ed-agent-preview-dialog::backdrop { background: rgb(8 15 27 / .76); }
+.ed-agent-preview-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.ed-agent-preview-dialog header strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-agent-preview-dialog header button { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 999px; background: #E7ECF3; color: #34445A; font-size: 22px; cursor: pointer; }
+.ed-agent-preview-dialog header button:hover { background: #D8E0EA; }
+.ed-agent-preview-dialog header button:focus-visible { outline: 2px solid #2D6CDF; outline-offset: 2px; }
+.ed-agent-preview-dialog-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ed-agent-preview-dialog figure { min-width: 0; margin: 0; }
+.ed-agent-preview-dialog figcaption { margin-bottom: 6px; color: #526176; font-size: 12px; font-weight: 700; }
+.ed-agent-preview-dialog img, .ed-agent-preview-dialog .ed-agent-proposal-preview-empty { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #E7ECF3; object-fit: contain; }
 .ed-agent-proposal.applied { border-left-color: #38A169; }
 .ed-agent-proposal.rejected, .ed-agent-proposal.stale { border-left-color: #8A98AA; opacity: .72; }
 .ed-agent-proposal-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 7px; margin-top: 4px; }
@@ -2321,6 +2335,8 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal-actions button.ed-primary { border-color: #F0A23A; background: #F7A600; color: #172235; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }
+  .ed-agent-preview-dialog { width: calc(100vw - 24px); padding: 12px; }
+  .ed-agent-preview-dialog-pair { grid-template-columns: 1fr; }
 }
 .ed-dialog-actions {
   display: flex;

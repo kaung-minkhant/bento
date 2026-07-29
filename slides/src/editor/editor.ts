@@ -926,6 +926,16 @@ export class Editor {
     const activitySummary = dialog.querySelector<HTMLElement>('.ed-agent-activity-summary')!
     const proposalsEmpty = dialog.querySelector<HTMLElement>('.ed-agent-proposals-empty')!
     const proposalsList = dialog.querySelector<HTMLOListElement>('.ed-agent-proposals-list')!
+    const previewDialog = document.createElement('dialog')
+    previewDialog.className = 'ed-agent-preview-dialog'
+    previewDialog.setAttribute('aria-label', t('Proposal preview'))
+    previewDialog.innerHTML = `<header><strong></strong><button type="button" aria-label="${t('Close preview')}">×</button></header><div class="ed-agent-preview-dialog-pair"></div>`
+    const previewTitle = previewDialog.querySelector<HTMLElement>('header strong')!
+    const previewPair = previewDialog.querySelector<HTMLElement>('.ed-agent-preview-dialog-pair')!
+    const closePreview = () => previewDialog.close()
+    previewDialog.querySelector<HTMLButtonElement>('header button')!.addEventListener('click', closePreview)
+    previewDialog.addEventListener('click', (event) => { if (event.target === previewDialog) closePreview() })
+    document.body.appendChild(previewDialog)
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
     type Proposal = {
@@ -943,6 +953,18 @@ export class Editor {
         set_notes: 'Set speaker notes', replace_document: 'Replace document', apply_operations: 'Apply operations', apply_proposal: 'Apply proposal',
       }
       return labels[operation] || operation.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())
+    }
+    const openPreview = (preview: NonNullable<Proposal['evidence']>['previews'][number]) => {
+      previewTitle.textContent = preview.name || preview.slideId
+      previewPair.textContent = ''
+      for (const [label, src, empty] of [[t('Before'), preview.before, t('New slide')], [t('After'), preview.after, t('Removed')]] as const) {
+        const figure = document.createElement('figure')
+        figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: label }))
+        if (src) figure.appendChild(Object.assign(document.createElement('img'), { src, alt: `${label}: ${preview.name || preview.slideId}` }))
+        else figure.appendChild(Object.assign(document.createElement('div'), { className: 'ed-agent-proposal-preview-empty', textContent: preview.warning || empty }))
+        previewPair.appendChild(figure)
+      }
+      previewDialog.showModal()
     }
     const renderActivity = () => {
       const actions = api?.actions?.() ?? []
@@ -1037,7 +1059,15 @@ export class Editor {
             for (const [label, src, empty] of [[t('Before'), preview.before, t('New slide')], [t('After'), preview.after, t('Removed')]] as const) {
               const figure = document.createElement('figure')
               figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: label }))
-              if (src) figure.appendChild(Object.assign(document.createElement('img'), { src, alt: `${label}: ${preview.name || preview.slideId}` }))
+              if (src) {
+                const enlarge = document.createElement('button')
+                enlarge.className = 'ed-agent-proposal-preview-button'
+                enlarge.type = 'button'
+                enlarge.setAttribute('aria-label', `${t('Enlarge preview')}: ${label}, ${preview.name || preview.slideId}`)
+                enlarge.appendChild(Object.assign(document.createElement('img'), { src, alt: `${label}: ${preview.name || preview.slideId}` }))
+                enlarge.addEventListener('click', () => openPreview(preview))
+                figure.appendChild(enlarge)
+              }
               else figure.appendChild(Object.assign(document.createElement('div'), { className: 'ed-agent-proposal-preview-empty', textContent: preview.warning || empty }))
               pair.appendChild(figure)
             }
@@ -1104,7 +1134,7 @@ export class Editor {
     undoB.addEventListener('click', () => { if (api?.undoLast?.()) renderActivity() })
     redoB.addEventListener('click', () => { if (api?.redoLast?.()) renderActivity() })
     clearB.addEventListener('click', () => { api?.clearActions?.(); renderActivity() })
-    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); window.removeEventListener('bento:agent-proposal', onAgentProposal); dialog.remove() }
+    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); window.removeEventListener('bento:agent-proposal', onAgentProposal); if (previewDialog.open) previewDialog.close(); previewDialog.remove(); dialog.remove() }
     dialog.querySelector<HTMLButtonElement>('.ed-agent-close')!.addEventListener('click', closePanel)
     dialog.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePanel() })
     dialog.tabIndex = -1
