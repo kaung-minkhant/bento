@@ -42,8 +42,26 @@ const stale = registry.create(doc, 5, {
 assert.equal(registry.get(stale.id, 6).status, 'stale')
 assert.throws(() => registry.operationsForApproval(stale.id, 6), /stale/)
 
+const firstDraft = registry.create(doc, 6, {
+  expectedRevision: 6, title: 'First draft', operations: [{ type: 'update_deck', patch: { title: 'Draft' } }],
+})
+const requested = registry.requestChanges(firstDraft.id, 6, 'Keep the original title and update the theme instead.', 102)
+assert.equal(requested.status, 'changes_requested')
+assert.equal(requested.feedback, 'Keep the original title and update the theme instead.')
+assert.equal(requested.feedbackAt, 102)
+assert.throws(() => registry.operationsForApproval(firstDraft.id, 6), /changes_requested/)
+const replacement = registry.create(doc, 6, {
+  expectedRevision: 6, replacesProposalId: firstDraft.id, title: 'Revised draft', operations: [{ type: 'update_deck', patch: { theme: { accent: '#2255AA' } } }],
+})
+assert.equal(replacement.parentProposalId, firstDraft.id)
+const superseded = registry.get(firstDraft.id, 6)
+assert.equal(superseded.status, 'superseded')
+assert.equal(superseded.replacementProposalId, replacement.id)
+assert.throws(() => registry.requestChanges(replacement.id, 6, '', 103), /feedback/)
+assert.throws(() => registry.create(doc, 6, { expectedRevision: 6, replacesProposalId: firstDraft.id, title: 'Another', operations: [{ type: 'update_deck', patch: { title: 'No' } }] }), /superseded/)
+
 assert.throws(() => registry.create(doc, 4, { expectedRevision: 3, title: 'Old plan', operations: [{ type: 'update_deck', patch: { title: 'No' } }] }), /Revision conflict/)
 assert.throws(() => registry.create(doc, 4, { expectedRevision: 4, title: '', operations: [{ type: 'update_deck', patch: { title: 'No' } }] }), /title/)
-assert.equal(registry.list(6).length, 3)
+assert.equal(registry.list(6).length, 5)
 
 console.log('agent proposals: all assertions passed')

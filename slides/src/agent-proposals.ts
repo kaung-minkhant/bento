@@ -4,7 +4,7 @@
 import { applyAgentOperations, prepareAgentOperations, type AgentOperationResult, type PreparedAgentOperation } from './agent-operations'
 import { parseDoc, uid, type BentoDoc } from './model'
 
-export type AgentProposalStatus = 'pending' | 'applied' | 'rejected' | 'stale'
+export type AgentProposalStatus = 'pending' | 'changes_requested' | 'superseded' | 'applied' | 'rejected' | 'stale'
 
 export interface AgentProposal {
   id: string
@@ -14,6 +14,10 @@ export interface AgentProposal {
   baseRevision: number
   createdAt: number
   decidedAt?: number
+  feedback?: string
+  feedbackAt?: number
+  parentProposalId?: string
+  replacementProposalId?: string
   operationCount: number
   affectedSlideIds: string[]
   destructive: boolean
@@ -33,6 +37,7 @@ export interface AgentProposalInput {
   expectedRevision: number
   title: string
   summary?: string
+  replacesProposalId?: string
   operations: unknown[]
 }
 
@@ -86,6 +91,9 @@ export class AgentProposalRegistry {
     if (input.expectedRevision !== currentRevision) throw new Error(`Revision conflict: expected ${input.expectedRevision}, current ${currentRevision}. Refresh the deck and retry.`)
     const title = requiredText(input.title, 'title', 160)
     const summary = optionalText(input.summary, 'summary', 1200)
+    const replaces = input.replacesProposalId ? this.find(input.replacesProposalId) : undefined
+    if (input.replacesProposalId && replaces?.status !== 'changes_requested') throw new Error(`Proposal ${input.replacesProposalId} is ${replaces?.status} and cannot be replaced.`)
+    if (replaces && replaces.baseRevision !== currentRevision) throw new Error(`Proposal ${input.replacesProposalId} is stale and cannot be replaced.`)
     const operations = prepareAgentOperations(input.operations)
     const draft = structuredClone(doc)
     const preview = applyAgentOperations(draft, operations)
@@ -96,8 +104,14 @@ export class AgentProposalRegistry {
       affectedSlideIds: preview.affectedSlideIds, operations,
       destructive: operations.some((operation) => operation.type.startsWith('delete_')),
       changes: operations.map(proposalChange),
+      parentProposalId: replaces?.id,
     }
     this.proposals.push(proposal)
+    if (replaces) {
+      replaces.status = 'superseded'
+      replaces.decidedAt = Date.now()
+      replaces.replacementProposalId = proposal.id
+    }
     if (this.proposals.length > 50) this.proposals.shift()
     return publicProposal(proposal)
   }
@@ -141,6 +155,17 @@ export class AgentProposalRegistry {
     if (proposal.status !== 'pending') throw new Error(`Proposal ${id} is ${proposal.status} and cannot be rejected.`)
     proposal.status = 'rejected'
     proposal.decidedAt = decidedAt
+    return publicProposal(proposal)
+  }
+
+  requestChanges(id: string, currentRevision: number, feedback: unknown, feedbackAt = Date.now()): AgentProposal {
+    this.markStale(currentRevision)
+    const proposal = this.find(id)
+    if (proposal.status !== 'pending') throw new Error(`Proposal ${id} is ${proposal.status} and cannot receive change requests.`)
+    const message = requiredText(feedback, 'feedback', 1200)
+    proposal.status = 'changes_requested'
+    proposal.feedback = message
+    proposal.feedbackAt = feedbackAt
     return publicProposal(proposal)
   }
 
