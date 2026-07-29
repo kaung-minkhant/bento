@@ -453,6 +453,7 @@ if (location.hash === '#present') {
     const proposals = new AgentProposalRegistry()
     type ProposalPreview = { slideId: string; name: string | null; before?: string; after?: string; warning?: string }
     type ProposalEvidence = { previews: ProposalPreview[]; truncated: boolean }
+    const PROPOSAL_PREVIEW_WIDTH = 960
     const proposalEvidence = new Map<string, ProposalEvidence>()
     let agentHistoryRevision = store.revision
     let inspectionQueue: Promise<void> = Promise.resolve()
@@ -589,8 +590,8 @@ if (location.hash === '#present') {
               const afterSlide = draft.slides.find((slide) => slide.id === slideId)
               const row: ProposalPreview = { slideId, name: afterSlide?.name ?? beforeSlide?.name ?? null }
               try {
-                if (beforeSlide) row.before = `data:image/png;base64,${(await renderSlideImage(baseDoc, slideId, 400)).data}`
-                if (afterSlide) row.after = `data:image/png;base64,${(await renderSlideImage(draft, slideId, 400)).data}`
+                if (beforeSlide) row.before = `data:image/png;base64,${(await renderSlideImage(baseDoc, slideId, PROPOSAL_PREVIEW_WIDTH)).data}`
+                if (afterSlide) row.after = `data:image/png;base64,${(await renderSlideImage(draft, slideId, PROPOSAL_PREVIEW_WIDTH)).data}`
               } catch (error) {
                 row.warning = error instanceof Error ? error.message : 'Preview rendering failed.'
               }
