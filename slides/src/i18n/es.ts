@@ -4,6 +4,13 @@
 import type { Catalog } from '../i18n'
 
 export const es: Catalog = {
+  "Build": "Build",
+  "Next build": "Next build",
+  "Build step": "Build step",
+  "Mixed": "Mixed",
+  "None": "None",
+  "＋ Assign next build step": "＋ Assign next build step",
+  "Elements with the same build step appear together. Their entrance animation plays when that step is revealed.": "Elements with the same build step appear together. Their entrance animation plays when that step is revealed.",
   "Recipes": "Recipes",
   "Title and thesis": "Title and thesis",
   "Frame one argument with a concise thesis.": "Frame one argument with a concise thesis.",

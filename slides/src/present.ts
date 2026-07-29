@@ -13,6 +13,7 @@ import { morphKey } from './model'
 import { applyElementFrame, gradientLineCoords, renderSlide } from './render'
 import { paintSpeaker, setSpeakerWindow, speakerIdleBody, speakerWindow } from './screens'
 import { t } from './i18n'
+import { BuildStepState, buildSteps, type BuildEntryMode } from './build-steps'
 
 const MORPH_DURATION = 0.65
 const MORPH_EASE = 'power2.inOut'
@@ -41,6 +42,8 @@ export function startPresentation(
   revealEl.appendChild(slidesEl)
   overlay.appendChild(revealEl)
 
+  const buildState = new BuildStepState()
+
   doc.slides.forEach((slide) => {
     const section = document.createElement('section')
     // Morph slides swap instantly; the Flip animation supplies the motion.
@@ -50,6 +53,7 @@ export function startPresentation(
     // reveal slides start with only the default hover set visible
     if (slide.hover?.type === 'reveal') applyRevealSet(surface, slide.hover.default ?? null, slide.hover.default)
     section.appendChild(surface)
+    applyBuildVisibility(slide, section, buildState)
     if (slide.notes) {
       const aside = document.createElement('aside')
       aside.className = 'notes'
@@ -69,21 +73,65 @@ export function startPresentation(
     const p = doc.slides.findIndex((s) => s.id === pid)
     return p >= 0 ? p : i
   }
+  const sectionAt = (i: number) => slidesEl.children[i] as HTMLElement | undefined
+  const prepareBuildEntry = (i: number, mode: BuildEntryMode) => {
+    const slide = doc.slides[i]
+    const section = sectionAt(i)
+    if (!slide || !section) return
+    buildState.enter(slide, mode)
+    applyBuildVisibility(slide, section, buildState)
+  }
+  const navigateTo = (i: number, mode: BuildEntryMode) => {
+    prepareBuildEntry(i, mode)
+    deck.slide(i, 0)
+  }
   const goNext = () => {
     const cur = deck.getIndices().h
+    const slide = doc.slides[cur]
+    const section = sectionAt(cur)
+    if (slide && section) {
+      const move = buildState.forward(slide)
+      if (move.kind === 'reveal') {
+        applyBuildVisibility(slide, section, buildState)
+        const revealedIds = new Set(slide.elements.filter((element) => element.buildStep === move.step).map((element) => element.id))
+        if (!reduceMotion) {
+          runEnterFx(slide, section, move.step)
+          runAmbientFx(slide, section, move.step)
+          restartSvgAnimations(section, revealedIds)
+        }
+        mountLiveCharts(slide, section)
+        startMediaIn(section, revealedIds)
+        cacheSlideSymbols(doc, section, cur)
+        updateSpeaker()
+        return
+      }
+    }
     for (let i = (isState(cur) ? anchorOf(cur) : cur) + 1; i < doc.slides.length; i++) {
-      if (!isState(i)) return deck.slide(i, 0)
+      if (!isState(i)) return navigateTo(i, 'forward')
     }
   }
   const goPrev = () => {
     const cur = deck.getIndices().h
-    if (isState(cur)) return deck.slide(anchorOf(cur), 0)
+    const slide = doc.slides[cur]
+    const section = sectionAt(cur)
+    if (slide && section) {
+      const move = buildState.backward(slide)
+      if (move.kind === 'hide') {
+        deactivateBuildStep(slide, section, move.step)
+        applyBuildVisibility(slide, section, buildState)
+        updateSpeaker()
+        return
+      }
+    }
+    if (isState(cur)) return navigateTo(anchorOf(cur), 'restore')
     for (let i = cur - 1; i >= 0; i--) {
-      if (!isState(i)) return deck.slide(i, 0)
+      if (!isState(i)) return navigateTo(i, 'backward')
     }
   }
   const hasNext = () => {
     const cur = deck.getIndices().h
+    const slide = doc.slides[cur]
+    if (slide && buildState.progress(slide).remainingSteps.length) return true
     for (let i = (isState(cur) ? anchorOf(cur) : cur) + 1; i < doc.slides.length; i++) {
       if (!isState(i)) return true
     }
@@ -91,6 +139,8 @@ export function startPresentation(
   }
   const hasPrev = () => {
     const cur = deck.getIndices().h
+    const slide = doc.slides[cur]
+    if (slide && buildState.progress(slide).position > 0) return true
     if (isState(cur)) return true // right-swipe returns to the parent slide
     for (let i = cur - 1; i >= 0; i--) {
       if (!isState(i)) return true
@@ -102,8 +152,8 @@ export function startPresentation(
   // real slide indices that appear in linear navigation (states are excluded) —
   // the presenter-view thumbnail rail and grid iterate this.
   const railIndices = doc.slides.map((_, i) => i).filter((i) => !isState(i))
-  const goFirst = () => deck.slide(railIndices[0] ?? 0, 0)
-  const goLast = () => deck.slide(railIndices[railIndices.length - 1] ?? 0, 0)
+  const goFirst = () => navigateTo(railIndices[0] ?? 0, 'jump')
+  const goLast = () => navigateTo(railIndices[railIndices.length - 1] ?? 0, 'jump')
 
   // ——— black-screen (audience blackout; presenter keeps notes) ———
   let blacked = false
@@ -201,7 +251,7 @@ export function startPresentation(
     }
     return -1
   }
-  const svSlide = (idx: number, w: number): HTMLElement => {
+  const svSlide = (idx: number, w: number, buildPosition?: number): HTMLElement => {
     const frame = document.createElement('div')
     frame.className = 'sv-frame'
     const scale = w / doc.size.width
@@ -211,6 +261,7 @@ export function startPresentation(
       const inner = document.createElement('div')
       inner.style.cssText = `transform:scale(${scale});transform-origin:0 0`
       inner.appendChild(renderSlide(doc.slides[idx], doc, { hidePlaceholders: true }))
+      applyBuildPosition(doc.slides[idx], inner, buildPosition ?? buildSteps(doc.slides[idx]).length)
       frame.appendChild(inner)
     } else {
       frame.classList.add('end')
@@ -227,7 +278,12 @@ export function startPresentation(
     const cur = deck.getIndices().h
     const anchor = isState(cur) ? anchorOf(cur) : cur
     const count = d.querySelector('.sv-count')
-    if (count) count.textContent = `${visibleIndex(cur)} / ${visibleTotal}`
+    if (count) {
+      const progress = buildState.progress(doc.slides[cur])
+      count.textContent = progress.total
+        ? `${visibleIndex(cur)} / ${visibleTotal} · ${t('Build')} ${progress.position} / ${progress.total}`
+        : `${visibleIndex(cur)} / ${visibleTotal}`
+    }
     d.querySelectorAll<HTMLElement>('.sv-thumb').forEach((th) => {
       const on = Number(th.dataset.idx) === anchor
       th.classList.toggle('current', on)
@@ -289,14 +345,18 @@ export function startPresentation(
     if (!deckReady) return // opened pre-init — populated on ready
     const d = speaker.document
     const cur = deck.getIndices().h
-    const nxt = nextVisibleIndex(cur)
+    const progress = buildState.progress(doc.slides[cur])
+    const hasBuild = progress.position < progress.total
+    const nxt = hasBuild ? cur : nextVisibleIndex(cur)
     const curBox = d.querySelector('.sv-current')
     const nxtBox = d.querySelector('.sv-nextbox')
     if (!curBox || !nxtBox) return
     curBox.innerHTML = ''
-    curBox.appendChild(d.importNode(svSlide(cur, 660), true))
+    curBox.appendChild(d.importNode(svSlide(cur, 660, progress.position), true))
     nxtBox.innerHTML = ''
-    nxtBox.appendChild(d.importNode(svSlide(nxt, 300), true))
+    nxtBox.appendChild(d.importNode(svSlide(nxt, 300, hasBuild ? progress.position + 1 : undefined), true))
+    const nextLabel = d.querySelector('.sv-next-wrap .sv-label')
+    if (nextLabel) nextLabel.textContent = hasBuild ? t('Next build') : t('Next')
     const notes = d.querySelector('.sv-notes')
     if (notes) notes.textContent = doc.slides[cur]?.notes || t('— no notes for this slide —')
     updateSpeakerControls()
@@ -383,7 +443,7 @@ export function startPresentation(
       num.className = 'sv-thumb-n'
       num.textContent = String(visibleIndex(idx))
       b.appendChild(num)
-      b.addEventListener('click', () => { deck.slide(idx, 0); toggleGrid(false) })
+      b.addEventListener('click', () => { navigateTo(idx, 'jump'); toggleGrid(false) })
       return b
     }
 
@@ -716,20 +776,30 @@ export function startPresentation(
     updateSpeaker()
   }) as any)
 
-  // Clicking an element with a link jumps to its target slide.
+  // Links win over builds. Empty slide background advances one build (or the
+  // slide); clicking ordinary content does neither, preventing accidental taps.
   slidesEl.addEventListener('click', (ev) => {
     const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-link]')
-    if (!target) return
-    const idx = doc.slides.findIndex((s) => s.id === target.dataset.link)
-    if (idx >= 0) {
-      ev.preventDefault()
-      ev.stopPropagation()
-      deck.slide(idx, 0)
+    if (target) {
+      const idx = doc.slides.findIndex((s) => s.id === target.dataset.link)
+      if (idx >= 0) {
+        ev.preventDefault()
+        ev.stopPropagation()
+        navigateTo(idx, 'jump')
+      }
+      return
     }
+    const hit = ev.target as HTMLElement
+    if (hit.closest('.bento-el,button,a,input,textarea,select,audio,video')) return
+    if (!hit.closest('.bento-slide')) return
+    ev.preventDefault()
+    ev.stopPropagation()
+    goNext()
   })
 
   deck.initialize().then(() => {
     deckReady = true
+    prepareBuildEntry(startIndex, 'jump')
     if (startIndex > 0) deck.slide(startIndex, 0)
     // if the speaker view was opened before init (macOS reorder), fill it now
     updateSpeaker()
@@ -762,8 +832,11 @@ export function startPresentation(
 // Autoplay is intentionally NOT set at render time (it would fire on the editor
 // canvas and in every thumbnail). Present mode starts flagged media on entry
 // and pauses everything on exit so a paused clip doesn't keep playing off-slide.
-function startMediaIn(section: HTMLElement) {
+function startMediaIn(section: HTMLElement, elementIds?: Set<string>) {
   section.querySelectorAll<HTMLMediaElement>('video[data-autoplay="1"], audio[data-autoplay="1"]').forEach((m) => {
+    const host = m.closest<HTMLElement>('.bento-el')
+    if (host?.classList.contains('bento-build-hidden')) return
+    if (elementIds && (!host?.dataset.elId || !elementIds.has(host.dataset.elId))) return
     try { m.currentTime = 0 } catch { /* not seekable yet */ }
     void m.play().catch(() => { /* blocked (e.g. un-muted video) — leave paused */ })
   })
@@ -781,16 +854,18 @@ function pauseMediaIn(section: HTMLElement) {
 const chartHandles = new WeakMap<HTMLElement, Array<() => void>>()
 
 function mountLiveCharts(slide: Slide, section: HTMLElement, fromSlide?: Slide) {
-  const handles: Array<() => void> = []
+  const handles = [...(chartHandles.get(section) ?? [])]
   for (const el of slide?.elements ?? []) {
     if (el.type !== 'chart') continue
     const node = section.querySelector<HTMLElement>(`[data-el-id="${CSS.escape(el.id)}"]`)
-    if (!node) continue
+    if (!node || node.classList.contains('bento-build-hidden') || node.dataset.liveChart === '1') continue
+    node.dataset.liveChart = '1'
     // a matching chart on the other side of a morph: animate its data over
     const fromEl = fromSlide?.elements.find((e) => e.id === el.id && e.type === 'chart')
     const dispose = mountChart(el, node, fromEl && fromEl.type === 'chart' ? fromEl.option : undefined)
     handles.push(() => {
       dispose()
+      delete node.dataset.liveChart
       node.innerHTML = chartSnapshotSvg(el)
       const csvg = node.querySelector('svg')
       if (csvg) {
@@ -819,17 +894,22 @@ function fxNodes(slide: Slide, section: HTMLElement): Array<[SlideElement, HTMLE
   return pairs
 }
 
-/** Staggered entrance animations + count-ups for the incoming slide. */
-function runEnterFx(slide: Slide, section: HTMLElement) {
-  const entering = fxNodes(slide, section)
+/** Slide-entry or click-build entrance animations + count-ups. */
+function runEnterFx(slide: Slide, section: HTMLElement, buildStep?: number) {
+  const entering = (buildStep === undefined
+    ? fxNodes(slide, section).filter(([el]) => el.buildStep === undefined)
+    : slide.elements.filter((el) => el.buildStep === buildStep).map((el) => {
+        const node = section.querySelector<HTMLElement>(`[data-el-id="${CSS.escape(el.id)}"]`)
+        return node ? [el, node] as [SlideElement, HTMLElement] : null
+      }).filter((pair): pair is [SlideElement, HTMLElement] => !!pair))
     // reveal-set members are shown/hidden by hover, never by entrance tweens
-    .filter(([el]) => (el.fx!.enter || el.fx!.countUp) && !el.showOnHover)
-    .sort((a, b) => (a[0].fx!.order ?? 0) - (b[0].fx!.order ?? 0))
+    .filter(([el]) => (buildStep !== undefined || el.fx?.enter || el.fx?.countUp) && !el.showOnHover)
+    .sort((a, b) => (a[0].fx?.order ?? 0) - (b[0].fx?.order ?? 0))
   // Delay derives from fx.order when set (equal order ⇒ elements enter
   // together — how a diagram reveals band-by-band), else from list position.
   entering.forEach(([el, node], i) => {
-    const fx = el.fx!
-    const step = fx.order ?? i
+    const fx = el.fx ?? {}
+    const step = buildStep === undefined ? (fx.order ?? i) : 0
     // motion-path loops own the transform — an entrance tween on the same
     // node would fight it and freeze the dot off its path
     if (fx.loop?.type === 'motion-path') return
@@ -853,10 +933,12 @@ function runEnterFx(slide: Slide, section: HTMLElement) {
           x: 0,
           y: 0,
           duration: fx.enterDur ?? (slide ? 0.75 : 0.55),
-          delay: 0.12 + Math.min(step, 24) * 0.05,
+          delay: buildStep === undefined ? 0.12 + Math.min(step, 24) * 0.05 : 0,
           ease: slide ? 'power3.out' : 'power2.out',
         },
       )
+    } else if (buildStep !== undefined) {
+      anim.fromTo(node, { opacity: 0 }, { opacity: el.opacity, duration: 0.2, delay: 0, ease: 'power2.out' })
     }
     if (fx.countUp) runCountUp(node)
   })
@@ -915,8 +997,10 @@ function runCountUp(node: HTMLElement) {
 }
 
 /** Re-parse inline svg elements so their CSS animations replay on entry. */
-function restartSvgAnimations(section: HTMLElement) {
+function restartSvgAnimations(section: HTMLElement, elementIds?: Set<string>) {
   for (const host of section.querySelectorAll<HTMLElement>('.bento-el-svg')) {
+    if (host.classList.contains('bento-build-hidden')) continue
+    if (elementIds && (!host.dataset.elId || !elementIds.has(host.dataset.elId))) continue
     if (host.querySelector('animate, [style*="animation"], style')) {
       // eslint-disable-next-line no-self-assign
       host.innerHTML = host.innerHTML
@@ -925,8 +1009,10 @@ function restartSvgAnimations(section: HTMLElement) {
 }
 
 /** Continuous motion: ken-burns zoom, marching dashes, dots along paths. */
-function runAmbientFx(slide: Slide, section: HTMLElement) {
+function runAmbientFx(slide: Slide, section: HTMLElement, buildStep?: number) {
   for (const [el, node] of fxNodes(slide, section)) {
+    if (node.classList.contains('bento-build-hidden')) continue
+    if (buildStep === undefined ? el.buildStep !== undefined : el.buildStep !== buildStep) continue
     const fx = el.fx!
     if (fx.ambient === 'kenburns') {
       const ken = fx.ken ?? {}
@@ -983,6 +1069,17 @@ function runAmbientFx(slide: Slide, section: HTMLElement) {
   }
 }
 
+function deactivateBuildStep(slide: Slide, section: HTMLElement, step: number) {
+  for (const element of slide.elements.filter((item) => item.buildStep === step)) {
+    const node = section.querySelector<HTMLElement>(`[data-el-id="${CSS.escape(element.id)}"]`)
+    if (!node) continue
+    anim.killTweensOf([node, ...node.querySelectorAll('*')])
+    node.querySelectorAll<HTMLMediaElement>('video,audio').forEach((media) => media.pause())
+    applyElementFrame(node, element)
+    resetXform(node)
+  }
+}
+
 /** Show only the showOnHover set for `group` (falling back to the default). */
 function applyRevealSet(root: HTMLElement, group: string | null, def?: string | null) {
   const active = group ?? def ?? null
@@ -1031,9 +1128,27 @@ function wireHoverFocus(slide: Slide, section: HTMLElement) {
 function elementsById(root: HTMLElement): Map<string, HTMLElement> {
   const map = new Map<string, HTMLElement>()
   root.querySelectorAll<HTMLElement>('[data-flip-id]').forEach((n) => {
+    if (n.classList.contains('bento-build-hidden')) return
     map.set(n.dataset.flipId!, n)
   })
   return map
+}
+
+/** Present-mode visibility only; normal rendering/export always shows all. */
+function applyBuildVisibility(slide: Slide, section: HTMLElement, state: BuildStepState) {
+  applyBuildPosition(slide, section, state.progress(slide).position)
+}
+
+function applyBuildPosition(slide: Slide, section: HTMLElement, position: number) {
+  const revealed = new Set(buildSteps(slide).slice(0, position))
+  for (const element of slide.elements) {
+    const node = section.querySelector<HTMLElement>(`[data-el-id="${CSS.escape(element.id)}"]`)
+    if (!node) continue
+    const visible = element.buildStep === undefined || !Number.isInteger(element.buildStep) || revealed.has(element.buildStep)
+    node.classList.toggle('bento-build-hidden', !visible)
+    node.setAttribute('aria-hidden', visible ? 'false' : 'true')
+    node.inert = !visible
+  }
 }
 
 /**

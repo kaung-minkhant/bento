@@ -834,6 +834,11 @@ option { background: #fff; color: #1e2a3a; }
    per-slide transition transform from ever producing an initial paint. Keep
    only the active outgoing/incoming pair rendered while navigation runs. */
 .bento-present-overlay .reveal .slides section.bento-transition-live { display: block !important; }
+.bento-present-overlay .bento-build-hidden {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 /* Reduced motion (M / speaker toggle / OS prefers-reduced-motion): JS fx are
    skipped in present.ts; this neutralises CSS-driven motion too — Reveal's
    slide transitions cut instantly and svg keyframe animations don't play. */
