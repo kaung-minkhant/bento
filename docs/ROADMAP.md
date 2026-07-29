@@ -158,12 +158,9 @@ change appearance.
   before moving to the previous slide. Integrate builds with presenter view,
   reduced motion, media, links, transitions, undo/redo, and targeted MCP
   operations.
-- Publish an MCP-native authoring guide so clients without repository access
-  can discover the complete `apply_operations` vocabulary, supported element
-  properties, animation/morph/math/media/build-step syntax, revision and safety
-  rules, valid examples, and the recommended inspect → dry-run → apply → render
-  → validate workflow. Expose it through MCP resources or an equivalent
-  capability-reference tool rather than relying on the repository README.
+- Extend the MCP-native authoring guide, now exposed as nine topic resources
+  plus `get_authoring_guide`, with build-step syntax when presenter-controlled
+  builds land. Drift tests cover the current operation vocabulary and recipes.
 
 ### Phase 9: transactional agent workflow
 

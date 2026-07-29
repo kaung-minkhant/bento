@@ -37,6 +37,12 @@ score and evidence-backed findings for hierarchy, density, spacing rhythm,
 visual consistency, repetitive composition, and narrative landing. Findings
 reference stable slide/element ids and should be confirmed with rendering
 before an agent proposes edits.
+Authoring knowledge is available before pairing through Markdown resources at
+`bento://authoring/{overview,workflow,operations,elements,recipes,motion,math-media-svg,safety,examples}`.
+Clients without strong MCP-resource support can call the read-only
+`get_authoring_guide` tool by topic or request one operation directly. The
+guide is versioned, and coverage tests keep implemented operations and recipe
+ids represented in it.
 `list_composition_recipes` describes the shared structured recipe catalog.
 `create_slide_from_recipe` creates a normal editable slide from one of those
 recipes, adapts it to the deck's tokens/theme, and requires the current

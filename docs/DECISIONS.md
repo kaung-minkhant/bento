@@ -14,6 +14,12 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Authoring knowledge is discoverable before pairing
+Nine `bento://authoring/*` Markdown resources and the read-only
+`get_authoring_guide` fallback tool are registered independently of the browser
+bridge. One typed catalog generates both surfaces, and tests compare it with
+the implemented operation parser and recipe ids to prevent silent drift.
+
 ## 2026-07-29 — Quality scoring measures meaningful content, not model complexity
 Density ignores decorative/background geometry and combines word count with
 occupied visual area; nearby colors and radii form families; heterogeneous

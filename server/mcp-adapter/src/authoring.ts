@@ -1,0 +1,62 @@
+export const AUTHORING_GUIDE_VERSION = '2026-07-29.1'
+
+export const AUTHORING_TOPICS = ['overview', 'workflow', 'operations', 'elements', 'recipes', 'motion', 'math-media-svg', 'safety', 'examples'] as const
+export type AuthoringTopic = typeof AUTHORING_TOPICS[number]
+
+export interface OperationGuide {
+  type: string
+  purpose: string
+  syntax: string
+}
+
+export const OPERATION_GUIDES: OperationGuide[] = [
+  { type: 'update_deck', purpose: 'Update title, metadata, theme/design tokens, or presentation chrome.', syntax: `{ "type":"update_deck", "patch":{ "title"?, "meta"?, "theme"?, "present"? } }` },
+  { type: 'add_asset', purpose: 'Add safe inline SVG or an approved base64 data URI; clientId resolves to asset:<id>.', syntax: `{ "type":"add_asset", "clientId"?, "content":"<svg…> or data:…;base64,…" }` },
+  { type: 'delete_asset', purpose: 'Delete an asset only when no slide, layout, media poster, or font uses it.', syntax: `{ "type":"delete_asset", "asset":"asset id or clientId" }` },
+  { type: 'create_slide', purpose: 'Create a slide, optionally from a layout or as an interactive state.', syntax: `{ "type":"create_slide", "clientId"?, "name"?, "afterSlideId"?, "background"?, "transition"?, "layoutId"?, "stateOf"?, "hover"? }` },
+  { type: 'update_slide', purpose: 'Update slide metadata and behavior.', syntax: `{ "type":"update_slide", "slideId", "patch":{ "name"?, "background"?, "transition"?, "notes"?, "stateOf"?, "hover"? } }` },
+  { type: 'duplicate_slide', purpose: 'Clone a slide while preserving element identities for morphing.', syntax: `{ "type":"duplicate_slide", "clientId"?, "slideId", "afterSlideId"?, "name"? }` },
+  { type: 'delete_slide', purpose: 'Delete a slide; a deck must retain at least one slide.', syntax: `{ "type":"delete_slide", "slideId" }` },
+  { type: 'reorder_slide', purpose: 'Move a slide to the beginning or after another stable slide id.', syntax: `{ "type":"reorder_slide", "slideId", "afterSlideId":null|"id" }` },
+  { type: 'apply_layout', purpose: 'Apply a built-in or document layout while preserving matched content.', syntax: `{ "type":"apply_layout", "slideId", "layoutId" }` },
+  { type: 'save_layout', purpose: 'Save a slide composition as a reusable document layout.', syntax: `{ "type":"save_layout", "clientId"?, "slideId", "name" }` },
+  { type: 'delete_layout', purpose: 'Delete a custom document layout.', syntax: `{ "type":"delete_layout", "layoutId" }` },
+  { type: 'create_text', purpose: 'Create rich inline text.', syntax: `{ "type":"create_text", "clientId"?, "slideId", "element":{ "frame":{x,y,w,h}, "html":"…", "props"? } }` },
+  { type: 'create_shape', purpose: 'Create rect, ellipse, triangle, arrow, line, or path geometry.', syntax: `{ "type":"create_shape", "clientId"?, "slideId", "element":{ "frame":{x,y,w,h}, "shape":"rect|ellipse|triangle|arrow|line|path", "props"? } }` },
+  { type: 'create_image', purpose: 'Create an image using a URL, data URI, or asset reference.', syntax: `{ "type":"create_image", "clientId"?, "slideId", "element":{ "frame":{x,y,w,h}, "src":"…", "props"? } }` },
+  { type: 'create_svg', purpose: 'Create sanitized inline SVG or reference an SVG asset.', syntax: `{ "type":"create_svg", "clientId"?, "slideId", "element":{ "frame":{x,y,w,h}, "markup"?|"asset"?, "props"? } }` },
+  { type: 'create_chart', purpose: 'Create a chart from an ECharts-compatible option object.', syntax: `{ "type":"create_chart", "clientId"?, "slideId", "element":{ "frame":{x,y,w,h}, "option":{}, "props"? } }` },
+  { type: 'create_table', purpose: 'Create an editable table with column and row models.', syntax: `{ "type":"create_table", "clientId"?, "slideId", "element":{ "frame":{x,y,w,h}, "columns"?, "rows"?, "props"? } }` },
+  { type: 'create_media', purpose: 'Create audio or video from a safe source.', syntax: `{ "type":"create_media", "clientId"?, "slideId", "element":{ "frame":{x,y,w,h}, "kind":"audio|video", "src":"…", "props"? } }` },
+  { type: 'update_element', purpose: 'Patch supported properties without changing element identity or type.', syntax: `{ "type":"update_element", "slideId", "elementId", "patch":{} }` },
+  { type: 'delete_element', purpose: 'Delete one element.', syntax: `{ "type":"delete_element", "slideId", "elementId" }` },
+  { type: 'reorder_element', purpose: 'Change z-order absolutely or relative to another element.', syntax: `{ "type":"reorder_element", "slideId", "elementId", "placement":"front|back|forward|backward|before|after", "targetElementId"? }` },
+  { type: 'duplicate_elements', purpose: 'Duplicate selected elements with an offset.', syntax: `{ "type":"duplicate_elements", "clientId"?, "slideId", "elementIds":[], "dx"?, "dy"? }` },
+  { type: 'group_elements', purpose: 'Create an editor selection group.', syntax: `{ "type":"group_elements", "clientId"?, "slideId", "elementIds":[], "groupId"? }` },
+  { type: 'ungroup_elements', purpose: 'Remove selected elements from editor groups.', syntax: `{ "type":"ungroup_elements", "slideId", "elementIds":[] }` },
+  { type: 'align_elements', purpose: 'Align a selection to itself or the slide.', syntax: `{ "type":"align_elements", "slideId", "elementIds":[], "alignment":"left|center|right|top|middle|bottom", "relativeTo":"selection|slide"? }` },
+  { type: 'distribute_elements', purpose: 'Distribute three or more elements evenly.', syntax: `{ "type":"distribute_elements", "slideId", "elementIds":[], "direction":"horizontal|vertical" }` },
+]
+
+const intro = `# bento/slides authoring guide\n\nGuide version: ${AUTHORING_GUIDE_VERSION}. This guide describes the current targeted MCP authoring surface. Read the relevant topic before composing or broadly editing a deck.`
+
+const topics: Record<AuthoringTopic, string> = {
+  overview: `${intro}\n\n## Capabilities\n\nInspect deck structure and visual language; create complete slides with recipes or atomic operations; render and validate results; audit whole-deck consistency. Prefer stable slide/element ids and ordinary editable elements.\n\n## Discovery\n\nRead only the topics needed for the task. Start with workflow, then operations/elements or recipes. Read motion and math-media-svg only when relevant.`,
+  workflow: `${intro}\n\n## Recommended loop\n\n1. Pair intentionally and call get_deck_summary, get_deck_style, and inspect_design_system.\n2. Use stable ids from the fresh revision.\n3. Prefer create_slide_from_recipe for supported structures; otherwise build a focused apply_operations batch.\n4. Call apply_operations with dryRun:true and expectedRevision.\n5. Apply the identical batch against the same revision. A stale revision fails without mutation.\n6. Render changed slides, call validate_slide, then inspect_deck_quality for broad work.\n7. Treat quality findings as hypotheses; inspect cited slides before editing.\n\nOne batch is one undo checkpoint. Use clientId to reference objects created earlier in the same batch.`,
+  operations: `${intro}\n\n## Atomic operation vocabulary\n\n${OPERATION_GUIDES.map((item) => `### ${item.type}\n${item.purpose}\n\n\`${item.syntax}\``).join('\n\n')}\n\nBatches contain 1–100 operations. Unsupported keys fail preflight; no partial mutation occurs.`,
+  elements: `${intro}\n\n## Common frame and properties\n\nEvery element has stable id, type, x/y/w/h, rotation, opacity. Common optional properties: shadow, blur, blend, backdropFilter, rotationOrigin {x,y} in 0..1, fx, link, group, groupId, showOnHover, role, morphId.\n\n## Type properties\n\n- text: html, fontSize, fontFamily, fontWeight, color, colorGradient, align, valign, lineHeight, letterSpacing, textStroke. Inline HTML is sanitized.\n- shape: shape, fill/fillGradient, stroke, strokeWidth, radius, strokeDash/strokeStyle, lineStart/lineEnd, path data and endpoints.\n- image: src, fit contain|cover|fill, radius.\n- svg: asset or sanitized markup, optional css.\n- chart: preset, option, optional source table id.\n- table: columns, rows, header, style.\n- media: kind audio|video, src, poster, fit, radius, autoplay, loop, muted, controls.\n\nUse update_element only with properties supported by the existing element type.`,
+  recipes: `${intro}\n\n## Shared composition recipes\n\nCall list_composition_recipes after pairing for the authoritative structured fields, then create_slide_from_recipe with expectedRevision. Current ids:\n\n- title-thesis: eyebrow?, title*, thesis*, source?\n- comparison: title*, leftTitle*, leftBody*, rightTitle*, rightBody*, takeaway?\n- academic-results: title*, finding*, up to three metric/label pairs, source?\n\nRecipes consume theme.design tokens with deck-theme fallbacks and produce normal editable elements.`,
+  motion: `${intro}\n\n## Slide transitions\n\ntransition is none, fade, slide, zoom, or morph. slide moves the whole slide surface; element entrance effects are separate.\n\n## Morph\n\nDuplicate a slide to preserve element ids, or set matching morphId values on independently created elements. A morph key must be unique within one slide. rotationOrigin {x,y} controls the normalized rotation anchor; omitted means center.\n\n## Element effects\n\nfx.enter: fade-up, fade, fade-down, slide-left, slide-right, slide-up, slide-down. fx.enterDur sets seconds; fx.order staggers and equal values enter together; fx.countUp animates numbers. fx.ambient may be kenburns with fx.ken tuning. fx.loop supports dash-march and motion-path. Respect reduced motion and verify in presentation mode.`,
+  'math-media-svg': `${intro}\n\n## Math\n\nStore raw LaTeX inside text html: $…$ for inline math and $$…$$ for display math. Do not put whitespace immediately inside inline delimiters; escape a literal dollar as \\$. Math is converted to MathML at render time with trust disabled; invalid TeX remains visible as source. Matching symbols can morph across morph slides. Render after creation to confirm typography and overflow.\n\n## Media\n\nUse create_media with audio/video and a safe URL, data URI, or asset reference. Embedded assets belong in doc.assets through add_asset. Media can autoplay/loop/mute/show controls and stops on slide exit.\n\n## SVG\n\nInline SVG must begin with <svg and cannot contain script, foreignObject, event-handler attributes, unsafe href/src, @import, or external/unsafe CSS URLs. Prefer add_asset plus an asset reference for reuse. Never place a literal closing script tag in document content.`,
+  safety: `${intro}\n\n## Safety and concurrency\n\nUse current expectedRevision for create_slide_from_recipe and apply_operations. Stale requests fail. Dry-run broad batches first. Deletion is explicit; delete_asset fails while in use; the deck must retain a slide. Never regenerate docId. Keep the plaintext #bento-doc splice block intact. Use stable ids, not slide indices, because users may insert/delete concurrently. External assets can be absent offline; render tools report warnings.\n\nTreat inspect_deck_quality scores as triage, not aesthetic truth. Confirm evidence visually.`,
+  examples: `${intro}\n\n## Example: atomic title slide\n\n\`\`\`json\n{"docId":"…","expectedRevision":12,"dryRun":true,"operations":[{"type":"create_slide","clientId":"new-slide","name":"Opening","afterSlideId":null,"background":"#F7F1E8","transition":"fade"},{"type":"create_text","slideId":"new-slide","element":{"frame":{"x":90,"y":110,"w":1100,"h":160},"html":"A clear assertion","props":{"fontSize":64,"fontWeight":700,"align":"left","valign":"top","role":"title"}}}]}\n\`\`\`\n\nApply the identical operations with dryRun:false only if the revision remains 12, then render and validate the created slide id.\n\n## Example: recipe\n\n\`\`\`json\n{"docId":"…","expectedRevision":12,"recipeId":"comparison","content":{"title":"Two approaches","leftTitle":"A","leftBody":"Fast to begin","rightTitle":"B","rightBody":"Built to scale","takeaway":"Choose for the binding constraint."}}\n\`\`\``,
+}
+
+export function authoringGuide(topic: AuthoringTopic, operation?: string) {
+  if (operation) {
+    const entry = OPERATION_GUIDES.find((item) => item.type === operation)
+    if (!entry) throw new Error(`Unknown authoring operation: ${operation}.`)
+    return { version: AUTHORING_GUIDE_VERSION, topic: 'operations' as const, operation: entry.type, markdown: `${intro}\n\n## ${entry.type}\n\n${entry.purpose}\n\n\`${entry.syntax}\`` }
+  }
+  return { version: AUTHORING_GUIDE_VERSION, topic, markdown: topics[topic] }
+}

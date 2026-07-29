@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { AdapterConfig } from './config.js'
 import { DocumentServiceClient } from './client.js'
 import { BrowserBridge } from './bridge.js'
+import { AUTHORING_TOPICS, authoringGuide } from './authoring.js'
 
 function result(value: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value) }] }
@@ -31,6 +32,24 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       throw new Error('This MCP adapter is not authorized for that document.')
     }
   }
+
+  for (const topic of AUTHORING_TOPICS) {
+    const uri = `bento://authoring/${topic}`
+    server.registerResource(`bento-authoring-${topic}`, uri, {
+      title: `bento/slides authoring: ${topic}`,
+      description: `Current bento/slides MCP authoring guidance for ${topic}.`,
+      mimeType: 'text/markdown',
+    }, async () => ({ contents: [{ uri, mimeType: 'text/markdown', text: authoringGuide(topic).markdown }] }))
+  }
+
+  server.registerTool('get_authoring_guide', {
+    description: 'Read current bento/slides authoring syntax and workflow guidance. Call before creating or broadly editing slides when operation, element, recipe, motion, math, media, SVG, or safety syntax is not already known.',
+    inputSchema: {
+      topic: z.enum(AUTHORING_TOPICS).default('overview'),
+      operation: z.string().min(1).optional().describe('Return concise guidance for one apply_operations type; overrides topic.'),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ topic, operation }) => result(authoringGuide(topic, operation)))
 
   server.registerTool('list_documents', {
     description: 'List encrypted bento documents accessible to this adapter subject. Content and titles remain encrypted.',
@@ -124,7 +143,7 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
     }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'composition_recipes')) })
 
     server.registerTool('create_slide_from_recipe', {
-      description: 'Create a styled, fully editable slide from a shared composition recipe. Requires the current deck revision; stale requests fail without changing the deck.',
+      description: 'Create a styled, fully editable slide from a shared composition recipe. Requires the current deck revision; stale requests fail without changing the deck. Call get_authoring_guide with topic recipes for workflow guidance.',
       inputSchema: {
         docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(), recipeId: z.string().min(1),
         content: z.record(z.string()), afterSlideId: z.string().optional(),
@@ -166,7 +185,7 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
     })
 
     server.registerTool('apply_operations', {
-      description: 'Atomically apply a prevalidated batch of targeted slide and element edits. Requires the current deck revision; stale batches fail without changing the deck.',
+      description: 'Atomically apply a prevalidated batch of targeted slide and element edits. Requires the current deck revision; stale batches fail without changing the deck. Call get_authoring_guide for current operation/property syntax and examples.',
       inputSchema: {
         docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(), dryRun: z.boolean().optional(),
         operations: z.array(z.record(z.unknown())).min(1).max(100),

@@ -1,10 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { AdapterConfig } from './config.js'
 import { BrowserBridge } from './bridge.js'
 import { createMcpServer } from './tools.js'
+import { AUTHORING_TOPICS, OPERATION_GUIDES, authoringGuide } from './authoring.js'
 
 const allowed = '00000000-0000-0000-0000-000000000001'
 const config: AdapterConfig = {
@@ -46,11 +48,44 @@ test('browser bridge exposes targeted deck actions', async () => {
 
   const tools = await client.listTools()
   const names = tools.tools.map((tool) => tool.name)
-  for (const name of ['get_deck_summary', 'get_deck_style', 'inspect_design_system', 'inspect_deck_quality', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
+  for (const name of ['get_authoring_guide', 'get_deck_summary', 'get_deck_style', 'inspect_design_system', 'inspect_deck_quality', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
     assert.ok(names.includes(name), `missing ${name}`)
   }
   await client.close()
   await server.close()
+})
+
+test('authoring resources and fallback tool expose topic-specific guidance', async () => {
+  const server = createMcpServer(config)
+  const client = new Client({ name: 'test-client', version: '1.0.0' })
+  const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+
+  const resources = await client.listResources()
+  assert.deepEqual(resources.resources.map((resource) => resource.uri).sort(), AUTHORING_TOPICS.map((topic) => `bento://authoring/${topic}`).sort())
+  const workflow = await client.readResource({ uri: 'bento://authoring/workflow' })
+  assert.ok(workflow.contents[0] && 'text' in workflow.contents[0])
+  assert.match(workflow.contents[0].text, /dryRun:true/)
+  const operation = await client.callTool({ name: 'get_authoring_guide', arguments: { topic: 'overview', operation: 'create_chart' } })
+  assert.equal(operation.isError, undefined)
+  assert.match(JSON.stringify(operation.content), /ECharts-compatible/)
+  await client.close()
+  await server.close()
+})
+
+test('authoring guide covers every implemented operation and recipe id', () => {
+  const operationSource = readFileSync(new URL('../../../slides/src/agent-operations.ts', import.meta.url), 'utf8')
+  const prepareSource = operationSource.slice(operationSource.indexOf('export function prepareAgentOperations'), operationSource.indexOf('function findSlide'))
+  const implemented = new Set([...prepareSource.matchAll(/type === '([a-z_]+)'/g)].map((match) => match[1]))
+  const createTypes = /const createTypes = new Set\(\[([^\]]+)\]/.exec(operationSource)?.[1] ?? ''
+  for (const match of createTypes.matchAll(/'([a-z_]+)'/g)) implemented.add(match[1])
+  const documented = new Set(OPERATION_GUIDES.map((operation) => operation.type))
+  assert.deepEqual([...documented].sort(), [...implemented].sort())
+
+  const recipeSource = readFileSync(new URL('../../../slides/src/composition-recipes.ts', import.meta.url), 'utf8')
+  const recipeIds = [...recipeSource.matchAll(/\bid: '(title-thesis|comparison|academic-results)'/g)].map((match) => match[1])
+  const recipeGuide = authoringGuide('recipes').markdown
+  for (const id of recipeIds) assert.match(recipeGuide, new RegExp(`\\b${id}\\b`))
 })
 
 test('apply_operations forwards revision, dry-run, and operation batch', async () => {
