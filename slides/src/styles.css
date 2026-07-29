@@ -2338,6 +2338,7 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-preview-dialog header button:hover { background: #D8E0EA; }
 .ed-agent-preview-dialog header button:focus-visible { outline: 2px solid #2D6CDF; outline-offset: 2px; }
 .ed-agent-preview-dialog-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ed-agent-preview-dialog-pair.single { grid-template-columns: minmax(0, 1fr); }
 .ed-agent-preview-dialog figure { min-width: 0; margin: 0; }
 .ed-agent-preview-dialog figcaption { margin-bottom: 6px; color: #526176; font-size: 12px; font-weight: 700; }
 .ed-agent-preview-dialog img, .ed-agent-preview-dialog .ed-agent-proposal-preview-empty { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #E7ECF3; object-fit: contain; }
@@ -2354,6 +2355,19 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal-feedback-form > div { display: flex; justify-content: flex-end; gap: 7px; }
 .ed-agent-proposal-feedback-form button { padding: 6px 12px; border: 1px solid #C8D2DF; border-radius: 999px; background: #FFF; font-weight: 650; cursor: pointer; }
 .ed-agent-proposal-feedback-form button.ed-primary { border-color: #2D6CDF; background: #2D6CDF; color: #FFF; }
+.ed-agent-proposal-verification { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid #D8E0EA; }
+.ed-agent-proposal-verification > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ed-agent-proposal-verification > div strong { color: #34445A; font-size: 12px; }
+.ed-agent-proposal-verification > div span { color: #77869A; font-size: 10px; }
+.ed-agent-proposal-verification > p { margin: 0; color: #66758A; font-size: 11px; }
+.ed-agent-proposal-verification > p.passed { color: #19734A; font-weight: 700; }
+.ed-agent-proposal-verification > p.outdated { padding: 6px 8px; border-radius: 6px; background: #FFF4DA; color: #795600; }
+.ed-agent-proposal-verification article { display: grid; gap: 5px; }
+.ed-agent-proposal-verification article > strong { color: #34445A; font-size: 11px; }
+.ed-agent-verification-image { display: block; width: 100%; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 6px !important; background: transparent !important; cursor: zoom-in !important; }
+.ed-agent-verification-image img { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; }
+.ed-agent-proposal-verification ul { display: grid; gap: 3px; margin: 0; padding-left: 18px; color: #795600; font-size: 11px; line-height: 1.35; }
+.ed-agent-proposal-verification > small { color: #66758A; font-size: 10px; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }
   .ed-agent-preview-dialog { width: calc(100vw - 24px); padding: 12px; }

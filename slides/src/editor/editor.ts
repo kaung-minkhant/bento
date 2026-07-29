@@ -944,6 +944,10 @@ export class Editor {
       operationCount: number; affectedSlideIds: string[]; destructive: boolean
       changes: Array<{ type: string; slideId?: string; elementId?: string; properties: string[]; value?: string; destructive: boolean }>
       evidence?: { previews: Array<{ slideId: string; name: string | null; before?: string; after?: string; warning?: string }>; truncated: boolean }
+      verification?: {
+        status: 'checking' | 'passed' | 'issues' | 'failed'; revision: number; issueCount: number; truncated: boolean; outdated: boolean
+        slides: Array<{ slideId: string; name: string | null; image?: string; warnings: string[]; findings: Array<{ severity: string; message: string; elementIds: string[] }>; error?: string }>
+      }
     }
     const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
@@ -958,6 +962,7 @@ export class Editor {
     const openPreview = (preview: NonNullable<Proposal['evidence']>['previews'][number]) => {
       previewTitle.textContent = preview.name || preview.slideId
       previewPair.textContent = ''
+      previewPair.classList.remove('single')
       for (const [label, src, empty] of [[t('Before'), preview.before, t('New slide')], [t('After'), preview.after, t('Removed')]] as const) {
         const figure = document.createElement('figure')
         figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: label }))
@@ -965,6 +970,16 @@ export class Editor {
         else figure.appendChild(Object.assign(document.createElement('div'), { className: 'ed-agent-proposal-preview-empty', textContent: preview.warning || empty }))
         previewPair.appendChild(figure)
       }
+      previewDialog.showModal()
+    }
+    const openVerificationImage = (title: string, src: string) => {
+      previewTitle.textContent = title
+      previewPair.textContent = ''
+      previewPair.classList.add('single')
+      const figure = document.createElement('figure')
+      figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: t('Applied result') }))
+      figure.appendChild(Object.assign(document.createElement('img'), { src, alt: `${t('Applied result')}: ${title}` }))
+      previewPair.appendChild(figure)
       previewDialog.showModal()
     }
     const renderActivity = () => {
@@ -1019,7 +1034,12 @@ export class Editor {
         heading.textContent = proposal.title
         const state = document.createElement('span')
         const stateLabel = proposal.status === 'pending' ? 'Pending' : proposal.status === 'changes_requested' ? 'Changes requested' : proposal.status === 'superseded' ? 'Superseded' : proposal.status === 'applied' ? 'Applied' : proposal.status === 'rejected' ? 'Rejected' : 'Stale'
-        state.textContent = t(stateLabel)
+        const verificationLabel = proposal.status === 'applied' && proposal.verification
+          ? proposal.verification.status === 'checking' ? t('Checking')
+            : proposal.verification.status === 'passed' ? t('Passed')
+              : proposal.verification.status === 'issues' ? `${proposal.verification.issueCount} ${t('issues')}` : t('Failed')
+          : ''
+        state.textContent = `${t(stateLabel)}${verificationLabel ? ` · ${verificationLabel}` : ''}`
         item.append(heading, state)
         const isHistory = proposal.status === 'applied' || proposal.status === 'rejected' || proposal.status === 'stale' || proposal.status === 'superseded'
         if (isHistory) {
@@ -1105,6 +1125,41 @@ export class Editor {
           }
           if (proposal.evidence.truncated) previews.appendChild(Object.assign(document.createElement('small'), { textContent: t('Additional affected slides not shown') }))
           item.appendChild(previews)
+        }
+        if (proposal.verification) {
+          const verification = document.createElement('section')
+          verification.className = `ed-agent-proposal-verification ${proposal.verification.status}`
+          const heading = document.createElement('div')
+          heading.append(Object.assign(document.createElement('strong'), { textContent: t('Post-approval checks') }), Object.assign(document.createElement('span'), { textContent: `r${proposal.verification.revision}` }))
+          verification.appendChild(heading)
+          if (proposal.verification.outdated) verification.appendChild(Object.assign(document.createElement('p'), { className: 'outdated', textContent: t('Results are for an earlier revision') }))
+          if (proposal.verification.status === 'checking') {
+            verification.appendChild(Object.assign(document.createElement('p'), { textContent: t('Checking affected slides') }))
+          } else if (!proposal.verification.issueCount) {
+            verification.appendChild(Object.assign(document.createElement('p'), { className: 'passed', textContent: t('No issues found') }))
+          }
+          for (const slide of proposal.verification.slides) {
+            const result = document.createElement('article')
+            result.appendChild(Object.assign(document.createElement('strong'), { textContent: slide.name || slide.slideId }))
+            if (slide.image) {
+              const imageButton = document.createElement('button')
+              imageButton.type = 'button'
+              imageButton.className = 'ed-agent-verification-image'
+              imageButton.setAttribute('aria-label', `${t('Enlarge preview')}: ${slide.name || slide.slideId}`)
+              imageButton.appendChild(Object.assign(document.createElement('img'), { src: slide.image, alt: `${t('Applied result')}: ${slide.name || slide.slideId}` }))
+              imageButton.addEventListener('click', () => openVerificationImage(slide.name || slide.slideId, slide.image!))
+              result.appendChild(imageButton)
+            }
+            const messages = [...slide.warnings, ...slide.findings.map((finding) => finding.message), ...(slide.error ? [slide.error] : [])]
+            if (messages.length) {
+              const list = document.createElement('ul')
+              for (const message of messages) list.appendChild(Object.assign(document.createElement('li'), { textContent: message }))
+              result.appendChild(list)
+            }
+            verification.appendChild(result)
+          }
+          if (proposal.verification.truncated) verification.appendChild(Object.assign(document.createElement('small'), { textContent: t('Additional affected slides not checked') }))
+          item.appendChild(verification)
         }
         if (proposal.status === 'pending') {
           const actions = document.createElement('div')
