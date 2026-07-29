@@ -48,9 +48,10 @@ test('browser bridge exposes targeted deck actions', async () => {
 
   const tools = await client.listTools()
   const names = tools.tools.map((tool) => tool.name)
-  for (const name of ['get_authoring_guide', 'get_deck_summary', 'get_deck_style', 'inspect_design_system', 'inspect_deck_quality', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
+  for (const name of ['get_authoring_guide', 'get_deck_summary', 'get_deck_style', 'inspect_design_system', 'inspect_deck_quality', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'propose_operations', 'list_agent_proposals', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
     assert.ok(names.includes(name), `missing ${name}`)
   }
+  assert.ok(!names.some((name) => /approve.*proposal|proposal.*approve/.test(name)), 'agents cannot approve proposals')
   await client.close()
   await server.close()
 })
@@ -112,6 +113,30 @@ test('apply_operations forwards revision, dry-run, and operation batch', async (
   const response = await client.callTool({ name: 'apply_operations', arguments: { docId: allowed, expectedRevision: 7, dryRun: true, operations } })
   assert.equal(response.isError, undefined)
   assert.deepEqual(calls, [{ docId: allowed, operation: 'apply_operations', params: { expectedRevision: 7, dryRun: true, operations } }])
+  await client.close()
+  await server.close()
+})
+
+test('proposal tools submit batches and read status without agent approval', async () => {
+  const calls: Array<{ docId: string; operation: string; params?: Record<string, unknown> }> = []
+  const bridge = {
+    request: async (docId: string, operation: string, _json?: string, params?: Record<string, unknown>) => {
+      calls.push({ docId, operation, params })
+      return operation === 'list_proposals' ? { proposals: [], revision: 8 } : { proposal: { id: 'proposal-1', status: 'pending' }, revision: 8 }
+    },
+  } as unknown as BrowserBridge
+  const server = createMcpServer({ ...config, bridgeToken: 'bridge-token' }, undefined, bridge)
+  const client = new Client({ name: 'test-client', version: '1.0.0' })
+  const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+
+  const operations = [{ type: 'delete_slide', slideId: 'slide-1' }]
+  assert.equal((await client.callTool({ name: 'propose_operations', arguments: { docId: allowed, expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', operations } })).isError, undefined)
+  assert.equal((await client.callTool({ name: 'list_agent_proposals', arguments: { docId: allowed } })).isError, undefined)
+  assert.deepEqual(calls, [
+    { docId: allowed, operation: 'propose_operations', params: { expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', operations } },
+    { docId: allowed, operation: 'list_proposals', params: undefined },
+  ])
   await client.close()
   await server.close()
 })

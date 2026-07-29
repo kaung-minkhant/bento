@@ -196,6 +196,28 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       return result(await bridge.request(docId, 'apply_operations', undefined, { expectedRevision, dryRun, operations }))
     })
 
+    server.registerTool('propose_operations', {
+      description: 'Submit a preflighted operation batch for explicit human approval in the connected editor. The proposal does not change the deck; agents cannot approve it.',
+      inputSchema: {
+        docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(),
+        title: z.string().trim().min(1).max(160), summary: z.string().trim().max(1200).optional(),
+        operations: z.array(z.record(z.unknown())).min(1).max(100),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, expectedRevision, title, summary, operations }) => {
+      assertAllowed(docId)
+      return result(await bridge.request(docId, 'propose_operations', undefined, { expectedRevision, title, summary, operations }))
+    })
+
+    server.registerTool('list_agent_proposals', {
+      description: 'List proposal status for the connected editor. Pending proposals become stale after any intervening document edit.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => {
+      assertAllowed(docId)
+      return result(await bridge.request(docId, 'list_proposals'))
+    })
+
     server.registerTool('create_slide', {
       description: 'Create one blank slide in the connected deck. Optionally place it after a specific slide ID.',
       inputSchema: { docId: z.string().uuid(), name: z.string().max(200).optional(), afterSlideId: z.string().optional() },
