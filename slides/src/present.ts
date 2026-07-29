@@ -1160,9 +1160,21 @@ function applyMorphGeometry(
   const w = a.w + (b.w - a.w) * p
   const h = a.h + (b.h - a.h) * p
   const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
-  node.style.transformOrigin = '0 0'
+  const hasConfiguredOrigin = !!(a.rotationOrigin || b.rotationOrigin)
+  const legacy = hasConfiguredOrigin ? { x: 0.5, y: 0.5 } : { x: 0, y: 0 }
+  const fromOrigin = a.rotationOrigin ?? legacy
+  const toOrigin = b.rotationOrigin ?? legacy
+  const origin = {
+    x: fromOrigin.x + (toOrigin.x - fromOrigin.x) * p,
+    y: fromOrigin.y + (toOrigin.y - fromOrigin.y) * p,
+  }
+  const anchorX = x + origin.x * w
+  const anchorY = y + origin.y * h
+  const baseAnchorX = base.x + origin.x * base.w
+  const baseAnchorY = base.y + origin.y * base.h
+  node.style.transformOrigin = `${origin.x * 100}% ${origin.y * 100}%`
   node.style.transform =
-    `translate(${x - base.x}px, ${y - base.y}px)` +
+    `translate(${anchorX - baseAnchorX}px, ${anchorY - baseAnchorY}px)` +
     (r ? ` rotate(${r}deg)` : '') +
     ` scale(${w / Math.max(base.w, 0.01)}, ${h / Math.max(base.h, 0.01)})`
 }
@@ -1298,7 +1310,9 @@ function runMorph(
       ease: MORPH_EASE,
       onUpdate() { applyMorphGeometry(node, a, b, state.p) },
       onComplete() {
-        node.style.transformOrigin = ''
+        node.style.transformOrigin = b.rotationOrigin
+          ? `${b.rotationOrigin.x * 100}% ${b.rotationOrigin.y * 100}%`
+          : ''
         node.style.transform = b.rotation ? `rotate(${b.rotation}deg)` : ''
         resetXform(node)
       },

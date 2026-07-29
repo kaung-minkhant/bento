@@ -43,6 +43,7 @@ export const ja: Catalog = {
   "Align": "整列",
   "Ambient": "アンビエント",
   "Angle": "角度",
+  "Rotation anchor": "回転アンカー",
   "Apply": "適用",
   "Arrange": "配置",
   "Arrow": "矢印",

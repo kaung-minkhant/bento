@@ -43,6 +43,7 @@ export const de: Catalog = {
   "Align": "Ausrichten",
   "Ambient": "Ambiente",
   "Angle": "Winkel",
+  "Rotation anchor": "Drehpunkt",
   "Apply": "Anwenden",
   "Arrange": "Anordnen",
   "Arrow": "Pfeil",

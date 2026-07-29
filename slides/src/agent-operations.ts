@@ -25,7 +25,7 @@ const transitions = new Set<TransitionKind>(['none', 'fade', 'slide', 'zoom', 'm
 const shapeKinds = new Set<ShapeElement['shape']>(['rect', 'ellipse', 'triangle', 'arrow', 'line', 'path'])
 const commonElementKeys = new Set([
   'x', 'y', 'w', 'h', 'rotation', 'opacity', 'shadow', 'blur', 'blend', 'backdropFilter',
-  'fx', 'link', 'group', 'groupId', 'showOnHover', 'role', 'morphId',
+  'rotationOrigin', 'fx', 'link', 'group', 'groupId', 'showOnHover', 'role', 'morphId',
 ])
 const textKeys = new Set([
   ...commonElementKeys, 'html', 'fontSize', 'fontFamily', 'fontWeight', 'color',
@@ -226,6 +226,13 @@ function validateElementPatch(element: SlideElement, value: unknown): JsonObject
   if ('opacity' in patch) {
     const opacity = finite(patch.opacity, 'patch.opacity')
     if (opacity < 0 || opacity > 1) throw new Error('patch.opacity must be between 0 and 1.')
+  }
+  if ('rotationOrigin' in patch) {
+    const origin = object(patch.rotationOrigin, 'patch.rotationOrigin')
+    const x = finite(origin.x, 'patch.rotationOrigin.x')
+    const y = finite(origin.y, 'patch.rotationOrigin.y')
+    if (x < 0 || x > 1 || y < 0 || y > 1) throw new Error('patch.rotationOrigin must be within 0..1 on both axes.')
+    patch.rotationOrigin = { x, y }
   }
   if ('shape' in patch && (!shapeKinds.has(patch.shape as ShapeElement['shape']) || element.type !== 'shape')) throw new Error('patch.shape is invalid.')
   if ('align' in patch && !['left', 'center', 'right'].includes(String(patch.align))) throw new Error('patch.align is invalid.')

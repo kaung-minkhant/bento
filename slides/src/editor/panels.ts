@@ -377,6 +377,20 @@ export class PropsPanel {
     )
     this.host.appendChild(geo)
 
+    this.section(t('Rotation anchor'))
+    const origin = el.rotationOrigin ?? { x: 0.5, y: 0.5 }
+    const anchor = document.createElement('div')
+    anchor.className = 'ed-grid2'
+    anchor.append(
+      this.mini(t('X'), Math.round(origin.x * 100), (v) => this.mutate(el.id, (e) => {
+        e.rotationOrigin = { x: Math.min(Math.max(v / 100, 0), 1), y: e.rotationOrigin?.y ?? origin.y }
+      }, true)),
+      this.mini(t('Y'), Math.round(origin.y * 100), (v) => this.mutate(el.id, (e) => {
+        e.rotationOrigin = { x: e.rotationOrigin?.x ?? origin.x, y: Math.min(Math.max(v / 100, 0), 1) }
+      }, true)),
+    )
+    this.host.appendChild(anchor)
+
     this.row('Role', this.select(
       ['none', 'title', 'subtitle', 'body', 'kicker'],
       el.role ?? 'none',

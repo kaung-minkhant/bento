@@ -43,6 +43,7 @@ export const zhHans: Catalog = {
   "Align": "对齐",
   "Ambient": "氛围",
   "Angle": "角度",
+  "Rotation anchor": "旋转锚点",
   "Apply": "应用",
   "Arrange": "排列",
   "Arrow": "箭头",
