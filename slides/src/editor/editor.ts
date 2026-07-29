@@ -1004,6 +1004,7 @@ export class Editor {
       }
     }
     let proposalsSignature = ''
+    let expandedProposalId: string | null = null
     const renderProposals = () => {
       const proposals = api?.proposals?.() ?? []
       const signature = JSON.stringify(proposals)
@@ -1020,6 +1021,26 @@ export class Editor {
         const stateLabel = proposal.status === 'pending' ? 'Pending' : proposal.status === 'changes_requested' ? 'Changes requested' : proposal.status === 'superseded' ? 'Superseded' : proposal.status === 'applied' ? 'Applied' : proposal.status === 'rejected' ? 'Rejected' : 'Stale'
         state.textContent = t(stateLabel)
         item.append(heading, state)
+        const isHistory = proposal.status === 'applied' || proposal.status === 'rejected' || proposal.status === 'stale' || proposal.status === 'superseded'
+        if (isHistory) {
+          const toggle = Object.assign(document.createElement('button'), {
+            type: 'button',
+            className: 'ed-agent-proposal-history-toggle',
+            textContent: t(expandedProposalId === proposal.id ? 'Hide details' : 'View details'),
+          })
+          toggle.addEventListener('click', () => {
+            expandedProposalId = expandedProposalId === proposal.id ? null : proposal.id
+            proposalsSignature = ''
+            renderProposals()
+          })
+          item.appendChild(toggle)
+          if (expandedProposalId !== proposal.id) {
+            item.classList.add('compact')
+            proposalsList.appendChild(item)
+            continue
+          }
+          item.classList.add('history-expanded')
+        }
         if (proposal.summary) item.appendChild(Object.assign(document.createElement('p'), { textContent: proposal.summary }))
         const meta = document.createElement('small')
         meta.textContent = `${proposal.operationCount} ${t('operations')} · ${proposal.affectedSlideIds.length} ${t('affected slides')}`

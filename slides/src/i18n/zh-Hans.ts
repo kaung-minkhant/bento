@@ -831,6 +831,8 @@ export const zhHans: Catalog = {
   'Request changes': '请求更改',
   'What should the agent revise?': '希望智能体修改什么？',
   'Send request': '发送请求',
+  'View details': '查看详情',
+  'Hide details': '隐藏详情',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',

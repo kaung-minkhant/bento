@@ -831,6 +831,8 @@ export const zhHant: Catalog = {
   'Request changes': '要求變更',
   'What should the agent revise?': '希望代理程式修改什麼？',
   'Send request': '傳送要求',
+  'View details': '查看詳細資料',
+  'Hide details': '隱藏詳細資料',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',

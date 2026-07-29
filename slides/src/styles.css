@@ -2296,6 +2296,12 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
   border: 1px solid #D8E0EA; border-left: 3px solid #E7A51B; border-radius: 10px; background: #F8FAFC;
 }
 .ed-agent-proposal > span { color: #66758A; font-size: 11px; text-transform: capitalize; }
+.ed-agent-proposal.compact { grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; padding-block: 8px; }
+.ed-agent-proposal.compact > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-agent-proposal-history-toggle { padding: 3px 0; border: 0; background: transparent; color: #2D6CDF; font-size: 11px; font-weight: 700; cursor: pointer; }
+.ed-agent-proposal-history-toggle:hover { text-decoration: underline; }
+.ed-agent-proposal-history-toggle:focus-visible { outline: 2px solid #2D6CDF; outline-offset: 2px; border-radius: 3px; }
+.ed-agent-proposal.history-expanded > .ed-agent-proposal-history-toggle { grid-column: 1 / -1; justify-self: end; }
 .ed-agent-proposal > p, .ed-agent-proposal > small { grid-column: 1 / -1; margin: 0; color: #66758A; font-size: 12px; line-height: 1.35; }
 .ed-agent-proposal > small { font-size: 11px; }
 .ed-agent-proposal-warning { grid-column: 1 / -1; padding: 7px 9px; border-radius: 7px; background: #FFF0EC; color: #9B3A2C; font-size: 12px; font-weight: 750; }

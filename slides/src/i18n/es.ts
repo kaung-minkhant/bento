@@ -831,6 +831,8 @@ export const es: Catalog = {
   'Request changes': 'Solicitar cambios',
   'What should the agent revise?': '¿Qué debe revisar el agente?',
   'Send request': 'Enviar solicitud',
+  'View details': 'Ver detalles',
+  'Hide details': 'Ocultar detalles',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',

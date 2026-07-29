@@ -831,6 +831,8 @@ export const ja: Catalog = {
   'Request changes': '変更を依頼',
   'What should the agent revise?': 'エージェントに何を修正してほしいですか？',
   'Send request': '依頼を送信',
+  'View details': '詳細を表示',
+  'Hide details': '詳細を非表示',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',
