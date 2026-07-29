@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 The Bento/Suite authors
 
-import { defaultShape, defaultText, readableInk, uid, type BentoDoc, type Slide, type SlideElement } from './model'
+import { defaultChart, defaultImage, defaultShape, defaultText, readableInk, uid, type BentoDoc, type Slide, type SlideElement } from './model'
 
-export type CompositionRecipeId = 'title-thesis' | 'comparison' | 'academic-results'
+export type CompositionRecipeId =
+  | 'title-thesis' | 'comparison' | 'academic-results'
+  | 'section-divider' | 'agenda-roadmap' | 'quote-insight'
+  | 'process-timeline' | 'data-chart-takeaway' | 'image-narrative'
+  | 'closing-decision'
 
 export interface CompositionRecipe {
   id: CompositionRecipeId
@@ -40,6 +44,71 @@ export const COMPOSITION_RECIPES: CompositionRecipe[] = [
       { key: 'label3', label: 'Metric 3 label' }, { key: 'source', label: 'Source' },
     ],
     sample: { title: 'Results at a glance', finding: 'The intervention produced a consistent, practically meaningful effect.', metric1: '+24%', label1: 'Primary outcome', metric2: '0.82', label2: 'Effect size', metric3: 'n = 418', label3: 'Participants', source: 'Study citation · 2026' },
+  },
+  {
+    id: 'section-divider', name: 'Section divider', description: 'Open a new chapter with one clear promise.',
+    fields: [
+      { key: 'section', label: 'Section label' }, { key: 'title', label: 'Title', required: true },
+      { key: 'promise', label: 'Section promise', multiline: true },
+    ],
+    sample: { section: 'PART TWO', title: 'From evidence to action', promise: 'Turn the strongest signal into a decision the room can make.' },
+  },
+  {
+    id: 'agenda-roadmap', name: 'Agenda and roadmap', description: 'Set expectations with an ordered path through the story.',
+    fields: [
+      { key: 'title', label: 'Title', required: true },
+      { key: 'item1', label: 'Item 1', required: true }, { key: 'item2', label: 'Item 2', required: true },
+      { key: 'item3', label: 'Item 3' }, { key: 'item4', label: 'Item 4' }, { key: 'item5', label: 'Item 5' },
+      { key: 'current', label: 'Current item number' },
+    ],
+    sample: { title: 'Today’s path', item1: 'Frame the decision', item2: 'Read the evidence', item3: 'Compare the options', item4: 'Choose the next move', current: '2' },
+  },
+  {
+    id: 'quote-insight', name: 'Quote or key insight', description: 'Give one voice or insight the full weight of the slide.',
+    fields: [
+      { key: 'title', label: 'Context label' }, { key: 'quote', label: 'Quote', required: true, multiline: true },
+      { key: 'attribution', label: 'Attribution' }, { key: 'context', label: 'Supporting context', multiline: true },
+    ],
+    sample: { title: 'WHAT WE HEARD', quote: 'The hard part was never collecting more data. It was knowing what deserved a decision.', attribution: 'Research participant · Operations lead', context: 'A repeated theme across 14 interviews.' },
+  },
+  {
+    id: 'process-timeline', name: 'Process and timeline', description: 'Explain an ordered process without reducing it to identical cards.',
+    fields: [
+      { key: 'title', label: 'Title', required: true },
+      { key: 'step1', label: 'Step 1', required: true }, { key: 'detail1', label: 'Step 1 detail' },
+      { key: 'step2', label: 'Step 2', required: true }, { key: 'detail2', label: 'Step 2 detail' },
+      { key: 'step3', label: 'Step 3' }, { key: 'detail3', label: 'Step 3 detail' },
+      { key: 'step4', label: 'Step 4' }, { key: 'detail4', label: 'Step 4 detail' },
+    ],
+    sample: { title: 'How the decision moves', step1: 'Observe', detail1: 'Week 1', step2: 'Synthesize', detail2: 'Week 2', step3: 'Decide', detail3: 'Week 3', step4: 'Ship', detail4: 'Week 4' },
+  },
+  {
+    id: 'data-chart-takeaway', name: 'Data chart and takeaway', description: 'Pair an editable chart with the conclusion it supports.',
+    fields: [
+      { key: 'title', label: 'Title', required: true }, { key: 'takeaway', label: 'Takeaway', required: true, multiline: true },
+      { key: 'label1', label: 'Category 1', required: true }, { key: 'value1', label: 'Value 1', required: true },
+      { key: 'label2', label: 'Category 2', required: true }, { key: 'value2', label: 'Value 2', required: true },
+      { key: 'label3', label: 'Category 3' }, { key: 'value3', label: 'Value 3' },
+      { key: 'label4', label: 'Category 4' }, { key: 'value4', label: 'Value 4' },
+      { key: 'source', label: 'Source' },
+    ],
+    sample: { title: 'Adoption accelerated after onboarding changed', takeaway: 'Guided setup moved the median team from trial to first value twice as fast.', label1: 'Before', value1: '38', label2: 'Pilot', value2: '61', label3: 'Current', value3: '79', source: 'Product analytics · indexed score' },
+  },
+  {
+    id: 'image-narrative', name: 'Image-led narrative', description: 'Let one image carry the scene while text supplies meaning.',
+    fields: [
+      { key: 'image', label: 'Image URL', required: true }, { key: 'title', label: 'Title', required: true },
+      { key: 'caption', label: 'Narrative caption', required: true, multiline: true }, { key: 'credit', label: 'Image credit' },
+    ],
+    sample: { image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80', title: 'The context changes the choice', caption: 'A decision that looks simple in a spreadsheet becomes different when you see where the work happens.', credit: 'Photo · Unsplash' },
+  },
+  {
+    id: 'closing-decision', name: 'Closing and decision', description: 'End with the decision, next move, and accountable owner.',
+    fields: [
+      { key: 'title', label: 'Title', required: true }, { key: 'decision', label: 'Decision', required: true, multiline: true },
+      { key: 'nextStep', label: 'Next step', required: true }, { key: 'owner', label: 'Owner' }, { key: 'timing', label: 'Timing' },
+    ],
+    sample: { title: 'The decision in one sentence', decision: 'Fund the focused path now; hold the broader rollout until the pilot proves retention.', nextStep: 'Approve the six-week pilot', owner: 'Owner · Product + Ops', timing: 'Decision requested today' },
   },
 ]
 
@@ -112,7 +181,7 @@ export function instantiateCompositionRecipe(doc: BentoDoc, recipeId: string, ra
       ...card(m, content.leftTitle, content.leftBody, false), ...card(m + cardW + gap, content.rightTitle, content.rightBody, true),
       text(lines(content.takeaway), { ...base, x: m, y: h - m - 38, w: w - m * 2, h: 32, fontSize: 18, fontWeight: 600, color: s.accent, align: 'center' }),
     ]
-  } else {
+  } else if (recipe.id === 'academic-results') {
     const metrics = [1, 2, 3].filter((n) => content[`metric${n}`] || content[`label${n}`])
     const metricW = (w - m * 2 - gap * Math.max(0, metrics.length - 1)) / Math.max(1, metrics.length)
     elements = [
@@ -127,6 +196,94 @@ export function instantiateCompositionRecipe(doc: BentoDoc, recipeId: string, ra
         ]
       }),
       text(lines(content.source), { ...base, x: m, y: h - m - 30, w: w - m * 2, h: 25, fontSize: 14, color: s.muted }),
+    ]
+  } else if (recipe.id === 'section-divider') {
+    elements = [
+      defaultShape('rect', { x: 0, y: 0, w: Math.round(w * 0.34), h, fill: s.accent, radius: 0 }),
+      text(lines(content.section), { ...base, x: m, y: m, w: Math.round(w * 0.22), h: 48, fontSize: 18, fontWeight: 800, color: readableInk(s.accent), letterSpacing: 2 }),
+      text(lines(content.title), { ...base, x: Math.round(w * 0.34) + m, y: Math.round(h * 0.24), w: Math.round(w * 0.56) - m, h: 190, fontFamily: s.family, fontSize: s.titleSize + 4, fontWeight: s.titleWeight, lineHeight: 1.02 }),
+      defaultShape('rect', { x: Math.round(w * 0.34) + m, y: Math.round(h * 0.57), w: 84, h: 6, fill: s.accent, radius: 3 }),
+      text(lines(content.promise), { ...base, x: Math.round(w * 0.34) + m, y: Math.round(h * 0.63), w: Math.round(w * 0.5), h: 120, fontSize: s.bodySize, lineHeight: 1.35, color: s.muted }),
+    ]
+  } else if (recipe.id === 'agenda-roadmap') {
+    const items = [1, 2, 3, 4, 5].filter((n) => content[`item${n}`])
+    const current = Math.max(1, Math.min(items.length, Number.parseInt(content.current, 10) || 1))
+    const rowH = Math.min(82, (h - m * 2 - 130) / Math.max(1, items.length))
+    elements = [
+      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 90, fontFamily: s.family, fontSize: s.titleSize - 12, fontWeight: s.titleWeight }),
+      ...items.flatMap((n, i) => {
+        const y = m + 126 + i * rowH, active = n === current
+        return [
+          defaultShape('ellipse', { x: m, y: y + 8, w: 46, h: 46, fill: active ? s.accent : 'transparent', stroke: active ? s.accent : s.muted, strokeWidth: active ? 0 : 1 }),
+          text(String(n).padStart(2, '0'), { ...base, x: m, y: y + 8, w: 46, h: 46, fontSize: 15, fontWeight: 800, color: active ? readableInk(s.accent) : s.muted, align: 'center', valign: 'middle' }),
+          text(lines(content[`item${n}`]), { ...base, x: m + 78, y, w: w - m * 2 - 78, h: 58, fontSize: active ? s.bodySize + 5 : s.bodySize + 1, fontWeight: active ? 750 : 500, color: active ? s.ink : s.muted, valign: 'middle' }),
+          ...(i < items.length - 1 ? [defaultShape('line', { x: m + 23, y: y + 54, w: 1, h: Math.max(8, rowH - 46), stroke: s.muted, strokeWidth: 1, fill: 'transparent' })] : []),
+        ]
+      }),
+    ]
+  } else if (recipe.id === 'quote-insight') {
+    const quoteX = m + Math.round(w * 0.08)
+    elements = [
+      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 42, fontSize: 17, fontWeight: 800, color: s.accent, letterSpacing: 2 }),
+      text('“', { ...base, x: m, y: m + 84, w: 92, h: 100, fontFamily: s.family, fontSize: 112, fontWeight: 700, color: s.accent, lineHeight: 0.8 }),
+      text(lines(content.quote), { ...base, x: quoteX, y: m + 100, w: w - quoteX - m, h: 290, fontFamily: s.family, fontSize: Math.max(36, s.titleSize - 12), fontWeight: 600, lineHeight: 1.16 }),
+      defaultShape('rect', { x: quoteX, y: h - m - 142, w: 64, h: 5, fill: s.accent, radius: 3 }),
+      text(lines(content.attribution), { ...base, x: quoteX + 86, y: h - m - 156, w: w - quoteX - m - 86, h: 42, fontSize: 19, fontWeight: 750 }),
+      text(lines(content.context), { ...base, x: quoteX + 86, y: h - m - 108, w: w - quoteX - m - 86, h: 65, fontSize: 17, color: s.muted, lineHeight: 1.35 }),
+    ]
+  } else if (recipe.id === 'process-timeline') {
+    const steps = [1, 2, 3, 4].filter((n) => content[`step${n}`])
+    const usable = w - m * 2, segment = usable / Math.max(1, steps.length)
+    elements = [
+      text(lines(content.title), { ...base, x: m, y: m, w: usable, h: 90, fontFamily: s.family, fontSize: s.titleSize - 12, fontWeight: s.titleWeight }),
+      defaultShape('line', { x: m + segment / 2, y: Math.round(h * 0.49), w: Math.max(1, usable - segment), h: 1, stroke: s.muted, strokeWidth: 2, fill: 'transparent' }),
+      ...steps.flatMap((n, i) => {
+        const cx = m + segment * i + segment / 2, accent = i === steps.length - 1
+        return [
+          text(String(n).padStart(2, '0'), { ...base, x: cx - 35, y: Math.round(h * 0.34), w: 70, h: 38, fontSize: 16, fontWeight: 800, color: accent ? s.accent : s.muted, align: 'center' }),
+          defaultShape('ellipse', { x: cx - 14, y: Math.round(h * 0.49) - 14, w: 28, h: 28, fill: accent ? s.accent : s.bg, stroke: accent ? s.accent : s.ink, strokeWidth: 3 }),
+          text(lines(content[`step${n}`]), { ...base, x: cx - segment / 2 + 12, y: Math.round(h * 0.57), w: segment - 24, h: 58, fontSize: 24, fontWeight: 750, color: accent ? s.accent : s.ink, align: 'center' }),
+          text(lines(content[`detail${n}`]), { ...base, x: cx - segment / 2 + 12, y: Math.round(h * 0.67), w: segment - 24, h: 52, fontSize: 17, color: s.muted, align: 'center' }),
+        ]
+      }),
+    ]
+  } else if (recipe.id === 'data-chart-takeaway') {
+    const points = [1, 2, 3, 4].filter((n) => content[`label${n}`] && content[`value${n}`])
+    const values = points.map((n) => Number.parseFloat(content[`value${n}`].replace(/[^0-9+-.]/g, '')) || 0)
+    const labels = points.map((n) => content[`label${n}`])
+    const chartW = Math.round((w - m * 2) * 0.61), sideX = m + chartW + gap
+    elements = [
+      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 82, fontFamily: s.family, fontSize: s.titleSize - 16, fontWeight: s.titleWeight }),
+      defaultChart({
+        color: [s.accent], grid: { left: 44, right: 18, top: 18, bottom: 48 },
+        xAxis: { type: 'category', data: labels, axisTick: { show: false }, axisLabel: { color: s.muted } },
+        yAxis: { type: 'value', axisLabel: { color: s.muted }, splitLine: { lineStyle: { color: s.muted } } },
+        series: [{ type: 'bar', data: values, itemStyle: { borderRadius: [7, 7, 0, 0] } }],
+      }, { x: m, y: m + 120, w: chartW, h: h - m * 2 - 150, preset: 'bar' }),
+      defaultShape('rect', { x: sideX, y: m + 128, w: w - m - sideX, h: h - m * 2 - 170, fill: s.surface, stroke: s.accent, strokeWidth: 2, radius: s.radius }),
+      defaultShape('rect', { x: sideX + 30, y: m + 164, w: 62, h: 6, fill: s.accent, radius: 3 }),
+      text(lines(content.takeaway), { ...base, x: sideX + 30, y: m + 205, w: w - m - sideX - 60, h: 245, fontSize: s.bodySize + 2, fontWeight: 650, lineHeight: 1.3 }),
+      text(lines(content.source), { ...base, x: sideX + 30, y: h - m - 82, w: w - m - sideX - 60, h: 44, fontSize: 14, color: s.muted }),
+    ]
+  } else if (recipe.id === 'image-narrative') {
+    const imageW = Math.round(w * 0.58), panelW = w - imageW
+    elements = [
+      defaultImage(content.image, { x: panelW, y: 0, w: imageW, h, fit: 'cover', radius: 0 }),
+      defaultShape('rect', { x: 0, y: 0, w: panelW, h, fill: s.bg, radius: 0 }),
+      defaultShape('rect', { x: m, y: m, w: 72, h: 6, fill: s.accent, radius: 3 }),
+      text(lines(content.title), { ...base, x: m, y: m + 62, w: panelW - m * 1.55, h: 190, fontFamily: s.family, fontSize: s.titleSize - 8, fontWeight: s.titleWeight, lineHeight: 1.04 }),
+      text(lines(content.caption), { ...base, x: m, y: m + 292, w: panelW - m * 1.55, h: 190, fontSize: s.bodySize - 2, lineHeight: 1.4, color: s.muted }),
+      text(lines(content.credit), { ...base, x: m, y: h - m - 32, w: panelW - m * 1.55, h: 26, fontSize: 14, color: s.muted }),
+    ]
+  } else if (recipe.id === 'closing-decision') {
+    const stripY = h - m - 118
+    elements = [
+      text(lines(content.title), { ...base, x: m, y: m, w: w - m * 2, h: 72, fontSize: 18, fontWeight: 800, color: s.accent, letterSpacing: 1.5 }),
+      text(lines(content.decision), { ...base, x: m, y: m + 105, w: w - m * 2, h: 280, fontFamily: s.family, fontSize: s.titleSize - 2, fontWeight: s.titleWeight, lineHeight: 1.08 }),
+      defaultShape('rect', { x: m, y: stripY, w: w - m * 2, h: 118, fill: s.accent, radius: s.radius }),
+      text(lines(content.nextStep), { ...base, x: m + 30, y: stripY + 24, w: Math.round((w - m * 2) * 0.52), h: 70, fontSize: 24, fontWeight: 800, color: readableInk(s.accent), valign: 'middle' }),
+      text(lines(content.owner), { ...base, x: m + Math.round((w - m * 2) * 0.56), y: stripY + 24, w: Math.round((w - m * 2) * 0.2), h: 70, fontSize: 16, fontWeight: 650, color: readableInk(s.accent), valign: 'middle' }),
+      text(lines(content.timing), { ...base, x: m + Math.round((w - m * 2) * 0.78), y: stripY + 24, w: Math.round((w - m * 2) * 0.18) - 24, h: 70, fontSize: 16, color: readableInk(s.accent), align: 'right', valign: 'middle' }),
     ]
   }
   return { id, name: content.title || recipe.name, background: s.bg, transition: 'fade', notes: '', elements }
