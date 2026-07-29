@@ -138,12 +138,15 @@ then removed atomically.
 
 ### Phase 8: composition system
 
-In progress. Optional named design tokens and the read-only MCP
-visual-language inspector now feed a shared recipe engine. The first three
-recipes (title/thesis, comparison, and academic results) are available in the
+Complete. Optional named design tokens and the read-only MCP visual-language
+inspector feed a shared recipe engine. Ten recipes are available in the
 editor's New Slide picker and through revision-guarded MCP creation. Existing
 element properties remain the rendered source of truth so old decks do not
-change appearance.
+change appearance. Production acceptance on 2026-07-29 verified authoring
+guide discovery, design-system inspection, presenter builds and morph metadata,
+recipe discovery and creation, semantic recipe roles, rendering, validation,
+and the structured narrative-quality report. The temporary acceptance slide
+was removed atomically after verification.
 
 - Expose deck themes, palettes, and named typography roles.
 - Ten reusable composition recipes now cover thesis, comparison, academic
