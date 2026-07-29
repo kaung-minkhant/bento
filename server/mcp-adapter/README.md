@@ -45,6 +45,17 @@ Clients without strong MCP-resource support can call the read-only
 `get_authoring_guide` tool by topic or request one operation directly. The
 guide is versioned, and coverage tests keep implemented operations and recipe
 ids represented in it.
+Broad or destructive batches can be submitted through `propose_operations`.
+The open editor preflights and displays each proposal for a person to approve
+or reject; `list_agent_proposals` reports lifecycle status. MCP intentionally
+has no approval tool, and any intervening document edit makes a pending
+proposal stale.
+The review card derives operation details and bounded before/after previews
+from the exact prepared batch. Preview images stay inside the paired browser;
+MCP receives structured change metadata rather than duplicated image payloads.
+Human change requests appear in `list_agent_proposals`. Submit a revised batch
+with `replacesProposalId` to preserve the review thread and supersede the prior
+proposal after successful preflight.
 Presenter-controlled builds use the common `buildStep` element property. Read
 the `elements` and `motion` topics for grouping, reverse navigation, entrance
 effects, reduced motion, and morph behavior before authoring them.

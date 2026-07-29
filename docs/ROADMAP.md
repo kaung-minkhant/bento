@@ -173,10 +173,19 @@ was removed atomically after verification.
 
 ### Phase 9: transactional agent workflow
 
-- Support the full inspect, plan, apply, render, critique, refine, validate,
-  and approve loop in the editor.
+In progress. The proposal contract is defined in `docs/agent-proposals.md`:
+proposals are page-lifetime editor workflow state, preflight at a guarded base
+revision, become stale after any intervening edit, and can only be approved or
+rejected by a person in the editor. Reviewers can request changes without
+mutating the deck, and agents can answer with an explicitly linked replacement.
+
+- Support the full inspect, plan, propose, review, apply, render, critique,
+  refine, validate, and approve loop in the editor.
 - Add explicit agent proposals and human approval checkpoints for broad or
-  destructive changes.
+  destructive changes while preserving narrow direct-edit tools.
+- Apply approved operation batches atomically as one normal undo checkpoint.
+- Expose submission and status through MCP without exposing an agent-side
+  approval capability.
 
 The implementation order starts with slide rendering and validation. Richer
 creation tools follow only once agents can see and evaluate what they produce.

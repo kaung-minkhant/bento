@@ -909,6 +909,7 @@ export class Editor {
       `<button class="ed-agent-connect ed-primary" type="button">${t('Create pairing code')}</button>` +
       `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><button class="ed-agent-disconnect" type="button">${t('Stop agent')}</button></div><code class="ed-agent-code"></code>` +
       `<p>${t('Tell your agent to claim this pairing code:')}</p><button class="ed-agent-copy" type="button">${ICONS.copy}<span>${t('Copy code')}</span></button>` +
+      `<section class="ed-agent-proposals" aria-live="polite"><header><strong>${t('Agent proposals')}</strong></header><div class="ed-agent-proposals-empty">${t('No agent proposals yet')}</div><ol class="ed-agent-proposals-list"></ol></section>` +
       `<section class="ed-agent-activity" aria-live="polite"><header><div><strong>${t('Agent activity')}</strong><span class="ed-agent-activity-summary"></span></div><div class="ed-agent-activity-actions"><button class="ed-agent-undo" type="button" title="${t('Undo last agent change')}">${ICONS.undo}</button><button class="ed-agent-redo" type="button" title="${t('Redo last agent change')}">${ICONS.redo}</button><button class="ed-agent-clear" type="button">${t('Clear activity')}</button></div></header><div class="ed-agent-activity-empty">${t('No agent actions yet')}</div><ol class="ed-agent-activity-list"></ol></section></div>`
     const urlInput = dialog.querySelector<HTMLInputElement>('.ed-agent-url')!
     const connectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-connect')!
@@ -923,17 +924,48 @@ export class Editor {
     const activityEmpty = dialog.querySelector<HTMLElement>('.ed-agent-activity-empty')!
     const activityList = dialog.querySelector<HTMLOListElement>('.ed-agent-activity-list')!
     const activitySummary = dialog.querySelector<HTMLElement>('.ed-agent-activity-summary')!
+    const proposalsEmpty = dialog.querySelector<HTMLElement>('.ed-agent-proposals-empty')!
+    const proposalsList = dialog.querySelector<HTMLOListElement>('.ed-agent-proposals-list')!
+    const previewDialog = document.createElement('dialog')
+    previewDialog.className = 'ed-agent-preview-dialog'
+    previewDialog.setAttribute('aria-label', t('Proposal preview'))
+    previewDialog.innerHTML = `<header><strong></strong><button type="button" aria-label="${t('Close preview')}">×</button></header><div class="ed-agent-preview-dialog-pair"></div>`
+    const previewTitle = previewDialog.querySelector<HTMLElement>('header strong')!
+    const previewPair = previewDialog.querySelector<HTMLElement>('.ed-agent-preview-dialog-pair')!
+    const closePreview = () => previewDialog.close()
+    previewDialog.querySelector<HTMLButtonElement>('header button')!.addEventListener('click', closePreview)
+    previewDialog.addEventListener('click', (event) => { if (event.target === previewDialog) closePreview() })
+    document.body.appendChild(previewDialog)
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
+    type Proposal = {
+      id: string; title: string; summary?: string; status: 'pending' | 'changes_requested' | 'superseded' | 'applied' | 'rejected' | 'stale'; baseRevision: number
+      feedback?: string; feedbackAt?: number; parentProposalId?: string; replacementProposalId?: string
+      operationCount: number; affectedSlideIds: string[]; destructive: boolean
+      changes: Array<{ type: string; slideId?: string; elementId?: string; properties: string[]; value?: string; destructive: boolean }>
+      evidence?: { previews: Array<{ slideId: string; name: string | null; before?: string; after?: string; warning?: string }>; truncated: boolean }
+    }
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
         read_document: 'Read document', summary: 'Deck summary', deck_style: 'Deck style', slide_detail: 'Slide details', create_slide: 'Create slide',
         render_slide: 'Render slide', render_deck_thumbnails: 'Deck thumbnails', validate_slide: 'Validate slide',
         add_text: 'Add text', update_element: 'Update element', delete_element: 'Delete element',
-        set_notes: 'Set speaker notes', replace_document: 'Replace document', apply_operations: 'Apply operations',
+        set_notes: 'Set speaker notes', replace_document: 'Replace document', apply_operations: 'Apply operations', apply_proposal: 'Apply proposal',
       }
       return labels[operation] || operation.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())
+    }
+    const openPreview = (preview: NonNullable<Proposal['evidence']>['previews'][number]) => {
+      previewTitle.textContent = preview.name || preview.slideId
+      previewPair.textContent = ''
+      for (const [label, src, empty] of [[t('Before'), preview.before, t('New slide')], [t('After'), preview.after, t('Removed')]] as const) {
+        const figure = document.createElement('figure')
+        figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: label }))
+        if (src) figure.appendChild(Object.assign(document.createElement('img'), { src, alt: `${label}: ${preview.name || preview.slideId}` }))
+        else figure.appendChild(Object.assign(document.createElement('div'), { className: 'ed-agent-proposal-preview-empty', textContent: preview.warning || empty }))
+        previewPair.appendChild(figure)
+      }
+      previewDialog.showModal()
     }
     const renderActivity = () => {
       const actions = api?.actions?.() ?? []
@@ -971,13 +1003,159 @@ export class Editor {
         activityList.appendChild(item)
       }
     }
-    const onAgentAction = () => renderActivity()
+    let proposalsSignature = ''
+    let expandedProposalId: string | null = null
+    const renderProposals = () => {
+      const proposals = api?.proposals?.() ?? []
+      const signature = JSON.stringify(proposals)
+      if (signature === proposalsSignature) return
+      proposalsSignature = signature
+      proposalsEmpty.hidden = proposals.length > 0
+      proposalsList.textContent = ''
+      for (const proposal of proposals.slice().reverse()) {
+        const item = document.createElement('li')
+        item.className = `ed-agent-proposal ${proposal.status}`
+        const heading = document.createElement('strong')
+        heading.textContent = proposal.title
+        const state = document.createElement('span')
+        const stateLabel = proposal.status === 'pending' ? 'Pending' : proposal.status === 'changes_requested' ? 'Changes requested' : proposal.status === 'superseded' ? 'Superseded' : proposal.status === 'applied' ? 'Applied' : proposal.status === 'rejected' ? 'Rejected' : 'Stale'
+        state.textContent = t(stateLabel)
+        item.append(heading, state)
+        const isHistory = proposal.status === 'applied' || proposal.status === 'rejected' || proposal.status === 'stale' || proposal.status === 'superseded'
+        if (isHistory) {
+          const toggle = Object.assign(document.createElement('button'), {
+            type: 'button',
+            className: 'ed-agent-proposal-history-toggle',
+            textContent: t(expandedProposalId === proposal.id ? 'Hide details' : 'View details'),
+          })
+          toggle.addEventListener('click', () => {
+            expandedProposalId = expandedProposalId === proposal.id ? null : proposal.id
+            proposalsSignature = ''
+            renderProposals()
+          })
+          item.appendChild(toggle)
+          if (expandedProposalId !== proposal.id) {
+            item.classList.add('compact')
+            proposalsList.appendChild(item)
+            continue
+          }
+          item.classList.add('history-expanded')
+        }
+        if (proposal.summary) item.appendChild(Object.assign(document.createElement('p'), { textContent: proposal.summary }))
+        const meta = document.createElement('small')
+        meta.textContent = `${proposal.operationCount} ${t('operations')} · ${proposal.affectedSlideIds.length} ${t('affected slides')}`
+        item.appendChild(meta)
+        if (proposal.feedback) {
+          const feedback = document.createElement('div')
+          feedback.className = 'ed-agent-proposal-feedback'
+          feedback.append(Object.assign(document.createElement('strong'), { textContent: t('Requested changes') }), Object.assign(document.createElement('p'), { textContent: proposal.feedback }))
+          item.appendChild(feedback)
+        }
+        if (proposal.destructive) {
+          const warning = document.createElement('div')
+          warning.className = 'ed-agent-proposal-warning'
+          warning.textContent = t('Destructive proposal')
+          item.appendChild(warning)
+        }
+        const details = document.createElement('details')
+        details.className = 'ed-agent-proposal-details'
+        details.open = proposal.status === 'pending'
+        const detailsSummary = document.createElement('summary')
+        detailsSummary.textContent = t('Proposed changes')
+        const changes = document.createElement('ol')
+        for (const change of proposal.changes) {
+          const row = document.createElement('li')
+          const label = document.createElement('strong')
+          label.textContent = actionLabel(change.type)
+          row.appendChild(label)
+          if (change.value) row.appendChild(Object.assign(document.createElement('span'), { textContent: `“${change.value}”` }))
+          const target = [change.slideId, change.elementId, ...change.properties].filter(Boolean).join(' · ')
+          if (target) row.appendChild(Object.assign(document.createElement('small'), { textContent: target }))
+          if (change.destructive) row.classList.add('destructive')
+          changes.appendChild(row)
+        }
+        details.append(detailsSummary, changes)
+        item.appendChild(details)
+        if (proposal.evidence?.previews.length) {
+          const previews = document.createElement('div')
+          previews.className = 'ed-agent-proposal-previews'
+          for (const preview of proposal.evidence.previews) {
+            const row = document.createElement('section')
+            const name = document.createElement('strong')
+            name.textContent = preview.name || preview.slideId
+            row.appendChild(name)
+            const pair = document.createElement('div')
+            for (const [label, src, empty] of [[t('Before'), preview.before, t('New slide')], [t('After'), preview.after, t('Removed')]] as const) {
+              const figure = document.createElement('figure')
+              figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: label }))
+              if (src) {
+                const enlarge = document.createElement('button')
+                enlarge.className = 'ed-agent-proposal-preview-button'
+                enlarge.type = 'button'
+                enlarge.setAttribute('aria-label', `${t('Enlarge preview')}: ${label}, ${preview.name || preview.slideId}`)
+                enlarge.appendChild(Object.assign(document.createElement('img'), { src, alt: `${label}: ${preview.name || preview.slideId}` }))
+                enlarge.addEventListener('click', () => openPreview(preview))
+                figure.appendChild(enlarge)
+              }
+              else figure.appendChild(Object.assign(document.createElement('div'), { className: 'ed-agent-proposal-preview-empty', textContent: preview.warning || empty }))
+              pair.appendChild(figure)
+            }
+            row.appendChild(pair)
+            previews.appendChild(row)
+          }
+          if (proposal.evidence.truncated) previews.appendChild(Object.assign(document.createElement('small'), { textContent: t('Additional affected slides not shown') }))
+          item.appendChild(previews)
+        }
+        if (proposal.status === 'pending') {
+          const actions = document.createElement('div')
+          actions.className = 'ed-agent-proposal-actions'
+          const revise = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Request changes') })
+          const reject = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Reject') })
+          const approve = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Approve') })
+          approve.className = 'ed-primary'
+          revise.addEventListener('click', () => {
+            const form = document.createElement('form')
+            form.className = 'ed-agent-proposal-feedback-form'
+            const label = document.createElement('label')
+            label.textContent = t('What should the agent revise?')
+            const input = document.createElement('textarea')
+            input.maxLength = 1200
+            input.required = true
+            input.rows = 3
+            label.appendChild(input)
+            const formActions = document.createElement('div')
+            const cancel = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Cancel') })
+            const send = Object.assign(document.createElement('button'), { type: 'submit', textContent: t('Send request') })
+            send.className = 'ed-primary'
+            cancel.addEventListener('click', () => { form.remove(); actions.hidden = false })
+            form.addEventListener('submit', (event) => {
+              event.preventDefault()
+              try { api?.requestProposalChanges?.(proposal.id, input.value); renderProposals() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) }
+            })
+            formActions.append(cancel, send)
+            form.append(label, formActions)
+            actions.hidden = true
+            item.appendChild(form)
+            input.focus()
+          })
+          reject.addEventListener('click', () => { try { api?.rejectProposal?.(proposal.id); renderProposals() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) } })
+          approve.addEventListener('click', () => { try { api?.approveProposal?.(proposal.id); renderProposals(); renderActivity() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) } })
+          actions.append(revise, reject, approve)
+          item.appendChild(actions)
+        }
+        proposalsList.appendChild(item)
+      }
+    }
+    const onAgentAction = () => { renderActivity(); renderProposals() }
+    const onAgentProposal = () => renderProposals()
     window.addEventListener('bento:agent-action', onAgentAction)
+    window.addEventListener('bento:agent-proposal', onAgentProposal)
     const updateStatus = () => {
       const current = api?.status?.() || 'off'
       status.textContent = current === 'connected' ? t('Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
       status.classList.toggle('ok', current === 'connected')
       pairing.classList.toggle('connected', current === 'connected')
+      renderProposals()
     }
     const existingStatus = api?.status?.() || 'off'
     if (existingStatus !== 'off') {
@@ -988,6 +1166,7 @@ export class Editor {
       timer = window.setInterval(updateStatus, 500)
     }
     renderActivity()
+    renderProposals()
     connectB.addEventListener('click', async () => {
       connectB.disabled = true
       try {
@@ -1010,7 +1189,7 @@ export class Editor {
     undoB.addEventListener('click', () => { if (api?.undoLast?.()) renderActivity() })
     redoB.addEventListener('click', () => { if (api?.redoLast?.()) renderActivity() })
     clearB.addEventListener('click', () => { api?.clearActions?.(); renderActivity() })
-    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); dialog.remove() }
+    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); window.removeEventListener('bento:agent-proposal', onAgentProposal); if (previewDialog.open) previewDialog.close(); previewDialog.remove(); dialog.remove() }
     dialog.querySelector<HTMLButtonElement>('.ed-agent-close')!.addEventListener('click', closePanel)
     dialog.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePanel() })
     dialog.tabIndex = -1

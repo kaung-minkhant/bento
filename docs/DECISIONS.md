@@ -14,6 +14,14 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Agent proposals are page-lifetime and human-approved
+Broad or destructive agent batches may be submitted as revision-guarded
+proposals, but only the editor UI can approve them. Proposals are preflighted,
+become stale after any document mutation, and apply as one normal undo
+checkpoint. They remain runtime workflow state rather than entering the
+portable document model, saved files, collaboration, or exports. See
+`docs/agent-proposals.md`.
+
 ## 2026-07-29 — Semantic and narrative quality checks remain advisory
 The deck-quality report includes a structured per-slide narrative map and
 conservative findings for title continuity, density shifts, opening/landing
