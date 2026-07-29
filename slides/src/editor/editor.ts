@@ -909,6 +909,7 @@ export class Editor {
       `<button class="ed-agent-connect ed-primary" type="button">${t('Create pairing code')}</button>` +
       `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><button class="ed-agent-disconnect" type="button">${t('Stop agent')}</button></div><code class="ed-agent-code"></code>` +
       `<p>${t('Tell your agent to claim this pairing code:')}</p><button class="ed-agent-copy" type="button">${ICONS.copy}<span>${t('Copy code')}</span></button>` +
+      `<section class="ed-agent-proposals" aria-live="polite"><header><strong>${t('Agent proposals')}</strong></header><div class="ed-agent-proposals-empty">${t('No agent proposals yet')}</div><ol class="ed-agent-proposals-list"></ol></section>` +
       `<section class="ed-agent-activity" aria-live="polite"><header><div><strong>${t('Agent activity')}</strong><span class="ed-agent-activity-summary"></span></div><div class="ed-agent-activity-actions"><button class="ed-agent-undo" type="button" title="${t('Undo last agent change')}">${ICONS.undo}</button><button class="ed-agent-redo" type="button" title="${t('Redo last agent change')}">${ICONS.redo}</button><button class="ed-agent-clear" type="button">${t('Clear activity')}</button></div></header><div class="ed-agent-activity-empty">${t('No agent actions yet')}</div><ol class="ed-agent-activity-list"></ol></section></div>`
     const urlInput = dialog.querySelector<HTMLInputElement>('.ed-agent-url')!
     const connectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-connect')!
@@ -923,15 +924,18 @@ export class Editor {
     const activityEmpty = dialog.querySelector<HTMLElement>('.ed-agent-activity-empty')!
     const activityList = dialog.querySelector<HTMLOListElement>('.ed-agent-activity-list')!
     const activitySummary = dialog.querySelector<HTMLElement>('.ed-agent-activity-summary')!
+    const proposalsEmpty = dialog.querySelector<HTMLElement>('.ed-agent-proposals-empty')!
+    const proposalsList = dialog.querySelector<HTMLOListElement>('.ed-agent-proposals-list')!
     try { urlInput.value = localStorage.getItem('bento-agent-adapter-url') || 'http://127.0.0.1:8790' } catch { urlInput.value = 'http://127.0.0.1:8790' }
     let timer: number | null = null
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
+    type Proposal = { id: string; title: string; summary?: string; status: 'pending' | 'applied' | 'rejected' | 'stale'; baseRevision: number; operationCount: number; affectedSlideIds: string[] }
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
         read_document: 'Read document', summary: 'Deck summary', deck_style: 'Deck style', slide_detail: 'Slide details', create_slide: 'Create slide',
         render_slide: 'Render slide', render_deck_thumbnails: 'Deck thumbnails', validate_slide: 'Validate slide',
         add_text: 'Add text', update_element: 'Update element', delete_element: 'Delete element',
-        set_notes: 'Set speaker notes', replace_document: 'Replace document', apply_operations: 'Apply operations',
+        set_notes: 'Set speaker notes', replace_document: 'Replace document', apply_operations: 'Apply operations', apply_proposal: 'Apply proposal',
       }
       return labels[operation] || operation.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())
     }
@@ -971,13 +975,50 @@ export class Editor {
         activityList.appendChild(item)
       }
     }
-    const onAgentAction = () => renderActivity()
+    let proposalsSignature = ''
+    const renderProposals = () => {
+      const proposals = api?.proposals?.() ?? []
+      const signature = JSON.stringify(proposals)
+      if (signature === proposalsSignature) return
+      proposalsSignature = signature
+      proposalsEmpty.hidden = proposals.length > 0
+      proposalsList.textContent = ''
+      for (const proposal of proposals.slice().reverse()) {
+        const item = document.createElement('li')
+        item.className = `ed-agent-proposal ${proposal.status}`
+        const heading = document.createElement('strong')
+        heading.textContent = proposal.title
+        const state = document.createElement('span')
+        state.textContent = t(proposal.status === 'pending' ? 'Pending' : proposal.status === 'applied' ? 'Applied' : proposal.status === 'rejected' ? 'Rejected' : 'Stale')
+        item.append(heading, state)
+        if (proposal.summary) item.appendChild(Object.assign(document.createElement('p'), { textContent: proposal.summary }))
+        const meta = document.createElement('small')
+        meta.textContent = `${proposal.operationCount} ${t('operations')} · ${proposal.affectedSlideIds.length} ${t('affected slides')}`
+        item.appendChild(meta)
+        if (proposal.status === 'pending') {
+          const actions = document.createElement('div')
+          actions.className = 'ed-agent-proposal-actions'
+          const reject = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Reject') })
+          const approve = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Approve') })
+          approve.className = 'ed-primary'
+          reject.addEventListener('click', () => { try { api?.rejectProposal?.(proposal.id); renderProposals() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) } })
+          approve.addEventListener('click', () => { try { api?.approveProposal?.(proposal.id); renderProposals(); renderActivity() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) } })
+          actions.append(reject, approve)
+          item.appendChild(actions)
+        }
+        proposalsList.appendChild(item)
+      }
+    }
+    const onAgentAction = () => { renderActivity(); renderProposals() }
+    const onAgentProposal = () => renderProposals()
     window.addEventListener('bento:agent-action', onAgentAction)
+    window.addEventListener('bento:agent-proposal', onAgentProposal)
     const updateStatus = () => {
       const current = api?.status?.() || 'off'
       status.textContent = current === 'connected' ? t('Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
       status.classList.toggle('ok', current === 'connected')
       pairing.classList.toggle('connected', current === 'connected')
+      renderProposals()
     }
     const existingStatus = api?.status?.() || 'off'
     if (existingStatus !== 'off') {
@@ -988,6 +1029,7 @@ export class Editor {
       timer = window.setInterval(updateStatus, 500)
     }
     renderActivity()
+    renderProposals()
     connectB.addEventListener('click', async () => {
       connectB.disabled = true
       try {
@@ -1010,7 +1052,7 @@ export class Editor {
     undoB.addEventListener('click', () => { if (api?.undoLast?.()) renderActivity() })
     redoB.addEventListener('click', () => { if (api?.redoLast?.()) renderActivity() })
     clearB.addEventListener('click', () => { api?.clearActions?.(); renderActivity() })
-    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); dialog.remove() }
+    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); window.removeEventListener('bento:agent-proposal', onAgentProposal); dialog.remove() }
     dialog.querySelector<HTMLButtonElement>('.ed-agent-close')!.addEventListener('click', closePanel)
     dialog.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePanel() })
     dialog.tabIndex = -1

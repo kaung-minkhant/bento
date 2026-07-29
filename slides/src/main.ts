@@ -32,6 +32,7 @@ import { inspectDesignLanguage } from './agent-design'
 import { applyAgentOperations, prepareAgentOperations } from './agent-operations'
 import { COMPOSITION_RECIPES, instantiateCompositionRecipe } from './composition-recipes'
 import { inspectDeckQuality } from './agent-quality'
+import { AgentProposalRegistry } from './agent-proposals'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -449,6 +450,7 @@ if (location.hash === '#present') {
     const actionOperations = new Map<string, AgentAction>()
     const agentUndoStack: AgentAction[] = []
     const agentRedoStack: AgentAction[] = []
+    const proposals = new AgentProposalRegistry()
     let agentHistoryRevision = store.revision
     let inspectionQueue: Promise<void> = Promise.resolve()
     const inspect = <T>(work: () => Promise<T>): Promise<T> => {
@@ -464,6 +466,7 @@ if (location.hash === '#present') {
     const notifyAction = (action: AgentAction) => {
       window.dispatchEvent(new CustomEvent('bento:agent-action', { detail: action }))
     }
+    const notifyProposals = () => window.dispatchEvent(new CustomEvent('bento:agent-proposal'))
     const sendResponse = (requestId: string, ok: boolean, value?: unknown, error?: string) => {
       const action = actionOperations.get(requestId)
       if (action) {
@@ -555,6 +558,22 @@ if (location.hash === '#present') {
           sendResponse(message.requestId, true, {
             recipes: COMPOSITION_RECIPES.map(({ sample: _sample, ...recipe }) => recipe),
           })
+          return
+        }
+        if (message.operation === 'list_proposals') {
+          sendResponse(message.requestId, true, { proposals: proposals.list(store.revision), revision: store.revision })
+          return
+        }
+        if (message.operation === 'propose_operations') {
+          if (!Array.isArray(params.operations)) throw new Error('propose_operations requires an operations array.')
+          const proposal = proposals.create(store.doc, store.revision, {
+            expectedRevision: Number(params.expectedRevision),
+            title: params.title as string,
+            summary: params.summary as string | undefined,
+            operations: params.operations,
+          })
+          notifyProposals()
+          sendResponse(message.requestId, true, { proposal, revision: store.revision })
           return
         }
         if (message.operation === 'create_slide_from_recipe') {
@@ -757,6 +776,36 @@ if (location.hash === '#present') {
     }
     const lastUndoableAction = () => store.revision === agentHistoryRevision ? agentUndoStack[agentUndoStack.length - 1] : undefined
     const lastRedoableAction = () => store.revision === agentHistoryRevision ? agentRedoStack[agentRedoStack.length - 1] : undefined
+    const approveProposal = (proposalId: string) => {
+      const prepared = proposals.operationsForApproval(proposalId, store.revision)
+      const beforeRevision = store.revision
+      let applied = applyAgentOperations(structuredClone(store.doc), prepared)
+      store.commit(() => {
+        applied = applyAgentOperations(store.doc, prepared)
+        store.currentIndex = Math.max(0, Math.min(store.currentIndex, store.doc.slides.length - 1))
+        store.selection = store.selection.filter((id) => store.element(id))
+      }, prepared.some((operation) => operation.type.endsWith('_slide')) ? 'slides' : 'doc')
+      if (prepared.some((operation) => operation.type === 'update_deck')) {
+        const titleInput = document.querySelector<HTMLInputElement>('.ed-title')
+        if (titleInput) titleInput.value = store.doc.title
+        document.title = `${store.doc.title} — ${appConfig().appName}`
+      }
+      const proposal = proposals.markApplied(proposalId, applied)
+      const finishedAt = Date.now()
+      const action: AgentAction = {
+        id: proposalId, operation: 'apply_proposal', phase: 'completed', startedAt: finishedAt,
+        finishedAt, beforeRevision, afterRevision: store.revision, durationMs: 0,
+      }
+      actionHistory.push(action)
+      if (actionHistory.length > 50) actionHistory.shift()
+      if (beforeRevision !== agentHistoryRevision) resetAgentHistory()
+      agentUndoStack.push(action)
+      agentRedoStack.length = 0
+      agentHistoryRevision = store.revision
+      notifyAction(action)
+      notifyProposals()
+      return proposal
+    }
     return {
       connect,
       connectPairing,
@@ -764,6 +813,13 @@ if (location.hash === '#present') {
       status: () => state,
       pairingCode: () => pairingCode,
       actions: () => actionHistory.map((action) => ({ ...action })),
+      proposals: () => proposals.list(store.revision),
+      approveProposal,
+      rejectProposal: (proposalId: string) => {
+        const proposal = proposals.reject(proposalId, store.revision)
+        notifyProposals()
+        return proposal
+      },
       revision: () => store.revision,
       undoLast: () => {
         const action = lastUndoableAction()

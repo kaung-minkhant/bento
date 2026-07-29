@@ -2286,6 +2286,23 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-activity-item.failed { border-left: 3px solid #C75045; }
 .ed-agent-activity-item.undone { border-left: 3px solid #8A98AA; opacity: 0.7; }
 .ed-agent-activity-item small { grid-column: 1 / -1; color: #9B3A2C; white-space: normal; }
+.ed-agent-proposals { margin-top: 14px; }
+.ed-agent-proposals header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ed-agent-proposals-empty { color: #8A98AA; font-size: 12px; padding: 10px 0; }
+.ed-agent-proposals-empty[hidden] { display: none; }
+.ed-agent-proposals-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ed-agent-proposal {
+  display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; padding: 11px 12px;
+  border: 1px solid #D8E0EA; border-left: 3px solid #E7A51B; border-radius: 10px; background: #F8FAFC;
+}
+.ed-agent-proposal > span { color: #66758A; font-size: 11px; text-transform: capitalize; }
+.ed-agent-proposal > p, .ed-agent-proposal > small { grid-column: 1 / -1; margin: 0; color: #66758A; font-size: 12px; line-height: 1.35; }
+.ed-agent-proposal > small { font-size: 11px; }
+.ed-agent-proposal.applied { border-left-color: #38A169; }
+.ed-agent-proposal.rejected, .ed-agent-proposal.stale { border-left-color: #8A98AA; opacity: .72; }
+.ed-agent-proposal-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 7px; margin-top: 4px; }
+.ed-agent-proposal-actions button { padding: 6px 12px; border: 1px solid #C8D2DF; border-radius: 999px; background: #FFF; font-weight: 650; cursor: pointer; }
+.ed-agent-proposal-actions button.ed-primary { border-color: #F0A23A; background: #F7A600; color: #172235; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }
 }
