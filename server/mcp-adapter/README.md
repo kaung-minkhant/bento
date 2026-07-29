@@ -34,9 +34,11 @@ lets an agent match the current visual language without transferring every
 slide model.
 `inspect_deck_quality` is a read-only whole-deck audit. It reports a triage
 score and evidence-backed findings for hierarchy, density, spacing rhythm,
-visual consistency, repetitive composition, and narrative landing. Findings
-reference stable slide/element ids and should be confirmed with rendering
-before an agent proposes edits.
+visual consistency, semantic-role coherence, repetitive composition, and
+narrative flow. Its per-slide narrative map reports inferred titles, title and
+role coverage, word counts, and purpose signals. Findings reference stable
+slide/element ids and should be confirmed with rendering before an agent
+proposes edits; fully untagged legacy decks are not penalized for absent roles.
 Authoring knowledge is available before pairing through Markdown resources at
 `bento://authoring/{overview,workflow,operations,elements,recipes,motion,math-media-svg,safety,examples}`.
 Clients without strong MCP-resource support can call the read-only
