@@ -151,9 +151,10 @@ change appearance.
   image narratives, and closing decisions without forcing every deck into one
   visual style.
 - Let agents inspect and reuse the current deck's visual language.
-- Expand the read-only deck-quality audit, which now checks hierarchy, rhythm,
-  density, consistency, composition variety, and narrative landing, with
-  richer narrative-flow and semantic-role analysis.
+- The read-only deck-quality audit now checks hierarchy, rhythm, density,
+  consistency, semantic-role coherence, composition variety, and narrative
+  flow. Its structured narrative map exposes title/role coverage, slide titles,
+  density, and purpose signals while keeping all findings advisory.
 - Presenter-controlled build steps are implemented: a click, Space, or forward arrow
   reveals the next element group before leaving the slide; elements assigned
   to the same step appear together, and backward navigation reverses builds

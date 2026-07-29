@@ -14,6 +14,13 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Semantic and narrative quality checks remain advisory
+The deck-quality report includes a structured per-slide narrative map and
+conservative findings for title continuity, density shifts, opening/landing
+framing, and role coherence. Declared title roles win over visual inference;
+role-coverage warnings activate only after a deck adopts roles, so untagged
+legacy decks are not penalized. Findings never trigger automatic edits.
+
 ## 2026-07-29 — Presenter builds are runtime state, separate from morph
 An optional integer `buildStep` groups elements for click-to-advance reveals;
 elements without it are visible immediately, equal steps reveal together, and
