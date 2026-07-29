@@ -144,6 +144,12 @@ then removed atomically.
 - Let agents inspect and reuse the current deck's visual language.
 - Add design-quality checks across slides for hierarchy, rhythm, consistency,
   and narrative flow.
+- Add presenter-controlled build steps: a click, Space, or forward arrow
+  reveals the next element group before leaving the slide; elements assigned
+  to the same step appear together, and backward navigation reverses builds
+  before moving to the previous slide. Integrate builds with presenter view,
+  reduced motion, media, links, transitions, undo/redo, and targeted MCP
+  operations.
 
 ### Phase 9: transactional agent workflow
 
