@@ -111,6 +111,12 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       annotations: { readOnlyHint: true, openWorldHint: false },
     }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'design_language')) })
 
+    server.registerTool('inspect_deck_quality', {
+      description: 'Audit the connected deck as a whole for hierarchy, density, spacing rhythm, visual consistency, repetitive composition, and narrative landing. Returns evidence-backed slide findings and suggestions without changing the deck.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'deck_quality')) })
+
     server.registerTool('list_composition_recipes', {
       description: 'List the shared bento/slides composition recipes and their structured content fields. Recipes adapt to the connected deck design system.',
       inputSchema: { docId: z.string().uuid() },

@@ -31,6 +31,7 @@ import { renderDeckThumbnailSheet, renderSlideImage, validateSlideVisuals } from
 import { inspectDesignLanguage } from './agent-design'
 import { applyAgentOperations, prepareAgentOperations } from './agent-operations'
 import { COMPOSITION_RECIPES, instantiateCompositionRecipe } from './composition-recipes'
+import { inspectDeckQuality } from './agent-quality'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -540,6 +541,13 @@ if (location.hash === '#present') {
             docId: store.doc.docId,
             revision: store.revision,
             ...inspectDesignLanguage(store.doc),
+          })
+          return
+        }
+        if (message.operation === 'deck_quality') {
+          sendResponse(message.requestId, true, {
+            docId: store.doc.docId, revision: store.revision,
+            ...inspectDeckQuality(store.doc),
           })
           return
         }

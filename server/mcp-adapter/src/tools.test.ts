@@ -46,7 +46,7 @@ test('browser bridge exposes targeted deck actions', async () => {
 
   const tools = await client.listTools()
   const names = tools.tools.map((tool) => tool.name)
-  for (const name of ['get_deck_summary', 'get_deck_style', 'inspect_design_system', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
+  for (const name of ['get_deck_summary', 'get_deck_style', 'inspect_design_system', 'inspect_deck_quality', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
     assert.ok(names.includes(name), `missing ${name}`)
   }
   await client.close()
@@ -90,6 +90,26 @@ test('inspect_design_system forwards a read-only design-language request', async
   const response = await client.callTool({ name: 'inspect_design_system', arguments: { docId: allowed } })
   assert.equal(response.isError, undefined)
   assert.deepEqual(calls, [{ docId: allowed, operation: 'design_language' }])
+  await client.close()
+  await server.close()
+})
+
+test('inspect_deck_quality forwards a read-only deck audit request', async () => {
+  const calls: Array<{ docId: string; operation: string }> = []
+  const bridge = {
+    request: async (docId: string, operation: string) => {
+      calls.push({ docId, operation })
+      return { docId, revision: 5, score: 91, rating: 'excellent', findings: [] }
+    },
+  } as unknown as BrowserBridge
+  const server = createMcpServer({ ...config, bridgeToken: 'bridge-token' }, undefined, bridge)
+  const client = new Client({ name: 'test-client', version: '1.0.0' })
+  const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+
+  const response = await client.callTool({ name: 'inspect_deck_quality', arguments: { docId: allowed } })
+  assert.equal(response.isError, undefined)
+  assert.deepEqual(calls, [{ docId: allowed, operation: 'deck_quality' }])
   await client.close()
   await server.close()
 })

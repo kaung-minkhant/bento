@@ -149,8 +149,9 @@ change appearance.
 - Expand reusable composition recipes beyond the first three common
   presentation structures without forcing every deck into one visual style.
 - Let agents inspect and reuse the current deck's visual language.
-- Add design-quality checks across slides for hierarchy, rhythm, consistency,
-  and narrative flow.
+- Expand the read-only deck-quality audit, which now checks hierarchy, rhythm,
+  density, consistency, composition variety, and narrative landing, with
+  richer narrative-flow and semantic-role analysis.
 - Add presenter-controlled build steps: a click, Space, or forward arrow
   reveals the next element group before leaving the slide; elements assigned
   to the same step appear together, and backward navigation reverses builds

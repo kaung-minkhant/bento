@@ -32,6 +32,11 @@ statistical fingerprint of the deck's observed colors, typography roles,
 spacing, radii, transitions, element mix, and recurring slide structures. It
 lets an agent match the current visual language without transferring every
 slide model.
+`inspect_deck_quality` is a read-only whole-deck audit. It reports a triage
+score and evidence-backed findings for hierarchy, density, spacing rhythm,
+visual consistency, repetitive composition, and narrative landing. Findings
+reference stable slide/element ids and should be confirmed with rendering
+before an agent proposes edits.
 `list_composition_recipes` describes the shared structured recipe catalog.
 `create_slide_from_recipe` creates a normal editable slide from one of those
 recipes, adapts it to the deck's tokens/theme, and requires the current

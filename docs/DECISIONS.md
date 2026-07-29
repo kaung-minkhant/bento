@@ -14,6 +14,12 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Deck-quality diagnostics are conservative and read-only
+`inspect_deck_quality` reports evidence-backed hierarchy, density, rhythm,
+consistency, variety, and narrative findings against stable slide/element ids.
+Its score is triage, not an aesthetic truth, and it never edits automatically;
+agents should inspect/render the cited slides before proposing corrections.
+
 ## 2026-07-29 — Composition recipes have one engine for UI and MCP
 Recipe definitions own structured fields, sample previews, and ordinary slide
 generation. The New Slide picker and revision-guarded MCP tools call that same
