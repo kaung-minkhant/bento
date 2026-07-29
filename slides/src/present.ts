@@ -8,7 +8,7 @@ import Reveal from 'reveal.js'
 import 'reveal.js/dist/reveal.css'
 import { anim, resetXform } from './anim'
 import { chartSnapshotSvg, mountChart } from './charts'
-import type { BentoDoc, GradientFill, ShapeElement, Slide, SlideElement } from './model'
+import type { BentoDoc, GradientFill, ShapeElement, Slide, SlideElement, TextElement } from './model'
 import { morphKey } from './model'
 import { applyElementFrame, gradientLineCoords, renderSlide } from './render'
 import { paintSpeaker, setSpeakerWindow, speakerIdleBody, speakerWindow } from './screens'
@@ -488,6 +488,7 @@ export function startPresentation(
   const exit = () => {
     if (exited) return
     exited = true
+    clearTimeout(slideTransitionTimer)
     // measurements are keyed by slide INDEX, so they'd be wrong for the next
     // show if the deck was edited in between — never carry them across
     symCache.clear()
@@ -587,6 +588,62 @@ export function startPresentation(
     }
   }, { passive: true })
 
+  // Reveal promotes the destination section before `slidechanged`. Usually the
+  // event follows in the same task, but a browser can occasionally composite
+  // the promoted section first (especially on repeat visits), exposing its
+  // final model frame for one flash. Keep only morph destinations hidden across
+  // that handoff; visibility preserves layout, so runMorph can still measure
+  // formula symbols and initialise every layer before the section is revealed.
+  let primedMorphSection: HTMLElement | null = null
+  let morphHandoffCover: HTMLElement | null = null
+  let morphHandoffFrame = 0
+  let slideTransitionTimer = 0
+  deck.on('beforeslidechange', ((event: any) => {
+    const fromIdx = deck.getIndices().h
+    const toIdx = Number(event.indexh)
+    if (fromIdx < 0 || !Number.isInteger(toIdx) || toIdx < 0 || toIdx === fromIdx) return
+    const forward = toIdx > fromIdx
+    const morphing =
+      toIdx !== fromIdx &&
+      ((forward && doc.slides[toIdx]?.transition === 'morph') ||
+        (!forward && doc.slides[fromIdx]?.transition === 'morph'))
+    clearTimeout(slideTransitionTimer)
+    slidesEl.querySelectorAll('.bento-transition-live').forEach((section) => {
+      section.classList.remove('bento-transition-live')
+    })
+    if (!morphing && !reduceMotion) {
+      // Reveal sets non-present sections to display:none, so its transition
+      // transforms have no painted start frame. Render just this pair before
+      // Reveal swaps future/present/past, then let its stock CSS interpolate.
+      const from = slidesEl.children[fromIdx] as HTMLElement | undefined
+      const to = slidesEl.children[toIdx] as HTMLElement | undefined
+      from?.classList.add('bento-transition-live')
+      to?.classList.add('bento-transition-live')
+      if (to) void to.offsetWidth
+    }
+    if (!morphing || reduceMotion) return
+    const to = slidesEl.children[toIdx] as HTMLElement | undefined
+    if (!to) return
+    cancelAnimationFrame(morphHandoffFrame)
+    morphHandoffCover?.remove()
+    const from = slidesEl.children[fromIdx] as HTMLElement | undefined
+    const surface = from?.querySelector<HTMLElement>('.bento-slide')
+    if (surface) {
+      morphHandoffCover = surface.cloneNode(true) as HTMLElement
+      morphHandoffCover.classList.add('bento-morph-handoff')
+      morphHandoffCover.style.cssText += ';position:absolute;inset:0;z-index:100;pointer-events:none'
+      slidesEl.appendChild(morphHandoffCover)
+    }
+    to.style.visibility = 'hidden'
+    primeMorphStart(doc, to, fromIdx, toIdx)
+    // Commit the start frame while this is still Reveal's hidden destination.
+    // Without the flush, Chromium can reuse the layer texture from the slide's
+    // previous visit for one compositor frame even though the inline styles are
+    // already correct by the time `slidechanged` observers inspect them.
+    void to.offsetWidth
+    primedMorphSection = to
+  }) as any)
+
   deck.on('slidechanged', ((event: any) => {
     const from = event.previousSlide as HTMLElement | undefined
     const to = event.currentSlide as HTMLElement
@@ -616,6 +673,13 @@ export function startPresentation(
       from &&
       ((forward && doc.slides[toIdx]?.transition === 'morph') ||
         (!forward && doc.slides[fromIdx]?.transition === 'morph'))
+    if (!morphing) {
+      slideTransitionTimer = window.setTimeout(() => {
+        slidesEl.querySelectorAll('.bento-transition-live').forEach((section) => {
+          section.classList.remove('bento-transition-live')
+        })
+      }, 850)
+    }
     if (morphing) { if (!reduceMotion) runMorph(doc, from!, to, fromIdx, toIdx) }
     else if (!reduceMotion) runEnterFx(doc.slides[toIdx], to)
     if (!reduceMotion) {
@@ -634,6 +698,21 @@ export function startPresentation(
     // symbol-morph on the way out. symbolOffsets normalises by the element's
     // own box, so measuring mid-morph is safe.
     cacheSlideSymbols(doc, to, toIdx)
+    if (primedMorphSection) {
+      primedMorphSection.style.visibility = ''
+      primedMorphSection = null
+      // Keep the outgoing pixels above the newly promoted compositor layer for
+      // one committed frame. Chromium can otherwise display a cached texture
+      // from the destination's previous visit even though its DOM state was
+      // primed before Reveal changed slides.
+      const cover = morphHandoffCover
+      morphHandoffFrame = requestAnimationFrame(() => {
+        morphHandoffFrame = requestAnimationFrame(() => {
+          cover?.remove()
+          if (morphHandoffCover === cover) morphHandoffCover = null
+        })
+      })
+    }
     updateSpeaker()
   }) as any)
 
@@ -1066,19 +1145,23 @@ function morphMathSymbols(
 
   const state = { p: 0 }
   for (const { node } of pairs) node.style.willChange = 'transform'
+  const apply = (p: number) => {
+    // undo the box tween's scale so the symbol delta stays in model units
+    const sx = (a.w + (b.w - a.w) * p) / Math.max(b.w, 0.01)
+    const sy = (a.h + (b.h - a.h) * p) / Math.max(b.h, 0.01)
+    for (const { node, dx, dy } of pairs) {
+      node.style.transform = `translate(${(dx * (1 - p)) / sx}px, ${(dy * (1 - p)) / sy}px)`
+    }
+  }
+  // anim.to reads its start state on the next animation frame. Initialise
+  // synchronously so the destination symbols cannot paint for one frame in
+  // their final positions before snapping back to the morph start.
+  apply(0)
   anim.to(state, {
     p: 1,
     duration: MORPH_DURATION,
     ease: MORPH_EASE,
-    onUpdate() {
-      const p = state.p
-      // undo the box tween's scale so the symbol delta stays in model units
-      const sx = (a.w + (b.w - a.w) * p) / Math.max(b.w, 0.01)
-      const sy = (a.h + (b.h - a.h) * p) / Math.max(b.h, 0.01)
-      for (const { node, dx, dy } of pairs) {
-        node.style.transform = `translate(${(dx * (1 - p)) / sx}px, ${(dy * (1 - p)) / sy}px)`
-      }
-    },
+    onUpdate() { apply(state.p) },
     onComplete() {
       for (const { node } of pairs) {
         node.style.transform = ''
@@ -1087,6 +1170,83 @@ function morphMathSymbols(
     },
   })
   return true
+}
+
+function applyMorphGeometry(
+  node: HTMLElement,
+  a: SlideElement,
+  b: SlideElement,
+  p: number,
+  base: SlideElement = b,
+) {
+  const x = a.x + (b.x - a.x) * p
+  const y = a.y + (b.y - a.y) * p
+  const w = a.w + (b.w - a.w) * p
+  const h = a.h + (b.h - a.h) * p
+  const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
+  const center = { x: 0.5, y: 0.5 }
+  const fromOrigin = a.rotationOrigin ?? center
+  const toOrigin = b.rotationOrigin ?? center
+  const origin = {
+    x: fromOrigin.x + (toOrigin.x - fromOrigin.x) * p,
+    y: fromOrigin.y + (toOrigin.y - fromOrigin.y) * p,
+  }
+  const anchorX = x + origin.x * w
+  const anchorY = y + origin.y * h
+  const baseAnchorX = base.x + origin.x * base.w
+  const baseAnchorY = base.y + origin.y * base.h
+  node.style.transformOrigin = `${origin.x * 100}% ${origin.y * 100}%`
+  node.style.transform =
+    `translate(${anchorX - baseAnchorX}px, ${anchorY - baseAnchorY}px)` +
+    (r ? ` rotate(${r}deg)` : '') +
+    ` scale(${w / Math.max(base.w, 0.01)}, ${h / Math.max(base.h, 0.01)})`
+}
+
+function textMorphNeedsCrossfade(a: TextElement, b: TextElement): boolean {
+  const sx = a.w / Math.max(b.w, 0.01)
+  const sy = a.h / Math.max(b.h, 0.01)
+  const formattingMatches =
+    a.html === b.html &&
+    a.fontFamily === b.fontFamily &&
+    a.fontWeight === b.fontWeight &&
+    a.align === b.align &&
+    a.valign === b.valign &&
+    a.lineHeight === b.lineHeight &&
+    (a.letterSpacing ?? 0) === (b.letterSpacing ?? 0) &&
+    JSON.stringify(a.colorGradient ?? null) === JSON.stringify(b.colorGradient ?? null) &&
+    JSON.stringify(a.textStroke ?? null) === JSON.stringify(b.textStroke ?? null)
+  // Direct box scaling is pixel-compatible only when it is uniform and also
+  // turns the destination font back into the source font size. Otherwise the
+  // browser lays out different glyphs inside the transformed destination box,
+  // which visibly jumps when the compositor handoff cover is removed.
+  const scaleMatches = Math.abs(sx - sy) < 0.001 && Math.abs(b.fontSize * sx - a.fontSize) < 0.25
+  return !formattingMatches || !scaleMatches
+}
+
+/** Seed the hidden destination before Reveal promotes it to `.present`. */
+function primeMorphStart(doc: BentoDoc, toSection: HTMLElement, fromIdx: number, toIdx: number) {
+  const fromModel = modelByMorphKey(doc, fromIdx)
+  const toModel = modelByMorphKey(doc, toIdx)
+  for (const [id, node] of elementsById(toSection)) {
+    const a = fromModel.get(id)
+    const b = toModel.get(id)
+    if (!a || !b) {
+      node.style.opacity = '0'
+      continue
+    }
+    if (a.x !== b.x || a.y !== b.y || a.w !== b.w || a.h !== b.h || (a.rotation ?? 0) !== (b.rotation ?? 0)) {
+      applyMorphGeometry(node, a, b, 0)
+    }
+    const crossfadeText = a.type === 'text' && b.type === 'text' && textMorphNeedsCrossfade(a, b)
+    node.style.opacity = crossfadeText ? '0' : String(a.opacity)
+    if (!crossfadeText && a.type === 'text' && b.type === 'text') {
+      const inner = node.querySelector<HTMLElement>('.bento-text-inner')
+      if (inner) inner.style.color = a.color
+    }
+    if (a.type === 'shape' && b.type === 'shape' && !a.fillGradient) {
+      node.querySelector<SVGElement>('rect,ellipse,polygon,line,path')?.setAttribute('fill', a.fill)
+    }
+  }
 }
 
 function runMorph(
@@ -1100,6 +1260,11 @@ function runMorph(
   const toEls = elementsById(toSection)
   const fromModel = modelByMorphKey(doc, fromIdx)
   const toModel = modelByMorphKey(doc, toIdx)
+  const crossfadeText = new Set<string>()
+  for (const [id, a] of fromModel) {
+    const b = toModel.get(id)
+    if (a.type === 'text' && b?.type === 'text' && textMorphNeedsCrossfade(a, b)) crossfadeText.add(id)
+  }
 
   const matchedFrom: HTMLElement[] = []
   const matchedTo: HTMLElement[] = []
@@ -1157,25 +1322,20 @@ function runMorph(
     if (!a || !b) continue
     if (a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && (a.rotation ?? 0) === (b.rotation ?? 0)) continue
     const state = { p: 0 }
-    node.style.transformOrigin = '0 0'
+    // Reveal has already made the destination section current when this
+    // handler runs. anim.to updates on the next frame, so without this eager
+    // start transform the browser can paint the destination's final geometry
+    // once before the morph resets. Apply progress 0 in the same task.
+    applyMorphGeometry(node, a, b, 0)
     anim.to(state, {
       p: 1,
       duration: MORPH_DURATION,
       ease: MORPH_EASE,
-      onUpdate() {
-        const p = state.p
-        const x = a.x + (b.x - a.x) * p
-        const y = a.y + (b.y - a.y) * p
-        const w = a.w + (b.w - a.w) * p
-        const h = a.h + (b.h - a.h) * p
-        const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
-        node.style.transform =
-          `translate(${x - b.x}px, ${y - b.y}px)` +
-          (r ? ` rotate(${r}deg)` : '') +
-          ` scale(${w / Math.max(b.w, 0.01)}, ${h / Math.max(b.h, 0.01)})`
-      },
+      onUpdate() { applyMorphGeometry(node, a, b, state.p) },
       onComplete() {
-        node.style.transformOrigin = ''
+        node.style.transformOrigin = b.rotationOrigin
+          ? `${b.rotationOrigin.x * 100}% ${b.rotationOrigin.y * 100}%`
+          : ''
         node.style.transform = b.rotation ? `rotate(${b.rotation}deg)` : ''
         resetXform(node)
       },
@@ -1190,7 +1350,46 @@ function runMorph(
     const a = fromModel.get(id)
     const b = toModel.get(id)
     if (!a || !b) continue
-    morphMathSymbols(symCache.get(symKey(fromIdx, id)), to, a, b)
+    if (!crossfadeText.has(id)) morphMathSymbols(symCache.get(symKey(fromIdx, id)), to, a, b)
+  }
+
+  // Text whose layout or formatting changes uses two rendered layers. The
+  // exact outgoing glyphs travel and fade out while the destination glyphs
+  // travel and fade in. Non-text elements keep the direct morph path above.
+  for (const id of crossfadeText) {
+    const from = fromEls.get(id)
+    const to = toEls.get(id)
+    const a = fromModel.get(id)
+    const b = toModel.get(id)
+    if (!from || !to || a?.type !== 'text' || b?.type !== 'text') continue
+    const surface = toSection.querySelector<HTMLElement>('.bento-slide')
+    if (!surface) continue
+    const sourceLayer = from.cloneNode(true) as HTMLElement
+    sourceLayer.classList.add('bento-morph-text-source')
+    delete sourceLayer.dataset.elId
+    delete sourceLayer.dataset.flipId
+    sourceLayer.style.pointerEvents = 'none'
+    surface.insertBefore(sourceLayer, to.nextSibling)
+
+    const travel = { p: 0 }
+    applyMorphGeometry(sourceLayer, a, b, 0, a)
+    anim.to(travel, {
+      p: 1,
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+      onUpdate() { applyMorphGeometry(sourceLayer, a, b, travel.p, a) },
+    })
+    anim.fromTo(sourceLayer, { opacity: a.opacity }, {
+      opacity: 0,
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+      onComplete() { sourceLayer.remove() },
+    })
+    anim.fromTo(to, { opacity: 0 }, {
+      opacity: b.opacity,
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+    })
   }
 
   // Styles morph straight from the model — exact values, no DOM sniffing.
@@ -1199,14 +1398,14 @@ function runMorph(
     const a = fromModel.get(id)
     const b = toModel.get(id)
     if (!a || !b) continue
-    if (a.opacity !== b.opacity) {
+    if (!crossfadeText.has(id) && a.opacity !== b.opacity) {
       anim.fromTo(to, { opacity: a.opacity }, { opacity: b.opacity, duration: MORPH_DURATION, ease: MORPH_EASE })
     }
     if (a.type === 'shape' && b.type === 'shape') {
       const target = to.querySelector<SVGElement>('rect,ellipse,polygon,line,path')
       if (target) morphShapeFill(target, a, b)
     }
-    if (a.type === 'text' && b.type === 'text' && a.color !== b.color) {
+    if (!crossfadeText.has(id) && a.type === 'text' && b.type === 'text' && a.color !== b.color) {
       const inner = to.querySelector<HTMLElement>('.bento-text-inner')
       if (inner) {
         anim.fromTo(inner, { color: a.color }, { color: b.color, duration: MORPH_DURATION, ease: MORPH_EASE })

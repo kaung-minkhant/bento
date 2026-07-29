@@ -43,6 +43,7 @@ export const es: Catalog = {
   "Align": "Alinear",
   "Ambient": "Ambiente",
   "Angle": "Ángulo",
+  "Rotation anchor": "Punto de rotación",
   "Apply": "Aplicar",
   "Arrange": "Organizar",
   "Arrow": "Flecha",
@@ -738,6 +739,9 @@ export const es: Catalog = {
   'Render slide': 'Renderizar diapositiva',
   'Validate slide': 'Validar diapositiva',
   'Deck thumbnails': 'Miniaturas de la presentación',
+  'Apply operations': 'Aplicar operaciones',
+  'Deck style': 'Estilo de la presentación',
+  'Slide details': 'Detalles de la diapositiva',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

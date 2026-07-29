@@ -99,6 +99,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       annotations: { readOnlyHint: true, openWorldHint: false },
     }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'summary')) })
 
+    server.registerTool('get_deck_style', {
+      description: 'Read the connected deck size, theme, presentation settings, layout catalog, asset metadata, and current revision without transferring asset contents.',
+      inputSchema: { docId: z.string().uuid() },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'deck_style')) })
+
+    server.registerTool('get_slide', {
+      description: 'Read one slide and its complete element model from the explicitly connected deck, together with the current revision.',
+      inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1) },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId, slideId }) => { assertAllowed(docId); return result(await bridge.request(docId, 'slide_detail', undefined, { slideId })) })
+
     server.registerTool('render_slide', {
       description: 'Render one slide from the explicitly connected bento editor as a PNG preview. This is read-only and does not change document history.',
       inputSchema: { docId: z.string().uuid(), slideId: z.string().min(1), width: z.number().int().min(320).max(1600).optional() },
@@ -121,6 +133,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
     }, async ({ docId, width, includeStates, limit }) => {
       assertAllowed(docId)
       return imageResult(await bridge.request(docId, 'render_deck_thumbnails', undefined, { width, includeStates, limit }))
+    })
+
+    server.registerTool('apply_operations', {
+      description: 'Atomically apply a prevalidated batch of targeted slide and element edits. Requires the current deck revision; stale batches fail without changing the deck.',
+      inputSchema: {
+        docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(), dryRun: z.boolean().optional(),
+        operations: z.array(z.record(z.unknown())).min(1).max(100),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    }, async ({ docId, expectedRevision, dryRun, operations }) => {
+      assertAllowed(docId)
+      return result(await bridge.request(docId, 'apply_operations', undefined, { expectedRevision, dryRun, operations }))
     })
 
     server.registerTool('create_slide', {

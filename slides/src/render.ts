@@ -136,6 +136,9 @@ export function applyElementFrame(node: HTMLElement, el: SlideElement) {
   node.style.top = `${el.y}px`
   node.style.width = `${el.w}px`
   node.style.height = `${el.h}px`
+  node.style.transformOrigin = el.rotationOrigin
+    ? `${el.rotationOrigin.x * 100}% ${el.rotationOrigin.y * 100}%`
+    : ''
   node.style.transform = el.rotation ? `rotate(${el.rotation}deg)` : ''
   node.style.opacity = String(el.opacity)
   const shadows = Array.isArray(el.shadow) ? el.shadow : el.shadow ? [el.shadow] : []

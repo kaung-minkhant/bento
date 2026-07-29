@@ -43,6 +43,7 @@ export const ja: Catalog = {
   "Align": "整列",
   "Ambient": "アンビエント",
   "Angle": "角度",
+  "Rotation anchor": "回転アンカー",
   "Apply": "適用",
   "Arrange": "配置",
   "Arrow": "矢印",
@@ -738,6 +739,9 @@ export const ja: Catalog = {
   'Render slide': 'スライドをレンダリング',
   'Validate slide': 'スライドを検証',
   'Deck thumbnails': 'デッキのサムネイル',
+  'Apply operations': '操作を適用',
+  'Deck style': 'デッキスタイル',
+  'Slide details': 'スライドの詳細',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

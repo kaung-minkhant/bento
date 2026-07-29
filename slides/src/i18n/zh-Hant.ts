@@ -43,6 +43,7 @@ export const zhHant: Catalog = {
   "Align": "對齊",
   "Ambient": "氛圍",
   "Angle": "角度",
+  "Rotation anchor": "旋轉錨點",
   "Apply": "套用",
   "Arrange": "排列",
   "Arrow": "箭頭",
@@ -738,6 +739,9 @@ export const zhHant: Catalog = {
   'Render slide': '算繪投影片',
   'Validate slide': '檢查投影片',
   'Deck thumbnails': '簡報縮圖',
+  'Apply operations': '套用操作',
+  'Deck style': '簡報樣式',
+  'Slide details': '投影片詳細資料',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

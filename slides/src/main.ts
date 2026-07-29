@@ -12,7 +12,7 @@ import {
 } from './save'
 import { APP_VERSION, checkForUpdates, buildUpdatedFile, applyUpdate } from './update'
 import { i18nApi, t } from './i18n'
-import { defaultText, emptySlide, newDoc, parseDoc, type BentoDoc } from './model'
+import { builtinLayouts, defaultText, emptySlide, newDoc, parseDoc, type BentoDoc } from './model'
 import { starterDoc } from './starterdeck'
 import { injectFonts } from './fonts'
 import { Store } from './store'
@@ -28,6 +28,7 @@ import {
 import { docContentKey } from './autosave'
 import { openHostedLibrary } from './hosted-library'
 import { renderDeckThumbnailSheet, renderSlideImage, validateSlideVisuals } from './agent-inspect'
+import { applyAgentOperations, prepareAgentOperations } from './agent-operations'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -500,6 +501,7 @@ if (location.hash === '#present') {
         if (message.operation === 'summary') {
           sendResponse(message.requestId, true, {
             docId: store.doc.docId,
+            revision: store.revision,
             title: store.doc.title,
             size: store.doc.size,
             slides: store.doc.slides.map((slide, index) => ({
@@ -514,6 +516,28 @@ if (location.hash === '#present') {
               })),
             })),
           })
+          return
+        }
+        if (message.operation === 'deck_style') {
+          const builtIns = builtinLayouts()
+          const builtInIds = new Set(builtIns.map((layout) => layout.id))
+          const assetMetadata = Object.entries(store.doc.assets ?? {}).map(([key, value]) => ({
+            key, kind: /^\s*<svg[\s>]/i.test(value) ? 'svg' : /^data:([^;,]+)/i.exec(value)?.[1] ?? 'unknown',
+            bytes: value.length,
+          }))
+          sendResponse(message.requestId, true, {
+            docId: store.doc.docId, revision: store.revision, size: store.doc.size,
+            theme: store.doc.theme, present: store.doc.present ?? {},
+            layouts: [...builtIns, ...(store.doc.layouts ?? [])].map((layout) => ({ id: layout.id, name: layout.name ?? null, builtIn: builtInIds.has(layout.id), elementCount: layout.elements.length })),
+            assets: assetMetadata,
+          })
+          return
+        }
+        if (message.operation === 'slide_detail') {
+          if (typeof params.slideId !== 'string') throw new Error('slide_detail requires slideId.')
+          const slide = store.doc.slides.find((item) => item.id === params.slideId)
+          if (!slide) throw new Error('The requested slide was not found.')
+          sendResponse(message.requestId, true, { docId: store.doc.docId, revision: store.revision, size: store.doc.size, slide: structuredClone(slide) })
           return
         }
         if (message.operation === 'render_slide') {
@@ -539,6 +563,34 @@ if (location.hash === '#present') {
           const rendered = await inspect(() => renderDeckThumbnailSheet(store.doc, { width, limit, includeStates: params.includeStates === true }))
           if (store.revision !== revision) rendered.warnings.push('The deck changed while these thumbnails were rendering.')
           sendResponse(message.requestId, true, { ...rendered, revision, currentRevision: store.revision })
+          return
+        }
+        if (message.operation === 'apply_operations') {
+          const expectedRevision = Number(params.expectedRevision)
+          if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw new Error('apply_operations requires a non-negative expectedRevision.')
+          if (expectedRevision !== store.revision) throw new Error(`Revision conflict: expected ${expectedRevision}, current ${store.revision}. Refresh the deck and retry.`)
+          if (!Array.isArray(params.operations)) throw new Error('apply_operations requires an operations array.')
+          const prepared = prepareAgentOperations(params.operations)
+          const draft = structuredClone(store.doc)
+          const preview = applyAgentOperations(draft, prepared)
+          if (!parseDoc(JSON.stringify(draft))) throw new Error('The operation batch would produce an invalid bento/slides document.')
+          if (params.dryRun === true) {
+            sendResponse(message.requestId, true, { ...preview, dryRun: true, previousRevision: store.revision, currentRevision: store.revision })
+            return
+          }
+          const previousRevision = store.revision
+          let applied = preview
+          store.commit(() => {
+            applied = applyAgentOperations(store.doc, prepared)
+            store.currentIndex = Math.max(0, Math.min(store.currentIndex, store.doc.slides.length - 1))
+            store.selection = store.selection.filter((id) => store.element(id))
+          }, prepared.some((operation) => operation.type.endsWith('_slide')) ? 'slides' : 'doc')
+          if (prepared.some((operation) => operation.type === 'update_deck')) {
+            const titleInput = document.querySelector<HTMLInputElement>('.ed-title')
+            if (titleInput) titleInput.value = store.doc.title
+            document.title = `${store.doc.title} — ${appConfig().appName}`
+          }
+          sendResponse(message.requestId, true, { ...applied, dryRun: false, previousRevision, currentRevision: store.revision })
           return
         }
         if (message.operation === 'create_slide') {

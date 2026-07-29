@@ -43,6 +43,7 @@ export const zhHans: Catalog = {
   "Align": "对齐",
   "Ambient": "氛围",
   "Angle": "角度",
+  "Rotation anchor": "旋转锚点",
   "Apply": "应用",
   "Arrange": "排列",
   "Arrow": "箭头",
@@ -738,6 +739,9 @@ export const zhHans: Catalog = {
   'Render slide': '渲染幻灯片',
   'Validate slide': '检查幻灯片',
   'Deck thumbnails': '演示文稿缩略图',
+  'Apply operations': '应用操作',
+  'Deck style': '演示文稿样式',
+  'Slide details': '幻灯片详情',
   'The agent bridge is unavailable.': 'The agent bridge is unavailable.',
   'Pairing failed': 'Pairing failed',
 }

@@ -927,10 +927,10 @@ export class Editor {
     const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
-        read_document: 'Read document', summary: 'Deck summary', create_slide: 'Create slide',
+        read_document: 'Read document', summary: 'Deck summary', deck_style: 'Deck style', slide_detail: 'Slide details', create_slide: 'Create slide',
         render_slide: 'Render slide', render_deck_thumbnails: 'Deck thumbnails', validate_slide: 'Validate slide',
         add_text: 'Add text', update_element: 'Update element', delete_element: 'Delete element',
-        set_notes: 'Set speaker notes', replace_document: 'Replace document',
+        set_notes: 'Set speaker notes', replace_document: 'Replace document', apply_operations: 'Apply operations',
       }
       return labels[operation] || operation.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase())
     }
