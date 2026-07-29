@@ -32,6 +32,13 @@ export interface ElementBase {
   rotationOrigin?: { x: number; y: number }
   opacity: number
   /**
+   * Presenter-controlled reveal group. Omitted elements are visible when the
+   * slide opens; positive integers reveal in ascending order, with equal
+   * values appearing together. Older viewers ignore this optional property
+   * and show the complete slide.
+   */
+  buildStep?: number
+  /**
    * Drop shadow(s), rendered with CSS drop-shadow so they follow the
    * element's alpha shape (rounded corners, ellipses, glyphs, image
    * cutouts). An array stacks: e.g. a dark elevation shadow plus a soft
@@ -386,6 +393,12 @@ export interface BentoDoc {
     chartPalette?: string[]
     /** defaults for newly inserted tables; omitted decks keep the standard look */
     table?: Partial<TableStyle>
+    /**
+     * Optional named composition tokens for agents, layouts, and future editor
+     * controls. Tokens are advisory in v1: existing element properties remain
+     * the rendered source of truth, so adding them cannot restyle old decks.
+     */
+    design?: DesignTokens
   }
   /** present-mode chrome; decks with built-in chrome can turn Reveal's off */
   present?: {
@@ -489,6 +502,22 @@ export interface BentoDoc {
   readonly?: boolean
   slides: Slide[]
   modified: string
+}
+
+export interface TypographyToken {
+  fontFamily?: string
+  fontSize?: number
+  fontWeight?: number
+  lineHeight?: number
+  letterSpacing?: number
+  color?: string
+}
+
+export interface DesignTokens {
+  colors?: Record<string, string>
+  typography?: Record<string, TypographyToken>
+  spacing?: Record<string, number>
+  radii?: Record<string, number>
 }
 
 let counter = 0

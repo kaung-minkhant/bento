@@ -8,7 +8,7 @@ The adapter never decrypts stored snapshots or receives a document password,
 vault key, or relay key. Metadata and session tools use the document service.
 Content tools require an explicit browser bridge connection and then inspect or
 change the open document through the editor's normal undoable mutation path.
-Agents should prefer the targeted tools (`get_deck_summary`, `get_deck_style`, `get_slide`, `render_slide`,
+Agents should prefer the targeted tools (`get_deck_summary`, `get_deck_style`, `inspect_design_system`, `get_slide`, `render_slide`,
 `render_deck_thumbnails`, `validate_slide`, `apply_operations`, `create_slide`, `add_text`,
 `update_element`, `delete_element`, and `set_speaker_notes`) so small edits do
 not transfer or overwrite the entire document. Rendering and validation are
@@ -22,8 +22,35 @@ z-order. A creation operation may declare `clientId`, which later operations
 in the same batch can use wherever a slide or element ID is expected.
 The same batch vocabulary also supports deck theme/presentation updates,
 safe embedded assets, built-in and custom layouts, and layout application.
+Deck themes may carry advisory `design` token maps for named colors,
+typography, spacing, and radii; these compose metadata for agents and recipes
+without silently restyling existing elements.
 `get_deck_style` reports layout and asset metadata without returning embedded
 asset bytes.
+`inspect_design_system` is read-only and reports declared design tokens plus a
+statistical fingerprint of the deck's observed colors, typography roles,
+spacing, radii, transitions, element mix, and recurring slide structures. It
+lets an agent match the current visual language without transferring every
+slide model.
+`inspect_deck_quality` is a read-only whole-deck audit. It reports a triage
+score and evidence-backed findings for hierarchy, density, spacing rhythm,
+visual consistency, repetitive composition, and narrative landing. Findings
+reference stable slide/element ids and should be confirmed with rendering
+before an agent proposes edits.
+Authoring knowledge is available before pairing through Markdown resources at
+`bento://authoring/{overview,workflow,operations,elements,recipes,motion,math-media-svg,safety,examples}`.
+Clients without strong MCP-resource support can call the read-only
+`get_authoring_guide` tool by topic or request one operation directly. The
+guide is versioned, and coverage tests keep implemented operations and recipe
+ids represented in it.
+Presenter-controlled builds use the common `buildStep` element property. Read
+the `elements` and `motion` topics for grouping, reverse navigation, entrance
+effects, reduced motion, and morph behavior before authoring them.
+`list_composition_recipes` describes the shared structured recipe catalog.
+`create_slide_from_recipe` creates a normal editable slide from one of those
+recipes, adapts it to the deck's tokens/theme, and requires the current
+revision so a stale request cannot overwrite concurrent work. The editor's
+New Slide picker uses the same recipe definitions and generation engine.
 The legacy
 `agent_read_document` and `agent_replace_document` tools remain available for
 clients that need full-document access.

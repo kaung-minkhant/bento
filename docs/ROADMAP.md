@@ -138,24 +138,32 @@ then removed atomically.
 
 ### Phase 8: composition system
 
+In progress. Optional named design tokens and the read-only MCP
+visual-language inspector now feed a shared recipe engine. The first three
+recipes (title/thesis, comparison, and academic results) are available in the
+editor's New Slide picker and through revision-guarded MCP creation. Existing
+element properties remain the rendered source of truth so old decks do not
+change appearance.
+
 - Expose deck themes, palettes, and named typography roles.
-- Provide reusable layout recipes for common presentation structures without
-  forcing every deck into one visual style.
+- Expand reusable composition recipes beyond the first three common
+  presentation structures without forcing every deck into one visual style.
 - Let agents inspect and reuse the current deck's visual language.
-- Add design-quality checks across slides for hierarchy, rhythm, consistency,
-  and narrative flow.
-- Add presenter-controlled build steps: a click, Space, or forward arrow
+- Expand the read-only deck-quality audit, which now checks hierarchy, rhythm,
+  density, consistency, composition variety, and narrative landing, with
+  richer narrative-flow and semantic-role analysis.
+- Presenter-controlled build steps are implemented: a click, Space, or forward arrow
   reveals the next element group before leaving the slide; elements assigned
   to the same step appear together, and backward navigation reverses builds
   before moving to the previous slide. Integrate builds with presenter view,
   reduced motion, media, links, transitions, undo/redo, and targeted MCP
-  operations.
-- Publish an MCP-native authoring guide so clients without repository access
-  can discover the complete `apply_operations` vocabulary, supported element
-  properties, animation/morph/math/media/build-step syntax, revision and safety
-  rules, valid examples, and the recommended inspect → dry-run → apply → render
-  → validate workflow. Expose it through MCP resources or an equivalent
-  capability-reference tool rather than relying on the repository README.
+  operations. Build progress remains runtime-only; configured entrance effects
+  play on reveal, reduced motion preserves sequencing without tweening, and
+  morph only considers elements visible at both endpoints.
+- The MCP-native authoring guide, exposed as nine topic resources
+  plus `get_authoring_guide`, with build-step syntax when presenter-controlled
+  now documents build-step syntax and behavior. Drift tests cover the current
+  operation vocabulary, recipes, and build guidance.
 
 ### Phase 9: transactional agent workflow
 

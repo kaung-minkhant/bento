@@ -25,7 +25,7 @@ const transitions = new Set<TransitionKind>(['none', 'fade', 'slide', 'zoom', 'm
 const shapeKinds = new Set<ShapeElement['shape']>(['rect', 'ellipse', 'triangle', 'arrow', 'line', 'path'])
 const commonElementKeys = new Set([
   'x', 'y', 'w', 'h', 'rotation', 'opacity', 'shadow', 'blur', 'blend', 'backdropFilter',
-  'rotationOrigin', 'fx', 'link', 'group', 'groupId', 'showOnHover', 'role', 'morphId',
+  'rotationOrigin', 'fx', 'link', 'group', 'groupId', 'showOnHover', 'role', 'morphId', 'buildStep',
 ])
 const textKeys = new Set([
   ...commonElementKeys, 'html', 'fontSize', 'fontFamily', 'fontWeight', 'color',
@@ -81,6 +81,30 @@ function cleanPatch(value: unknown, allowed: Set<string>, label: string): JsonOb
     clean[key] = structuredClone(entry)
   }
   return clean
+}
+
+function validateDesignTokens(value: unknown) {
+  const design = object(value, 'patch.theme.design')
+  for (const key of Object.keys(design)) if (!['colors', 'typography', 'spacing', 'radii'].includes(key)) throw new Error(`patch.theme.design.${key} is not supported.`)
+  for (const group of ['colors', 'spacing', 'radii'] as const) {
+    if (design[group] === undefined) continue
+    const entries = object(design[group], `patch.theme.design.${group}`)
+    for (const [name, token] of Object.entries(entries)) {
+      if (!name.trim() || name.length > 80) throw new Error(`patch.theme.design.${group} has an invalid token name.`)
+      if (group === 'colors' ? typeof token !== 'string' : typeof token !== 'number' || !Number.isFinite(token)) throw new Error(`patch.theme.design.${group}.${name} is invalid.`)
+    }
+  }
+  if (design.typography !== undefined) {
+    const typography = object(design.typography, 'patch.theme.design.typography')
+    for (const [name, raw] of Object.entries(typography)) {
+      if (!name.trim() || name.length > 80) throw new Error('patch.theme.design.typography has an invalid token name.')
+      const token = object(raw, `patch.theme.design.typography.${name}`)
+      for (const [key, entry] of Object.entries(token)) {
+        if (!['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color'].includes(key)) throw new Error(`patch.theme.design.typography.${name}.${key} is not supported.`)
+        if (['fontFamily', 'color'].includes(key) ? typeof entry !== 'string' : typeof entry !== 'number' || !Number.isFinite(entry)) throw new Error(`patch.theme.design.typography.${name}.${key} is invalid.`)
+      }
+    }
+  }
 }
 
 /** Validate syntax and allocate permanent ids once, before preflight and commit. */
@@ -227,6 +251,10 @@ function validateElementPatch(element: SlideElement, value: unknown): JsonObject
     const opacity = finite(patch.opacity, 'patch.opacity')
     if (opacity < 0 || opacity > 1) throw new Error('patch.opacity must be between 0 and 1.')
   }
+  if ('buildStep' in patch && patch.buildStep !== null) {
+    const step = finite(patch.buildStep, 'patch.buildStep')
+    if (!Number.isInteger(step) || step < 1 || step > 999) throw new Error('patch.buildStep must be an integer between 1 and 999, or null to clear it.')
+  }
   if ('rotationOrigin' in patch) {
     const origin = object(patch.rotationOrigin, 'patch.rotationOrigin')
     const x = finite(origin.x, 'patch.rotationOrigin.x')
@@ -302,6 +330,7 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
         for (const key of ['background', 'color', 'accent', 'fontFamily']) if (key in theme && typeof theme[key] !== 'string') throw new Error(`patch.theme.${key} must be a string.`)
         if ('chartPalette' in theme && (!Array.isArray(theme.chartPalette) || theme.chartPalette.some((color) => typeof color !== 'string'))) throw new Error('patch.theme.chartPalette must be an array of colors.')
         if ('table' in theme && theme.table !== undefined) object(theme.table, 'patch.theme.table')
+        if ('design' in theme && theme.design !== undefined) validateDesignTokens(theme.design)
         doc.theme = { ...doc.theme, ...theme }
       }
       if ('present' in patch && patch.present !== undefined) {
@@ -569,6 +598,7 @@ export function applyAgentOperations(doc: BentoDoc, operations: PreparedAgentOpe
       if (element.type === 'svg' && 'markup' in patch && patch.markup !== undefined) patch.markup = safeSvgMarkup(patch.markup)
       if (element.type === 'svg' && 'css' in patch && patch.css !== undefined) patch.css = safeSvgCss(patch.css)
       if (element.type === 'svg' && 'asset' in patch && patch.asset && !doc.assets?.[String(patch.asset)]) throw new Error(`SVG asset not found: ${String(patch.asset)}.`)
+      if (patch.buildStep === null) { delete element.buildStep; delete patch.buildStep }
       Object.assign(element, patch)
       if (element.type === 'table' && (!Array.isArray(element.columns) || !element.columns.length || !Array.isArray(element.rows) || !element.rows.length || element.rows.some((row) => !Array.isArray(row.cells) || row.cells.length !== element.columns.length))) throw new Error('Table rows and columns must be non-empty and rectangular.')
       if (element.type === 'media' && element.kind !== 'audio' && element.kind !== 'video') throw new Error('Media kind must be audio or video.')

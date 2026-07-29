@@ -25,6 +25,7 @@ import { borderPoint, boxCenter, lineEndpoints, setLineEndpoints, sideMidpoint }
 import { ICONS } from '../icons'
 import { t, setLocale, locale, LOCALE_CHOICES } from '../i18n'
 import { appConfig } from '../../../kernel/src/app.ts'
+import { COMPOSITION_RECIPES, instantiateCompositionRecipe, type CompositionRecipe } from '../composition-recipes'
 import { disconnectOnline, joinFromDoc, mintCollab, mintInvite, onlineTransport, rotateKeys, sharingOn, startSharing, stopSharing } from '../sync/online'
 import { getHostedProfile } from '../hosted'
 
@@ -1379,6 +1380,25 @@ export class Editor {
       t.textContent = i18nT('Apply layout to this slide')
       pick.appendChild(t)
     }
+    if (action.kind === 'insert') {
+      const h = div('ed-layoutpick-h')
+      h.textContent = t('Recipes')
+      pick.appendChild(h)
+      const grid = div('ed-layoutpick-grid')
+      for (const recipe of COMPOSITION_RECIPES) {
+        const item = div('ed-layoutpick-item')
+        item.title = t(recipe.description)
+        item.appendChild(renderThumbnail(instantiateCompositionRecipe(doc, recipe.id, recipe.sample), doc, 104))
+        const name = div('ed-layoutpick-name')
+        name.textContent = t(recipe.name)
+        item.appendChild(name)
+        item.addEventListener('click', () => {
+          this.openRecipeForm(pick, recipe, action.at)
+        })
+        grid.appendChild(item)
+      }
+      pick.appendChild(grid)
+    }
     const sections: Array<[string, Slide[], boolean]> = [[t('Built-in'), builtinLayouts(), false]]
     if (doc.layouts?.length) sections.push([t('This document'), doc.layouts, true])
     for (const [label, layouts, custom] of sections) {
@@ -1441,6 +1461,51 @@ export class Editor {
     this.store.commit(() => {
       this.store.doc.slides.splice(at, 0, slide)
     }, 'slides')
+    this.store.goTo(at)
+  }
+
+  private openRecipeForm(pick: HTMLElement, recipe: CompositionRecipe, at: number) {
+    pick.innerHTML = ''
+    const title = div('ed-layoutpick-title')
+    title.textContent = t(recipe.name)
+    pick.appendChild(title)
+    const description = div('ed-recipe-description')
+    description.textContent = t(recipe.description)
+    pick.appendChild(description)
+    const form = document.createElement('form')
+    form.className = 'ed-recipe-form'
+    for (const field of recipe.fields) {
+      const label = document.createElement('label')
+      label.textContent = `${t(field.label)}${field.required ? ' *' : ''}`
+      const input = field.multiline ? document.createElement('textarea') : document.createElement('input')
+      input.name = field.key
+      input.value = recipe.sample[field.key] ?? ''
+      input.required = field.required === true
+      if (input instanceof HTMLTextAreaElement) input.rows = 3
+      label.appendChild(input)
+      form.appendChild(label)
+    }
+    const actions = div('ed-recipe-actions')
+    const cancel = document.createElement('button')
+    cancel.type = 'button'; cancel.textContent = t('Cancel')
+    cancel.addEventListener('click', () => pick.remove())
+    const create = document.createElement('button')
+    create.type = 'submit'; create.textContent = t('Create')
+    actions.append(cancel, create)
+    form.appendChild(actions)
+    form.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const content = Object.fromEntries(new FormData(form).entries()) as Record<string, string>
+      this.insertSlideFromRecipe(recipe, at, content)
+      pick.remove()
+    })
+    pick.appendChild(form)
+    form.querySelector<HTMLElement>('input, textarea')?.focus()
+  }
+
+  private insertSlideFromRecipe(recipe: CompositionRecipe, at: number, content: Record<string, string>) {
+    const slide = instantiateCompositionRecipe(this.store.doc, recipe.id, content)
+    this.store.commit(() => this.store.doc.slides.splice(at, 0, slide), 'slides')
     this.store.goTo(at)
   }
 

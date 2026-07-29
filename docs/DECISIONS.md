@@ -14,6 +14,47 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Presenter builds are runtime state, separate from morph
+An optional integer `buildStep` groups elements for click-to-advance reveals;
+elements without it are visible immediately, equal steps reveal together, and
+backward navigation hides one group first. Presentation progress is runtime
+state keyed by stable slide id and never mutates the document. Morph only pairs
+elements visible at both slide endpoints; a later build uses its entrance
+effect instead. The editor and targeted MCP operations share this property.
+
+## 2026-07-29 — Authoring knowledge is discoverable before pairing
+Nine `bento://authoring/*` Markdown resources and the read-only
+`get_authoring_guide` fallback tool are registered independently of the browser
+bridge. One typed catalog generates both surfaces, and tests compare it with
+the implemented operation parser and recipe ids to prevent silent drift.
+
+## 2026-07-29 — Quality scoring measures meaningful content, not model complexity
+Density ignores decorative/background geometry and combines word count with
+occupied visual area; nearby colors and radii form families; heterogeneous
+decks soften typography penalties. Data visualizations without a visible
+assertion are checked explicitly. This calibration prevents richly constructed
+but visually sparse slides from being penalized for raw element count.
+
+## 2026-07-29 — Deck-quality diagnostics are conservative and read-only
+`inspect_deck_quality` reports evidence-backed hierarchy, density, rhythm,
+consistency, variety, and narrative findings against stable slide/element ids.
+Its score is triage, not an aesthetic truth, and it never edits automatically;
+agents should inspect/render the cited slides before proposing corrections.
+
+## 2026-07-29 — Composition recipes have one engine for UI and MCP
+Recipe definitions own structured fields, sample previews, and ordinary slide
+generation. The New Slide picker and revision-guarded MCP tools call that same
+engine, so recipes remain fully editable and cannot drift between agent and
+human authoring. Recipes consume advisory design tokens with deck-theme
+fallbacks; they do not introduce a new rendered document primitive.
+
+## 2026-07-29 — Phase 8 design tokens begin as advisory composition metadata
+`theme.design` stores optional named color, typography, spacing, and radius
+tokens, while `inspect_design_system` also infers the visual language actually
+used by the deck. Existing element properties remain the rendered source of
+truth in this first slice, so adding or editing token metadata cannot silently
+restyle shipped documents. Recipes may consume tokens in the next slice.
+
 ## 2026-07-24 — Naming: the platform is `bento`, the mark is `bento/.`, all lowercase
 Settled after working through the whole namespace. **Do not reopen these** —
 each rejected candidate was rejected for a specific reason, recorded below.

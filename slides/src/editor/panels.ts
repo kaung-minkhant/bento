@@ -348,6 +348,8 @@ export class PropsPanel {
     this.opsRow(els)
     this.section(t('Arrange'))
     this.arrangeRows(els)
+    this.section(t('Presenting'))
+    this.buildStepControl(els)
   }
 
   private buildElementPanel(el: SlideElement) {
@@ -579,6 +581,7 @@ export class PropsPanel {
   /** fx + link — how the element behaves while presenting. */
   private buildPresentingProps(el: SlideElement) {
     this.section(t('Presenting'))
+    this.buildStepControl([el])
     const setFx = (patch: Partial<NonNullable<SlideElement['fx']>>) =>
       this.mutate(el.id, (e) => {
         const fx = { ...(e.fx ?? {}), ...patch }
@@ -728,6 +731,53 @@ export class PropsPanel {
     makeState.title = t('Duplicates this slide as a hidden interactive state and links the selected element to it')
     makeState.addEventListener('click', () => this.createLinkedState(el))
     this.host.appendChild(makeState)
+  }
+
+  private buildStepControl(elements: SlideElement[]) {
+    const values = new Set(elements.map((element) => element.buildStep ?? null))
+    const input = document.createElement('input')
+    input.type = 'number'
+    input.min = '1'
+    input.max = '999'
+    input.step = '1'
+    input.placeholder = values.size > 1 ? t('Mixed') : t('None')
+    if (values.size === 1) {
+      const value = [...values][0]
+      if (value !== null) input.value = String(value)
+    }
+    input.addEventListener('change', () => {
+      const raw = input.value.trim()
+      const value = raw ? Math.max(1, Math.min(999, Math.round(Number(raw)))) : null
+      if (raw && !Number.isFinite(value)) return
+      this.edit(() => {
+        for (const selected of elements) {
+          const element = this.store.element(selected.id)
+          if (!element) continue
+          if (value === null) delete element.buildStep
+          else element.buildStep = value
+        }
+      }, true)
+    })
+    this.row('Build step', input)
+
+    const next = document.createElement('button')
+    next.className = 'ed-btn ed-btn-block'
+    next.textContent = t('＋ Assign next build step')
+    next.addEventListener('click', () => {
+      const highest = Math.max(0, ...this.store.slide.elements.map((element) => element.buildStep ?? 0))
+      const value = Math.min(999, highest + 1)
+      this.edit(() => {
+        for (const selected of elements) {
+          const element = this.store.element(selected.id)
+          if (element) element.buildStep = value
+        }
+      }, true)
+    })
+    this.host.appendChild(next)
+    const hint = document.createElement('p')
+    hint.className = 'ed-hint'
+    hint.textContent = t('Elements with the same build step appear together. Their entrance animation plays when that step is revealed.')
+    this.host.appendChild(hint)
   }
 
   /**
