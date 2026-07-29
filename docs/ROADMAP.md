@@ -128,7 +128,13 @@ manual slide deletion, and all-or-nothing rejection of invalid batches. Rich
 creation covered text, shapes, images, SVG, charts, tables, embedded assets,
 grouping, alignment, distribution, custom layouts, theme controls, targeted
 slide reads, rendering, and visual validation. Unsafe SVG and deletion of an
-in-use asset were rejected without changing the document.
+in-use asset were rejected without changing the document. Production
+acceptance on 2026-07-29 created and visually validated an eight-slide academic
+deck through targeted operations, then verified a revision-guarded atomic batch
+containing an embedded SVG asset, chart, table, and audio element. Media played
+in presentation mode and stopped on slide exit; agent undo removed the complete
+batch and redo restored it. The temporary acceptance slide and its assets were
+then removed atomically.
 
 ### Phase 8: composition system
 
@@ -138,6 +144,18 @@ in-use asset were rejected without changing the document.
 - Let agents inspect and reuse the current deck's visual language.
 - Add design-quality checks across slides for hierarchy, rhythm, consistency,
   and narrative flow.
+- Add presenter-controlled build steps: a click, Space, or forward arrow
+  reveals the next element group before leaving the slide; elements assigned
+  to the same step appear together, and backward navigation reverses builds
+  before moving to the previous slide. Integrate builds with presenter view,
+  reduced motion, media, links, transitions, undo/redo, and targeted MCP
+  operations.
+- Publish an MCP-native authoring guide so clients without repository access
+  can discover the complete `apply_operations` vocabulary, supported element
+  properties, animation/morph/math/media/build-step syntax, revision and safety
+  rules, valid examples, and the recommended inspect → dry-run → apply → render
+  → validate workflow. Expose it through MCP resources or an equivalent
+  capability-reference tool rather than relying on the repository README.
 
 ### Phase 9: transactional agent workflow
 
