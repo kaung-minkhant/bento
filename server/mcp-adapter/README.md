@@ -43,6 +43,9 @@ Clients without strong MCP-resource support can call the read-only
 `get_authoring_guide` tool by topic or request one operation directly. The
 guide is versioned, and coverage tests keep implemented operations and recipe
 ids represented in it.
+Presenter-controlled builds use the common `buildStep` element property. Read
+the `elements` and `motion` topics for grouping, reverse navigation, entrance
+effects, reduced motion, and morph behavior before authoring them.
 `list_composition_recipes` describes the shared structured recipe catalog.
 `create_slide_from_recipe` creates a normal editable slide from one of those
 recipes, adapts it to the deck's tokens/theme, and requires the current

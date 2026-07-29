@@ -86,6 +86,13 @@ test('authoring guide covers every implemented operation and recipe id', () => {
   const recipeIds = [...recipeSource.matchAll(/\bid: '(title-thesis|comparison|academic-results)'/g)].map((match) => match[1])
   const recipeGuide = authoringGuide('recipes').markdown
   for (const id of recipeIds) assert.match(recipeGuide, new RegExp(`\\b${id}\\b`))
+
+  const elementGuide = authoringGuide('elements').markdown
+  const motionGuide = authoringGuide('motion').markdown
+  assert.match(elementGuide, /buildStep/)
+  assert.match(elementGuide, /integer from 1 through 999/)
+  assert.match(motionGuide, /click, Space, or a forward arrow/)
+  assert.match(motionGuide, /only elements visible at both ends participate in a morph/)
 })
 
 test('apply_operations forwards revision, dry-run, and operation batch', async () => {
