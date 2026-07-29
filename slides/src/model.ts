@@ -28,7 +28,7 @@ export interface ElementBase {
   /** degrees, clockwise */
   rotation: number
   /** Normalized rotation pivot (0..1 within the element box). When omitted,
-   *  normal rendering uses CSS's center; morph keeps its legacy top-left pivot. */
+   *  normal rendering and morphing both use CSS's center. */
   rotationOrigin?: { x: number; y: number }
   opacity: number
   /**

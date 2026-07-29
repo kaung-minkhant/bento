@@ -1160,10 +1160,9 @@ function applyMorphGeometry(
   const w = a.w + (b.w - a.w) * p
   const h = a.h + (b.h - a.h) * p
   const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
-  const hasConfiguredOrigin = !!(a.rotationOrigin || b.rotationOrigin)
-  const legacy = hasConfiguredOrigin ? { x: 0.5, y: 0.5 } : { x: 0, y: 0 }
-  const fromOrigin = a.rotationOrigin ?? legacy
-  const toOrigin = b.rotationOrigin ?? legacy
+  const center = { x: 0.5, y: 0.5 }
+  const fromOrigin = a.rotationOrigin ?? center
+  const toOrigin = b.rotationOrigin ?? center
   const origin = {
     x: fromOrigin.x + (toOrigin.x - fromOrigin.x) * p,
     y: fromOrigin.y + (toOrigin.y - fromOrigin.y) * p,
