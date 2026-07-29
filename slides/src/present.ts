@@ -488,6 +488,7 @@ export function startPresentation(
   const exit = () => {
     if (exited) return
     exited = true
+    clearTimeout(slideTransitionTimer)
     // measurements are keyed by slide INDEX, so they'd be wrong for the next
     // show if the deck was edited in between — never carry them across
     symCache.clear()
@@ -596,14 +597,30 @@ export function startPresentation(
   let primedMorphSection: HTMLElement | null = null
   let morphHandoffCover: HTMLElement | null = null
   let morphHandoffFrame = 0
+  let slideTransitionTimer = 0
   deck.on('beforeslidechange', ((event: any) => {
     const fromIdx = deck.getIndices().h
     const toIdx = Number(event.indexh)
+    if (fromIdx < 0 || !Number.isInteger(toIdx) || toIdx < 0 || toIdx === fromIdx) return
     const forward = toIdx > fromIdx
     const morphing =
       toIdx !== fromIdx &&
       ((forward && doc.slides[toIdx]?.transition === 'morph') ||
         (!forward && doc.slides[fromIdx]?.transition === 'morph'))
+    clearTimeout(slideTransitionTimer)
+    slidesEl.querySelectorAll('.bento-transition-live').forEach((section) => {
+      section.classList.remove('bento-transition-live')
+    })
+    if (!morphing && !reduceMotion) {
+      // Reveal sets non-present sections to display:none, so its transition
+      // transforms have no painted start frame. Render just this pair before
+      // Reveal swaps future/present/past, then let its stock CSS interpolate.
+      const from = slidesEl.children[fromIdx] as HTMLElement | undefined
+      const to = slidesEl.children[toIdx] as HTMLElement | undefined
+      from?.classList.add('bento-transition-live')
+      to?.classList.add('bento-transition-live')
+      if (to) void to.offsetWidth
+    }
     if (!morphing || reduceMotion) return
     const to = slidesEl.children[toIdx] as HTMLElement | undefined
     if (!to) return
@@ -656,6 +673,13 @@ export function startPresentation(
       from &&
       ((forward && doc.slides[toIdx]?.transition === 'morph') ||
         (!forward && doc.slides[fromIdx]?.transition === 'morph'))
+    if (!morphing) {
+      slideTransitionTimer = window.setTimeout(() => {
+        slidesEl.querySelectorAll('.bento-transition-live').forEach((section) => {
+          section.classList.remove('bento-transition-live')
+        })
+      }, 850)
+    }
     if (morphing) { if (!reduceMotion) runMorph(doc, from!, to, fromIdx, toIdx) }
     else if (!reduceMotion) runEnterFx(doc.slides[toIdx], to)
     if (!reduceMotion) {
