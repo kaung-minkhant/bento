@@ -152,15 +152,18 @@ change appearance.
 - Expand the read-only deck-quality audit, which now checks hierarchy, rhythm,
   density, consistency, composition variety, and narrative landing, with
   richer narrative-flow and semantic-role analysis.
-- Add presenter-controlled build steps: a click, Space, or forward arrow
+- Presenter-controlled build steps are implemented: a click, Space, or forward arrow
   reveals the next element group before leaving the slide; elements assigned
   to the same step appear together, and backward navigation reverses builds
   before moving to the previous slide. Integrate builds with presenter view,
   reduced motion, media, links, transitions, undo/redo, and targeted MCP
-  operations.
-- Extend the MCP-native authoring guide, now exposed as nine topic resources
+  operations. Build progress remains runtime-only; configured entrance effects
+  play on reveal, reduced motion preserves sequencing without tweening, and
+  morph only considers elements visible at both endpoints.
+- The MCP-native authoring guide, exposed as nine topic resources
   plus `get_authoring_guide`, with build-step syntax when presenter-controlled
-  builds land. Drift tests cover the current operation vocabulary and recipes.
+  now documents build-step syntax and behavior. Drift tests cover the current
+  operation vocabulary, recipes, and build guidance.
 
 ### Phase 9: transactional agent workflow
 

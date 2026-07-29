@@ -14,6 +14,14 @@ Decision. Why. Pointers.
 
 ---
 
+## 2026-07-29 — Presenter builds are runtime state, separate from morph
+An optional integer `buildStep` groups elements for click-to-advance reveals;
+elements without it are visible immediately, equal steps reveal together, and
+backward navigation hides one group first. Presentation progress is runtime
+state keyed by stable slide id and never mutates the document. Morph only pairs
+elements visible at both slide endpoints; a later build uses its entrance
+effect instead. The editor and targeted MCP operations share this property.
+
 ## 2026-07-29 — Authoring knowledge is discoverable before pairing
 Nine `bento://authoring/*` Markdown resources and the read-only
 `get_authoring_guide` fallback tool are registered independently of the browser
