@@ -15,6 +15,7 @@ for (const recipe of COMPOSITION_RECIPES) {
   const slide = instantiateCompositionRecipe(doc, recipe.id, recipe.sample, `test-${recipe.id}`)
   assert.equal(slide.id, `test-${recipe.id}`)
   assert.ok(slide.elements.length >= 3, `${recipe.id} creates a useful composition`)
+  assert.equal(slide.elements.filter((element) => element.role === 'title').length, 1, `${recipe.id} creates exactly one semantic title`)
   assert.ok(slide.elements.every((element) =>
     Number.isFinite(element.x) && Number.isFinite(element.y) && element.w > 0 && element.h > 0 &&
     element.x >= 0 && element.y >= 0 && element.x + element.w <= doc.size.width + 0.01 && element.y + element.h <= doc.size.height + 0.01
