@@ -16,6 +16,17 @@ export interface AgentProposal {
   decidedAt?: number
   operationCount: number
   affectedSlideIds: string[]
+  destructive: boolean
+  changes: AgentProposalChange[]
+}
+
+export interface AgentProposalChange {
+  type: string
+  slideId?: string
+  elementId?: string
+  properties: string[]
+  value?: string
+  destructive: boolean
 }
 
 export interface AgentProposalInput {
@@ -45,6 +56,27 @@ function publicProposal(proposal: StoredAgentProposal): AgentProposal {
   return structuredClone(result)
 }
 
+function plainText(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const text = value.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+  return text ? text.slice(0, 160) : undefined
+}
+
+function proposalChange(operation: PreparedAgentOperation): AgentProposalChange {
+  const patch = operation.patch && typeof operation.patch === 'object' ? operation.patch as Record<string, unknown> : undefined
+  const props = operation.props && typeof operation.props === 'object' ? operation.props as Record<string, unknown> : undefined
+  const properties = patch ? Object.keys(patch) : props ? Object.keys(props) : []
+  const destructive = operation.type.startsWith('delete_')
+  return {
+    type: operation.type,
+    slideId: typeof operation.slideId === 'string' ? operation.slideId : undefined,
+    elementId: typeof operation.elementId === 'string' ? operation.elementId : undefined,
+    properties,
+    value: plainText(props?.html ?? patch?.html ?? operation.name),
+    destructive,
+  }
+}
+
 /** Page-lifetime proposal registry. Proposals never enter the portable document model. */
 export class AgentProposalRegistry {
   private proposals: StoredAgentProposal[] = []
@@ -62,6 +94,8 @@ export class AgentProposalRegistry {
       id: uid('proposal'), title, summary, status: 'pending', baseRevision: currentRevision,
       createdAt: Date.now(), operationCount: preview.operationCount,
       affectedSlideIds: preview.affectedSlideIds, operations,
+      destructive: operations.some((operation) => operation.type.startsWith('delete_')),
+      changes: operations.map(proposalChange),
     }
     this.proposals.push(proposal)
     if (this.proposals.length > 50) this.proposals.shift()
@@ -83,6 +117,13 @@ export class AgentProposalRegistry {
     const proposal = this.find(id)
     if (proposal.status !== 'pending') throw new Error(`Proposal ${id} is ${proposal.status} and cannot be approved.`)
     return structuredClone(proposal.operations)
+  }
+
+  previewDocument(id: string, doc: BentoDoc, currentRevision: number): BentoDoc {
+    const operations = this.operationsForApproval(id, currentRevision)
+    const draft = structuredClone(doc)
+    applyAgentOperations(draft, operations)
+    return draft
   }
 
   markApplied(id: string, result: AgentOperationResult, decidedAt = Date.now()): AgentProposal {

@@ -15,7 +15,12 @@ const proposal = registry.create(doc, 4, {
 assert.equal(proposal.status, 'pending')
 assert.equal(proposal.operationCount, 1)
 assert.deepEqual(proposal.affectedSlideIds, [doc.slides[0].id])
+assert.equal(proposal.destructive, false)
+assert.deepEqual(proposal.changes, [{ type: 'update_element', slideId: doc.slides[0].id, elementId: 'existing', properties: ['html'], value: 'After', destructive: false }])
 assert.equal(doc.slides[0].elements[0].type === 'text' && doc.slides[0].elements[0].html, 'Before', 'proposal creation is read-only')
+const preview = registry.previewDocument(proposal.id, doc, 4)
+assert.equal(preview.slides[0].elements[0].type === 'text' && preview.slides[0].elements[0].html, 'After')
+assert.equal(doc.slides[0].elements[0].type === 'text' && doc.slides[0].elements[0].html, 'Before', 'preview generation is read-only')
 
 const prepared = registry.operationsForApproval(proposal.id, 4)
 const applied = applyAgentOperations(doc, prepared)
@@ -27,6 +32,8 @@ const rejected = registry.create(doc, 5, {
   expectedRevision: 5, title: 'Delete supporting copy',
   operations: [{ type: 'delete_element', slideId: doc.slides[0].id, elementId: 'existing' }],
 })
+assert.equal(rejected.destructive, true)
+assert.equal(rejected.changes[0].destructive, true)
 assert.equal(registry.reject(rejected.id, 5, 101).status, 'rejected')
 
 const stale = registry.create(doc, 5, {
