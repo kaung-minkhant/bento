@@ -2379,6 +2379,10 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal-verification li small { color: #77869A; overflow-wrap: anywhere; }
 .ed-agent-proposal-verification li p { margin: 2px 0 0; }
 .ed-agent-proposal-verification > small { color: #66758A; font-size: 10px; }
+.ed-agent-request-follow-up { justify-self: end; color: #2D6CDF; font-weight: 700; }
+.ed-agent-proposal-follow-up { display: grid !important; justify-content: stretch !important; gap: 3px !important; padding: 7px 8px; border-radius: 7px; background: #EEF4FF; }
+.ed-agent-proposal-follow-up strong { color: #34445A; font-size: 11px; }
+.ed-agent-proposal-follow-up p { margin: 0; color: #526176; font-size: 11px; line-height: 1.4; white-space: pre-wrap; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }
   .ed-agent-preview-dialog { width: calc(100vw - 24px); padding: 12px; }

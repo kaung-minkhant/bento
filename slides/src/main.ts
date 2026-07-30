@@ -593,6 +593,7 @@ if (location.hash === '#present') {
             title: params.title as string,
             summary: params.summary as string | undefined,
             replacesProposalId: params.replacesProposalId as string | undefined,
+            followsProposalId: params.followsProposalId as string | undefined,
             operations: params.operations,
           })
           const draft = proposals.previewDocument(proposal.id, baseDoc, proposal.baseRevision)
@@ -931,6 +932,11 @@ if (location.hash === '#present') {
       },
       requestProposalChanges: (proposalId: string, feedback: string) => {
         const proposal = proposals.requestChanges(proposalId, store.revision, feedback)
+        notifyProposals()
+        return proposal
+      },
+      requestProposalFollowUp: (proposalId: string, guidance: string) => {
+        const proposal = proposals.requestFollowUp(proposalId, store.revision, guidance)
         notifyProposals()
         return proposal
       },

@@ -941,6 +941,7 @@ export class Editor {
     type Proposal = {
       id: string; title: string; summary?: string; status: 'pending' | 'changes_requested' | 'superseded' | 'applied' | 'rejected' | 'stale'; baseRevision: number
       feedback?: string; feedbackAt?: number; parentProposalId?: string; replacementProposalId?: string
+      followUp?: { status: 'requested' | 'proposed'; guidance: string; requestedAt: number; proposalId?: string }
       operationCount: number; affectedSlideIds: string[]; destructive: boolean
       changes: Array<{ type: string; slideId?: string; elementId?: string; properties: string[]; value?: string; destructive: boolean }>
       evidence?: { previews: Array<{ slideId: string; name: string | null; before?: string; after?: string; warning?: string }>; truncated: boolean }
@@ -949,7 +950,7 @@ export class Editor {
         slides: Array<{ slideId: string; name: string | null; width: number; height: number; image?: string; warnings: string[]; elementLabels: Record<string, string>; findings: Array<{ severity: string; message: string; elementIds: string[]; introduced: boolean; bounds?: { x: number; y: number; w: number; h: number } }>; error?: string }>
       }
     }
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; requestProposalFollowUp?: (id: string, guidance: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
         read_document: 'Read document', summary: 'Deck summary', deck_style: 'Deck style', slide_detail: 'Slide details', create_slide: 'Create slide',
@@ -1191,6 +1192,44 @@ export class Editor {
             verification.appendChild(result)
           }
           if (proposal.verification.truncated) verification.appendChild(Object.assign(document.createElement('small'), { textContent: t('Additional affected slides not checked') }))
+          if (proposal.followUp) {
+            const followUp = document.createElement('div')
+            followUp.className = 'ed-agent-proposal-follow-up'
+            followUp.append(
+              Object.assign(document.createElement('strong'), { textContent: t(proposal.followUp.status === 'requested' ? 'Follow-up requested' : 'Follow-up proposed') }),
+              Object.assign(document.createElement('p'), { textContent: proposal.followUp.guidance }),
+            )
+            verification.appendChild(followUp)
+          } else if (proposal.verification.issueCount > 0 && !proposal.verification.outdated) {
+            const request = Object.assign(document.createElement('button'), { type: 'button', className: 'ed-agent-request-follow-up', textContent: t('Request follow-up') })
+            request.addEventListener('click', () => {
+              const form = document.createElement('form')
+              form.className = 'ed-agent-proposal-feedback-form'
+              const label = document.createElement('label')
+              label.textContent = t('What should the follow-up preserve or change?')
+              const input = document.createElement('textarea')
+              input.maxLength = 1200
+              input.required = true
+              input.rows = 3
+              input.value = t('Address the newly introduced verification findings while preserving the approved intent.')
+              label.appendChild(input)
+              const formActions = document.createElement('div')
+              const cancel = Object.assign(document.createElement('button'), { type: 'button', textContent: t('Cancel') })
+              const send = Object.assign(document.createElement('button'), { type: 'submit', className: 'ed-primary', textContent: t('Send request') })
+              cancel.addEventListener('click', () => { form.remove(); request.hidden = false })
+              form.addEventListener('submit', (event) => {
+                event.preventDefault()
+                try { api?.requestProposalFollowUp?.(proposal.id, input.value); renderProposals() } catch (error) { this.toast(error instanceof Error ? error.message : t('Proposal failed')) }
+              })
+              formActions.append(cancel, send)
+              form.append(label, formActions)
+              request.hidden = true
+              verification.appendChild(form)
+              input.focus()
+              input.select()
+            })
+            verification.appendChild(request)
+          }
           item.appendChild(verification)
         }
         if (proposal.status === 'pending') {
