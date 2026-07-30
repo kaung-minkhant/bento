@@ -173,7 +173,7 @@ was removed atomically after verification.
 
 ### Phase 9: transactional agent workflow
 
-Implementation complete. The proposal contract is defined in
+Complete. The proposal contract is defined in
 `docs/agent-proposals.md`: proposals are page-lifetime editor workflow state,
 preflight at a guarded base revision, become stale after any intervening edit,
 and can only be approved or rejected by a person in the editor. Reviewers can
@@ -204,6 +204,8 @@ ships the complete skill folder rather than dropping those references.
 - Expose submission and status through MCP without exposing an agent-side
   approval capability.
 
-Production acceptance remains the release gate before Phase 9 is merged to
-`main`: repeat notification, revision, approval, verification, and agent
-undo/redo against the deployed MCP adapter.
+Production acceptance on 2026-07-30 verified the deployed MCP adapter's tool
+discovery, pairing, approval notifications and click-through, feedback-driven
+replacement proposals, cursor-based wake-up after feedback and approval,
+post-approval verification with zero findings, and agent undo/redo of the
+approved revision. Phase 9 is ready to merge to `main`.
