@@ -190,6 +190,12 @@ chat handoff. Opt-in browser notifications were deduplicated per proposal;
 clicking one focused bento, opened the agent panel, and located the matching
 approval. The final approved test introduced no new validation issues.
 
+The packaged `bento-slides` skill now treats the live MCP authoring guide as
+the schema authority and adds an MCP-first inspect, compose, propose, wait,
+verify, and refine workflow. Progressive references cover deck craft,
+transactional review, and safe standalone-file authoring; release packaging
+ships the complete skill folder rather than dropping those references.
+
 - Support the full inspect, plan, propose, review, apply, render, critique,
   refine, validate, and approve loop in the editor.
 - Add explicit agent proposals and human approval checkpoints for broad or

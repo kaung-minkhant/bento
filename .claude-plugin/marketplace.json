@@ -5,7 +5,7 @@
     {
       "name": "bento-slides",
       "source": "./plugins/bento-slides",
-      "description": "Author Bento presentations — self-contained .bento.html decks with morph transitions, live charts and speaker notes. Starts from nothing: downloads the latest Bento app automatically.",
+      "description": "Author polished bento/slides decks through MCP review workflows or standalone .bento.html files.",
       "homepage": "https://bento.page",
       "license": "MIT",
       "keywords": ["slides", "presentation", "deck", "bento", "powerpoint"]
