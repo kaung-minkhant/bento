@@ -28,7 +28,7 @@ import {
 import { docContentKey } from './autosave'
 import { openHostedLibrary } from './hosted-library'
 import { renderDeckThumbnailSheet, renderSlideImage, validateSlideVisuals } from './agent-inspect'
-import { completeProposalVerification, type ProposalVerification, type ProposalVerificationSlide } from './agent-verification'
+import { classifyVerificationFindings, completeProposalVerification, type ProposalVerification, type ProposalVerificationSlide } from './agent-verification'
 import { inspectDesignLanguage } from './agent-design'
 import { applyAgentOperations, prepareAgentOperations } from './agent-operations'
 import { COMPOSITION_RECIPES, instantiateCompositionRecipe } from './composition-recipes'
@@ -823,13 +823,25 @@ if (location.hash === '#present') {
     }
     const lastUndoableAction = () => store.revision === agentHistoryRevision ? agentUndoStack[agentUndoStack.length - 1] : undefined
     const lastRedoableAction = () => store.revision === agentHistoryRevision ? agentRedoStack[agentRedoStack.length - 1] : undefined
-    const verifyAppliedProposal = async (proposal: ReturnType<AgentProposalRegistry['get']>) => {
-      const revision = store.revision
-      const snapshot = structuredClone(store.doc)
+    const verificationElementLabels = (slideId: string, snapshot: typeof store.doc): Record<string, string> => {
+      const slide = snapshot.slides.find((item) => item.id === slideId)
+      if (!slide) return {}
+      return Object.fromEntries(slide.elements.map((element) => {
+        if (element.type !== 'text') return [element.id, element.type]
+        const text = element.html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+        return [element.id, text.slice(0, 120) || 'text']
+      }))
+    }
+    const verifyAppliedProposal = async (
+      proposal: ReturnType<AgentProposalRegistry['get']>,
+      baseline: typeof store.doc,
+      snapshot: typeof store.doc,
+      revision: number,
+    ) => {
       const slideIds = proposal.affectedSlideIds.filter((slideId) => snapshot.slides.some((slide) => slide.id === slideId))
       const boundedIds = slideIds.slice(0, MAX_VERIFICATION_SLIDES)
       const verification: ProposalVerification = {
-        status: 'checking', revision, startedAt: Date.now(), issueCount: 0, slides: [],
+        status: 'checking', revision, startedAt: Date.now(), issueCount: 0, existingIssueCount: 0, slides: [],
         truncated: slideIds.length > boundedIds.length,
       }
       proposalVerifications.set(proposal.id, verification)
@@ -838,7 +850,10 @@ if (location.hash === '#present') {
         const results: ProposalVerificationSlide[] = []
         for (const slideId of boundedIds) {
           const slide = snapshot.slides.find((item) => item.id === slideId)!
-          const result: ProposalVerificationSlide = { slideId, name: slide.name ?? null, warnings: [], findings: [] }
+          const result: ProposalVerificationSlide = {
+            slideId, name: slide.name ?? null, width: snapshot.size.width, height: snapshot.size.height,
+            warnings: [], findings: [], elementLabels: verificationElementLabels(slideId, snapshot),
+          }
           const errors: string[] = []
           try {
             const rendered = await renderSlideImage(snapshot, slideId, PROPOSAL_VERIFICATION_WIDTH)
@@ -848,7 +863,10 @@ if (location.hash === '#present') {
             errors.push(error instanceof Error ? error.message : 'Post-approval render failed.')
           }
           try {
-            result.findings = (await validateSlideVisuals(snapshot, slideId)).findings
+            const findings = (await validateSlideVisuals(snapshot, slideId)).findings
+            const baselineFindings = baseline.slides.some((item) => item.id === slideId)
+              ? (await validateSlideVisuals(baseline, slideId)).findings : []
+            result.findings = classifyVerificationFindings(findings, baselineFindings)
           } catch (error) {
             errors.push(error instanceof Error ? error.message : 'Post-approval validation failed.')
           }
@@ -863,6 +881,7 @@ if (location.hash === '#present') {
     const approveProposal = (proposalId: string) => {
       const prepared = proposals.operationsForApproval(proposalId, store.revision)
       const beforeRevision = store.revision
+      const baseline = structuredClone(store.doc)
       let applied = applyAgentOperations(structuredClone(store.doc), prepared)
       store.commit(() => {
         applied = applyAgentOperations(store.doc, prepared)
@@ -875,6 +894,8 @@ if (location.hash === '#present') {
         document.title = `${store.doc.title} — ${appConfig().appName}`
       }
       const proposal = proposals.markApplied(proposalId, applied)
+      const appliedSnapshot = structuredClone(store.doc)
+      const appliedRevision = store.revision
       const finishedAt = Date.now()
       const action: AgentAction = {
         id: proposalId, operation: 'apply_proposal', phase: 'completed', startedAt: finishedAt,
@@ -888,7 +909,7 @@ if (location.hash === '#present') {
       agentHistoryRevision = store.revision
       notifyAction(action)
       notifyProposals()
-      void verifyAppliedProposal(proposal)
+      void verifyAppliedProposal(proposal, baseline, appliedSnapshot, appliedRevision)
       return proposal
     }
     return {
