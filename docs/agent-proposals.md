@@ -101,3 +101,9 @@ Waits return on change requests, approval, rejection, verification completion,
 or follow-up requests. A bounded timeout returns a compact unchanged result,
 not an error. Waiting is read-only, consumes no model tokens while blocked,
 and is cancelled when the browser bridge disconnects.
+
+Authors can opt into browser approval notifications from the connected-agent
+row. Each pending proposal produces at most one notification during the page
+session. Clicking it focuses the editor, opens the agent panel, and scrolls the
+matching proposal into view. Notification permission remains a
+browser-controlled user choice; bento does not prompt for it automatically.

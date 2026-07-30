@@ -70,6 +70,7 @@ export class Editor {
     private store: Store,
   ) {
     this.build()
+    window.addEventListener('bento:agent-proposal', () => this.notifyPendingAgentProposal())
     this.wireKeyboard()
     store.on('slides', () => this.rebuildSidebar())
     store.on('current', () => this.highlightSidebar())
@@ -896,8 +897,46 @@ export class Editor {
 
   // --- live-collaboration Share popover ------------------------------------
 
-  private openAgentPanel() {
+  private agentPanel: HTMLElement | null = null
+  private notifiedAgentProposals = new Set<string>()
+
+  private agentApi() {
+    type Proposal = { id: string; title: string; status: string }
+    return (window as unknown as { bento?: { agent?: { proposals?: () => Proposal[] } } }).bento?.agent
+  }
+
+  private focusAgentProposal(proposalId: string) {
+    window.focus()
+    this.openAgentPanel(proposalId)
+  }
+
+  private notifyPendingAgentProposal() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return
+    const pending = this.agentApi()?.proposals?.().filter((proposal) => proposal.status === 'pending') ?? []
+    for (const proposal of pending) {
+      if (this.notifiedAgentProposals.has(proposal.id)) continue
+      try {
+        const notification = new Notification(t('Agent approval requested'), {
+          body: proposal.title,
+          tag: `bento-agent-proposal-${proposal.id}`,
+        })
+        this.notifiedAgentProposals.add(proposal.id)
+        notification.addEventListener('click', () => {
+          notification.close()
+          this.focusAgentProposal(proposal.id)
+        })
+      } catch { /* the browser or host OS declined delivery */ }
+    }
+  }
+
+  private openAgentPanel(focusProposalId?: string) {
+    if (this.agentPanel?.isConnected) {
+      this.agentPanel.focus()
+      if (focusProposalId) this.agentPanel.querySelector<HTMLElement>(`[data-proposal-id="${CSS.escape(focusProposalId)}"]`)?.scrollIntoView({ block: 'center' })
+      return
+    }
     const dialog = document.createElement('aside')
+    this.agentPanel = dialog
     dialog.className = 'ed-agent-dialog ed-agent-panel'
     dialog.setAttribute('role', 'complementary')
     dialog.setAttribute('aria-label', t('Connect an AI agent'))
@@ -907,7 +946,7 @@ export class Editor {
       `<p>${t('Pair an agent with this open deck. The agent can read and change this deck through the normal editor, undo and collaboration paths.')}</p>` +
       `<label>${t('MCP adapter URL')}<input class="ed-agent-url" type="url" placeholder="http://127.0.0.1:8790"></label>` +
       `<button class="ed-agent-connect ed-primary" type="button">${t('Create pairing code')}</button>` +
-      `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><button class="ed-agent-disconnect" type="button">${t('Stop agent')}</button></div><code class="ed-agent-code"></code>` +
+      `<div class="ed-agent-pairing" hidden><div class="ed-agent-connection-row"><div class="ed-agent-status"></div><div><button class="ed-agent-notifications" type="button"></button><button class="ed-agent-disconnect" type="button">${t('Stop agent')}</button></div></div><code class="ed-agent-code"></code>` +
       `<p>${t('Tell your agent to claim this pairing code:')}</p><button class="ed-agent-copy" type="button">${ICONS.copy}<span>${t('Copy code')}</span></button>` +
       `<section class="ed-agent-proposals" aria-live="polite"><header><strong>${t('Agent proposals')}</strong></header><div class="ed-agent-proposals-empty">${t('No agent proposals yet')}</div><ol class="ed-agent-proposals-list"></ol></section>` +
       `<section class="ed-agent-activity" aria-live="polite"><header><div><strong>${t('Agent activity')}</strong><span class="ed-agent-activity-summary"></span></div><div class="ed-agent-activity-actions"><button class="ed-agent-undo" type="button" title="${t('Undo last agent change')}">${ICONS.undo}</button><button class="ed-agent-redo" type="button" title="${t('Redo last agent change')}">${ICONS.redo}</button><button class="ed-agent-clear" type="button">${t('Clear activity')}</button></div></header><div class="ed-agent-activity-empty">${t('No agent actions yet')}</div><ol class="ed-agent-activity-list"></ol></section></div>`
@@ -918,6 +957,7 @@ export class Editor {
     const code = dialog.querySelector<HTMLElement>('.ed-agent-code')!
     const copyB = dialog.querySelector<HTMLButtonElement>('.ed-agent-copy')!
     const disconnectB = dialog.querySelector<HTMLButtonElement>('.ed-agent-disconnect')!
+    const notificationsB = dialog.querySelector<HTMLButtonElement>('.ed-agent-notifications')!
     const undoB = dialog.querySelector<HTMLButtonElement>('.ed-agent-undo')!
     const redoB = dialog.querySelector<HTMLButtonElement>('.ed-agent-redo')!
     const clearB = dialog.querySelector<HTMLButtonElement>('.ed-agent-clear')!
@@ -1048,6 +1088,7 @@ export class Editor {
       for (const proposal of proposals.slice().reverse()) {
         const item = document.createElement('li')
         item.className = `ed-agent-proposal ${proposal.status}`
+        item.dataset.proposalId = proposal.id
         const heading = document.createElement('strong')
         heading.textContent = proposal.title
         const state = document.createElement('span')
@@ -1271,6 +1312,13 @@ export class Editor {
         }
         proposalsList.appendChild(item)
       }
+      if (focusProposalId) {
+        const targetProposalId = focusProposalId
+        requestAnimationFrame(() => {
+          dialog.querySelector<HTMLElement>(`[data-proposal-id="${CSS.escape(targetProposalId)}"]`)?.scrollIntoView({ block: 'center' })
+          focusProposalId = undefined
+        })
+      }
     }
     const onAgentAction = () => { renderActivity(); renderProposals() }
     const onAgentProposal = () => renderProposals()
@@ -1281,6 +1329,12 @@ export class Editor {
       status.textContent = current === 'connected' ? t(api?.waitingForEvent?.() ? 'Agent waiting for review' : 'Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
       status.classList.toggle('ok', current === 'connected')
       pairing.classList.toggle('connected', current === 'connected')
+      const notificationSupported = 'Notification' in window
+      notificationsB.hidden = !notificationSupported
+      if (notificationSupported) {
+        notificationsB.disabled = Notification.permission !== 'default'
+        notificationsB.textContent = t(Notification.permission === 'granted' ? 'Approval notifications on' : Notification.permission === 'denied' ? 'Notifications blocked' : 'Enable approval notifications')
+      }
       renderProposals()
     }
     const existingStatus = api?.status?.() || 'off'
@@ -1311,11 +1365,17 @@ export class Editor {
       }
     })
     copyB.addEventListener('click', () => void navigator.clipboard?.writeText(code.textContent || ''))
+    notificationsB.addEventListener('click', async () => {
+      if (!('Notification' in window)) return
+      await Notification.requestPermission()
+      updateStatus()
+      this.notifyPendingAgentProposal()
+    })
     disconnectB.addEventListener('click', () => { api?.disconnect?.(); connectB.hidden = false; pairing.hidden = true; pairing.classList.remove('connected'); updateStatus() })
     undoB.addEventListener('click', () => { if (api?.undoLast?.()) renderActivity() })
     redoB.addEventListener('click', () => { if (api?.redoLast?.()) renderActivity() })
     clearB.addEventListener('click', () => { api?.clearActions?.(); renderActivity() })
-    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); window.removeEventListener('bento:agent-proposal', onAgentProposal); if (previewDialog.open) previewDialog.close(); previewDialog.remove(); dialog.remove() }
+    const closePanel = () => { if (timer !== null) window.clearInterval(timer); window.removeEventListener('bento:agent-action', onAgentAction); window.removeEventListener('bento:agent-proposal', onAgentProposal); if (previewDialog.open) previewDialog.close(); previewDialog.remove(); dialog.remove(); this.agentPanel = null }
     dialog.querySelector<HTMLButtonElement>('.ed-agent-close')!.addEventListener('click', closePanel)
     dialog.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePanel() })
     dialog.tabIndex = -1

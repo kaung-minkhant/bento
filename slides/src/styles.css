@@ -2219,6 +2219,9 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
   justify-content: space-between;
   gap: 12px;
 }
+.ed-agent-connection-row > div:last-child { display: flex; align-items: center; gap: 6px; }
+.ed-agent-notifications { color: #2D5FA8; white-space: nowrap; }
+.ed-agent-notifications:disabled { cursor: default; color: #66758A; background: #F4F6F9; }
 .ed-agent-status { color: #66758A; font-size: 12px; }
 .ed-agent-status.ok { color: #19734A; font-weight: 700; }
 .ed-agent-code { display: block; margin: 8px 0 10px; font-size: 28px; letter-spacing: 3px; color: #16273E; }
