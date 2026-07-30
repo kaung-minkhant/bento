@@ -74,3 +74,10 @@ the proposal's `applied` status. Compact history reports checking, passed,
 failed, or issue-count state; expanded history shows per-slide evidence.
 Intervening edits mark results as belonging to an earlier revision. MCP status
 includes structured findings but not the browser-local rendered images.
+
+Verification compares validation findings from the pre-apply snapshot with the
+applied snapshot using finding type and stable element ids. Only newly
+introduced findings contribute to the proposal's issue count; pre-existing
+findings remain visible but do not make the proposal fail. Expanded evidence
+includes readable element text, stable ids, and measured-bound overlays on the
+rendered slide so reviewers can locate each finding.

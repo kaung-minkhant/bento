@@ -945,8 +945,8 @@ export class Editor {
       changes: Array<{ type: string; slideId?: string; elementId?: string; properties: string[]; value?: string; destructive: boolean }>
       evidence?: { previews: Array<{ slideId: string; name: string | null; before?: string; after?: string; warning?: string }>; truncated: boolean }
       verification?: {
-        status: 'checking' | 'passed' | 'issues' | 'failed'; revision: number; issueCount: number; truncated: boolean; outdated: boolean
-        slides: Array<{ slideId: string; name: string | null; image?: string; warnings: string[]; findings: Array<{ severity: string; message: string; elementIds: string[] }>; error?: string }>
+        status: 'checking' | 'passed' | 'issues' | 'failed'; revision: number; issueCount: number; existingIssueCount: number; truncated: boolean; outdated: boolean
+        slides: Array<{ slideId: string; name: string | null; width: number; height: number; image?: string; warnings: string[]; elementLabels: Record<string, string>; findings: Array<{ severity: string; message: string; elementIds: string[]; introduced: boolean; bounds?: { x: number; y: number; w: number; h: number } }>; error?: string }>
       }
     }
     const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
@@ -972,13 +972,30 @@ export class Editor {
       }
       previewDialog.showModal()
     }
-    const openVerificationImage = (title: string, src: string) => {
+    const appendFindingMarkers = (container: HTMLElement, slide: NonNullable<Proposal['verification']>['slides'][number]) => {
+      for (const finding of slide.findings) {
+        if (!finding.bounds) continue
+        const marker = document.createElement('span')
+        marker.className = finding.introduced ? 'introduced' : 'existing'
+        marker.style.left = `${finding.bounds.x / slide.width * 100}%`
+        marker.style.top = `${finding.bounds.y / slide.height * 100}%`
+        marker.style.width = `${finding.bounds.w / slide.width * 100}%`
+        marker.style.height = `${finding.bounds.h / slide.height * 100}%`
+        container.appendChild(marker)
+      }
+    }
+    const openVerificationImage = (slide: NonNullable<Proposal['verification']>['slides'][number]) => {
+      const title = slide.name || slide.slideId
       previewTitle.textContent = title
       previewPair.textContent = ''
       previewPair.classList.add('single')
       const figure = document.createElement('figure')
       figure.appendChild(Object.assign(document.createElement('figcaption'), { textContent: t('Applied result') }))
-      figure.appendChild(Object.assign(document.createElement('img'), { src, alt: `${t('Applied result')}: ${title}` }))
+      const image = document.createElement('div')
+      image.className = 'ed-agent-verification-image-static'
+      image.appendChild(Object.assign(document.createElement('img'), { src: slide.image, alt: `${t('Applied result')}: ${title}` }))
+      appendFindingMarkers(image, slide)
+      figure.appendChild(image)
       previewPair.appendChild(figure)
       previewDialog.showModal()
     }
@@ -1136,8 +1153,9 @@ export class Editor {
           if (proposal.verification.status === 'checking') {
             verification.appendChild(Object.assign(document.createElement('p'), { textContent: t('Checking affected slides') }))
           } else if (!proposal.verification.issueCount) {
-            verification.appendChild(Object.assign(document.createElement('p'), { className: 'passed', textContent: t('No issues found') }))
+            verification.appendChild(Object.assign(document.createElement('p'), { className: 'passed', textContent: t('No new issues found') }))
           }
+          if (proposal.verification.existingIssueCount) verification.appendChild(Object.assign(document.createElement('p'), { textContent: `${proposal.verification.existingIssueCount} ${t('pre-existing issues')}` }))
           for (const slide of proposal.verification.slides) {
             const result = document.createElement('article')
             result.appendChild(Object.assign(document.createElement('strong'), { textContent: slide.name || slide.slideId }))
@@ -1147,13 +1165,27 @@ export class Editor {
               imageButton.className = 'ed-agent-verification-image'
               imageButton.setAttribute('aria-label', `${t('Enlarge preview')}: ${slide.name || slide.slideId}`)
               imageButton.appendChild(Object.assign(document.createElement('img'), { src: slide.image, alt: `${t('Applied result')}: ${slide.name || slide.slideId}` }))
-              imageButton.addEventListener('click', () => openVerificationImage(slide.name || slide.slideId, slide.image!))
+              appendFindingMarkers(imageButton, slide)
+              imageButton.addEventListener('click', () => openVerificationImage(slide))
               result.appendChild(imageButton)
             }
-            const messages = [...slide.warnings, ...slide.findings.map((finding) => finding.message), ...(slide.error ? [slide.error] : [])]
-            if (messages.length) {
+            if (slide.warnings.length || slide.findings.length || slide.error) {
               const list = document.createElement('ul')
-              for (const message of messages) list.appendChild(Object.assign(document.createElement('li'), { textContent: message }))
+              for (const warning of slide.warnings) list.appendChild(Object.assign(document.createElement('li'), { textContent: warning }))
+              for (const finding of slide.findings) {
+                const row = document.createElement('li')
+                row.className = finding.introduced ? 'introduced' : 'existing'
+                const elementId = finding.elementIds[0]
+                const label = slide.elementLabels[elementId] || elementId
+                row.append(
+                  Object.assign(document.createElement('strong'), { textContent: t(finding.introduced ? 'New issue' : 'Pre-existing') }),
+                  Object.assign(document.createElement('span'), { textContent: label }),
+                  Object.assign(document.createElement('small'), { textContent: finding.elementIds.join(', ') }),
+                  Object.assign(document.createElement('p'), { textContent: finding.message }),
+                )
+                list.appendChild(row)
+              }
+              if (slide.error) list.appendChild(Object.assign(document.createElement('li'), { className: 'introduced', textContent: slide.error }))
               result.appendChild(list)
             }
             verification.appendChild(result)

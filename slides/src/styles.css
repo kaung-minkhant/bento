@@ -2364,9 +2364,20 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal-verification > p.outdated { padding: 6px 8px; border-radius: 6px; background: #FFF4DA; color: #795600; }
 .ed-agent-proposal-verification article { display: grid; gap: 5px; }
 .ed-agent-proposal-verification article > strong { color: #34445A; font-size: 11px; }
-.ed-agent-verification-image { display: block; width: 100%; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 6px !important; background: transparent !important; cursor: zoom-in !important; }
+.ed-agent-verification-image { position: relative; display: block; width: 100%; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 6px !important; background: transparent !important; cursor: zoom-in !important; overflow: hidden; }
 .ed-agent-verification-image img { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; }
+.ed-agent-verification-image > span, .ed-agent-verification-image-static > span { position: absolute; box-sizing: border-box; border: 2px solid #C47B12; background: rgb(255 184 77 / .12); pointer-events: none; }
+.ed-agent-verification-image > span.introduced, .ed-agent-verification-image-static > span.introduced { border-color: #C75045; background: rgb(199 80 69 / .14); }
+.ed-agent-verification-image-static { position: relative; overflow: hidden; border-radius: 8px; }
+.ed-agent-verification-image-static img { display: block; width: 100%; }
 .ed-agent-proposal-verification ul { display: grid; gap: 3px; margin: 0; padding-left: 18px; color: #795600; font-size: 11px; line-height: 1.35; }
+.ed-agent-proposal-verification li.introduced { color: #9B3A2C; }
+.ed-agent-proposal-verification li.existing { color: #66758A; }
+.ed-agent-proposal-verification li strong { display: inline-block; margin-right: 6px; }
+.ed-agent-proposal-verification li span, .ed-agent-proposal-verification li small, .ed-agent-proposal-verification li p { display: block; }
+.ed-agent-proposal-verification li span { color: #34445A; font-weight: 700; overflow-wrap: anywhere; }
+.ed-agent-proposal-verification li small { color: #77869A; overflow-wrap: anywhere; }
+.ed-agent-proposal-verification li p { margin: 2px 0 0; }
 .ed-agent-proposal-verification > small { color: #66758A; font-size: 10px; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }

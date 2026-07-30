@@ -58,7 +58,9 @@ with `replacesProposalId` to preserve the review thread and supersede the prior
 proposal after successful preflight.
 Applied proposals are verified asynchronously in the paired editor. The
 proposal status response includes revision-tagged validation findings and
-render warnings; applied-result images remain browser-local.
+render warnings; applied-result images remain browser-local. Findings identify
+whether they were introduced by the proposal or already existed at the base
+revision.
 Presenter-controlled builds use the common `buildStep` element property. Read
 the `elements` and `motion` topics for grouping, reverse navigation, entrance
 effects, reduced motion, and morph behavior before authoring them.
