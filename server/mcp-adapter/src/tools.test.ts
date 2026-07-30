@@ -131,10 +131,10 @@ test('proposal tools submit batches and read status without agent approval', asy
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
 
   const operations = [{ type: 'delete_slide', slideId: 'slide-1' }]
-  assert.equal((await client.callTool({ name: 'propose_operations', arguments: { docId: allowed, expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', replacesProposalId: 'proposal-draft', operations } })).isError, undefined)
+  assert.equal((await client.callTool({ name: 'propose_operations', arguments: { docId: allowed, expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', followsProposalId: 'proposal-applied', operations } })).isError, undefined)
   assert.equal((await client.callTool({ name: 'list_agent_proposals', arguments: { docId: allowed } })).isError, undefined)
   assert.deepEqual(calls, [
-    { docId: allowed, operation: 'propose_operations', params: { expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', replacesProposalId: 'proposal-draft', operations } },
+    { docId: allowed, operation: 'propose_operations', params: { expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', replacesProposalId: undefined, followsProposalId: 'proposal-applied', operations } },
     { docId: allowed, operation: 'list_proposals', params: undefined },
   ])
   await client.close()

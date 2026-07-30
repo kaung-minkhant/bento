@@ -61,6 +61,9 @@ proposal status response includes revision-tagged validation findings and
 render warnings; applied-result images remain browser-local. Findings identify
 whether they were introduced by the proposal or already existed at the base
 revision.
+Human follow-up requests appear on applied proposals with verification issues.
+Submit the corrective batch with `followsProposalId`; it becomes a separate
+linked proposal and cannot bypass approval.
 Presenter-controlled builds use the common `buildStep` element property. Read
 the `elements` and `motion` topics for grouping, reverse navigation, entrance
 effects, reduced motion, and morph behavior before authoring them.

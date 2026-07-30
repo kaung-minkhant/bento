@@ -81,3 +81,11 @@ introduced findings contribute to the proposal's issue count; pre-existing
 findings remain visible but do not make the proposal fail. Expanded evidence
 includes readable element text, stable ids, and measured-bound overlays on the
 rendered slide so reviewers can locate each finding.
+
+When verification finds a newly introduced issue at the current revision, a
+person may request a follow-up from the expanded applied proposal. The request
+contains editable guidance and does not change the deck. It appears through
+`list_agent_proposals`; an agent responds with `propose_operations` and
+`followsProposalId`. Successful preflight links a new pending proposal to the
+applied source. The follow-up still requires normal human approval, and only
+one follow-up request may be opened from each applied proposal.
