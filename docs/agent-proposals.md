@@ -89,3 +89,15 @@ contains editable guidance and does not change the deck. It appears through
 `followsProposalId`. Successful preflight links a new pending proposal to the
 applied source. The follow-up still requires normal human approval, and only
 one follow-up request may be opened from each applied proposal.
+
+## Event waiting
+
+Proposal responses expose a monotonic page-local `eventCursor`. After
+submitting or inspecting a proposal, an agent can call
+`wait_for_agent_event` with that cursor and an optional proposal id. The
+browser retains the latest 100 events, so feedback that arrives between the
+proposal response and the wait call is returned immediately rather than lost.
+Waits return on change requests, approval, rejection, verification completion,
+or follow-up requests. A bounded timeout returns a compact unchanged result,
+not an error. Waiting is read-only, consumes no model tokens while blocked,
+and is cancelled when the browser bridge disconnects.
