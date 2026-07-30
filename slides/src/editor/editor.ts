@@ -950,7 +950,7 @@ export class Editor {
         slides: Array<{ slideId: string; name: string | null; width: number; height: number; image?: string; warnings: string[]; elementLabels: Record<string, string>; findings: Array<{ severity: string; message: string; elementIds: string[]; introduced: boolean; bounds?: { x: number; y: number; w: number; h: number } }>; error?: string }>
       }
     }
-    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; requestProposalFollowUp?: (id: string, guidance: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
+    const api = (window as unknown as { bento?: { agent?: { connectPairing?: (url: string) => Promise<{ code: string }>; disconnect?: () => void; status?: () => string; pairingCode?: () => string | null; waitingForEvent?: () => boolean; actions?: () => Array<{ id: string; operation: string; phase: string; startedAt: number; finishedAt?: number; durationMs?: number; beforeRevision: number; afterRevision?: number; error?: string }>; proposals?: () => Proposal[]; approveProposal?: (id: string) => Proposal; rejectProposal?: (id: string) => Proposal; requestProposalChanges?: (id: string, feedback: string) => Proposal; requestProposalFollowUp?: (id: string, guidance: string) => Proposal; undoLast?: () => boolean; canUndoLast?: () => boolean; redoLast?: () => boolean; canRedoLast?: () => boolean; clearActions?: () => void } } }).bento?.agent
     const actionLabel = (operation: string) => {
       const labels: Record<string, string> = {
         read_document: 'Read document', summary: 'Deck summary', deck_style: 'Deck style', slide_detail: 'Slide details', create_slide: 'Create slide',
@@ -1278,7 +1278,7 @@ export class Editor {
     window.addEventListener('bento:agent-proposal', onAgentProposal)
     const updateStatus = () => {
       const current = api?.status?.() || 'off'
-      status.textContent = current === 'connected' ? t('Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
+      status.textContent = current === 'connected' ? t(api?.waitingForEvent?.() ? 'Agent waiting for review' : 'Agent connected') : current === 'waiting' ? t('Waiting for your agent…') : t('Connecting…')
       status.classList.toggle('ok', current === 'connected')
       pairing.classList.toggle('connected', current === 'connected')
       renderProposals()

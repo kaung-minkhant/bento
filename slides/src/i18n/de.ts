@@ -851,6 +851,7 @@ export const de: Catalog = {
   'Request follow-up': 'Nachbesserung anfordern',
   'What should the follow-up preserve or change?': 'Was soll die Nachbesserung beibehalten oder ändern?',
   'Address the newly introduced verification findings while preserving the approved intent.': 'Neue Prüfbefunde beheben und dabei die genehmigte Absicht beibehalten.',
+  'Agent waiting for review': 'Agent wartet auf Prüfung',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',

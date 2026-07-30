@@ -459,6 +459,11 @@ if (location.hash === '#present') {
     const PROPOSAL_VERIFICATION_WIDTH = 960
     const MAX_VERIFICATION_SLIDES = 10
     const proposalVerifications = new Map<string, ProposalVerification>()
+    type AgentEvent = { cursor: number; type: string; proposalId?: string; revision: number; value?: unknown; createdAt: number }
+    type AgentEventWaiter = { requestId: string; afterCursor: number; proposalId?: string; timer: number }
+    const agentEvents: AgentEvent[] = []
+    const agentEventWaiters = new Map<string, AgentEventWaiter>()
+    let agentEventCursor = 0
     let agentHistoryRevision = store.revision
     let inspectionQueue: Promise<void> = Promise.resolve()
     const inspect = <T>(work: () => Promise<T>): Promise<T> => {
@@ -496,9 +501,26 @@ if (location.hash === '#present') {
       if (socket?.readyState !== WebSocket.OPEN) return
       socket.send(JSON.stringify({ type: 'response', requestId, ok, ...(value === undefined ? {} : { value }), ...(error ? { error } : {}) }))
     }
+    const matchingAgentEvent = (afterCursor: number, proposalId?: string) => agentEvents.find((event) => event.cursor > afterCursor && (!proposalId || event.proposalId === proposalId))
+    const recordAgentEvent = (type: string, proposalId?: string, value?: unknown) => {
+      const event: AgentEvent = { cursor: ++agentEventCursor, type, proposalId, revision: store.revision, value, createdAt: Date.now() }
+      agentEvents.push(event)
+      if (agentEvents.length > 100) agentEvents.shift()
+      for (const [requestId, waiter] of agentEventWaiters) {
+        if (event.cursor <= waiter.afterCursor || (waiter.proposalId && waiter.proposalId !== proposalId)) continue
+        window.clearTimeout(waiter.timer)
+        agentEventWaiters.delete(requestId)
+        sendResponse(requestId, true, { cursor: event.cursor, event, revision: store.revision, timedOut: false })
+      }
+      window.dispatchEvent(new CustomEvent('bento:agent-event', { detail: event }))
+    }
+    const clearAgentEventWaiters = () => {
+      for (const waiter of agentEventWaiters.values()) window.clearTimeout(waiter.timer)
+      agentEventWaiters.clear()
+    }
     const handleRequest = async (message: { requestId?: string; operation?: string; json?: string; params?: Record<string, unknown> }) => {
       if (typeof message.requestId !== 'string') return
-      if (typeof message.operation === 'string') {
+      if (typeof message.operation === 'string' && message.operation !== 'wait_for_agent_event') {
         if (store.revision !== agentHistoryRevision) resetAgentHistory()
         const action: AgentAction = { id: message.requestId, operation: message.operation, phase: 'running', startedAt: Date.now(), beforeRevision: store.revision }
         actionHistory.push(action)
@@ -508,6 +530,24 @@ if (location.hash === '#present') {
       }
       try {
         const params = message.params ?? {}
+        if (message.operation === 'wait_for_agent_event') {
+          const afterCursor = Number(params.afterCursor)
+          const timeoutSeconds = Number(params.timeoutSeconds ?? 55)
+          const proposalId = typeof params.proposalId === 'string' ? params.proposalId : undefined
+          if (!Number.isInteger(afterCursor) || afterCursor < 0) throw new Error('afterCursor must be a non-negative integer.')
+          if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 240) throw new Error('timeoutSeconds must be between 1 and 240.')
+          const event = matchingAgentEvent(afterCursor, proposalId)
+          if (event) {
+            sendResponse(message.requestId, true, { cursor: event.cursor, event, revision: store.revision, timedOut: false })
+            return
+          }
+          const timer = window.setTimeout(() => {
+            agentEventWaiters.delete(message.requestId!)
+            sendResponse(message.requestId!, true, { cursor: agentEventCursor, event: null, revision: store.revision, timedOut: true })
+          }, timeoutSeconds * 1000)
+          agentEventWaiters.set(message.requestId, { requestId: message.requestId, afterCursor, proposalId, timer })
+          return
+        }
         if (message.operation === 'read_document') {
           sendResponse(message.requestId, true, store.doc)
           return
@@ -516,6 +556,7 @@ if (location.hash === '#present') {
           sendResponse(message.requestId, true, {
             docId: store.doc.docId,
             revision: store.revision,
+            eventCursor: agentEventCursor,
             title: store.doc.title,
             size: store.doc.size,
             slides: store.doc.slides.map((slide, index) => ({
@@ -582,6 +623,7 @@ if (location.hash === '#present') {
               }
             }),
             revision: store.revision,
+            eventCursor: agentEventCursor,
           })
           return
         }
@@ -621,7 +663,7 @@ if (location.hash === '#present') {
           const evidence = { previews, truncated: previewIds.length > boundedIds.length }
           proposalEvidence.set(proposal.id, evidence)
           notifyProposals()
-          sendResponse(message.requestId, true, { proposal, revision: store.revision })
+          sendResponse(message.requestId, true, { proposal, revision: store.revision, eventCursor: agentEventCursor })
           return
         }
         if (message.operation === 'create_slide_from_recipe') {
@@ -789,6 +831,7 @@ if (location.hash === '#present') {
         if (message.type !== 'request') return
         void handleRequest(message)
       })
+      next.addEventListener('close', clearAgentEventWaiters)
       return { status: 'connecting', docId: store.doc.docId }
     }
     const connectPairing = async (adapterUrl: string) => {
@@ -820,6 +863,7 @@ if (location.hash === '#present') {
         if (message.type !== 'request') return
         void handleRequest(message)
       })
+      next.addEventListener('close', clearAgentEventWaiters)
       return { code: pairing.code, expiresAt: pairing.expiresAt, docId: store.doc.docId }
     }
     const lastUndoableAction = () => store.revision === agentHistoryRevision ? agentUndoStack[agentUndoStack.length - 1] : undefined
@@ -878,6 +922,11 @@ if (location.hash === '#present') {
       })
       proposalVerifications.set(proposal.id, completeProposalVerification(verification, slides))
       notifyProposals()
+      const completed = proposalVerifications.get(proposal.id)!
+      recordAgentEvent('verification_completed', proposal.id, {
+        status: completed.status, issueCount: completed.issueCount, existingIssueCount: completed.existingIssueCount,
+        revision: completed.revision, truncated: completed.truncated,
+      })
     }
     const approveProposal = (proposalId: string) => {
       const prepared = proposals.operationsForApproval(proposalId, store.revision)
@@ -910,15 +959,17 @@ if (location.hash === '#present') {
       agentHistoryRevision = store.revision
       notifyAction(action)
       notifyProposals()
+      recordAgentEvent('proposal_applied', proposal.id, { status: proposal.status })
       void verifyAppliedProposal(proposal, baseline, appliedSnapshot, appliedRevision)
       return proposal
     }
     return {
       connect,
       connectPairing,
-      disconnect: () => { socket?.close(); socket = null; state = 'off'; pairingCode = null },
+      disconnect: () => { clearAgentEventWaiters(); socket?.close(); socket = null; state = 'off'; pairingCode = null },
       status: () => state,
       pairingCode: () => pairingCode,
+      waitingForEvent: () => agentEventWaiters.size > 0,
       actions: () => actionHistory.map((action) => ({ ...action })),
       proposals: () => proposals.list(store.revision).map((proposal) => {
         const verification = proposalVerifications.get(proposal.id)
@@ -928,16 +979,19 @@ if (location.hash === '#present') {
       rejectProposal: (proposalId: string) => {
         const proposal = proposals.reject(proposalId, store.revision)
         notifyProposals()
+        recordAgentEvent('proposal_rejected', proposal.id, { status: proposal.status })
         return proposal
       },
       requestProposalChanges: (proposalId: string, feedback: string) => {
         const proposal = proposals.requestChanges(proposalId, store.revision, feedback)
         notifyProposals()
+        recordAgentEvent('changes_requested', proposal.id, { status: proposal.status, feedback: proposal.feedback })
         return proposal
       },
       requestProposalFollowUp: (proposalId: string, guidance: string) => {
         const proposal = proposals.requestFollowUp(proposalId, store.revision, guidance)
         notifyProposals()
+        recordAgentEvent('follow_up_requested', proposal.id, { status: proposal.status, followUp: proposal.followUp })
         return proposal
       },
       revision: () => store.revision,

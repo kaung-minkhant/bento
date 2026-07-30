@@ -851,6 +851,7 @@ export const zhHans: Catalog = {
   'Request follow-up': '请求后续处理',
   'What should the follow-up preserve or change?': '后续处理应保留或更改什么？',
   'Address the newly introduced verification findings while preserving the approved intent.': '在保留已批准意图的同时，解决新出现的验证问题。',
+  'Agent waiting for review': '智能体正在等待审核',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',

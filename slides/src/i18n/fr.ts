@@ -851,6 +851,7 @@ export const fr: Catalog = {
   'Request follow-up': 'Demander un suivi',
   'What should the follow-up preserve or change?': 'Que doit préserver ou modifier le suivi ?',
   'Address the newly introduced verification findings while preserving the approved intent.': 'Corriger les nouveaux constats de vérification tout en préservant l’intention approuvée.',
+  'Agent waiting for review': 'L’agent attend la vérification',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',

@@ -851,6 +851,7 @@ export const zhHant: Catalog = {
   'Request follow-up': '要求後續處理',
   'What should the follow-up preserve or change?': '後續處理應保留或變更什麼？',
   'Address the newly introduced verification findings while preserving the approved intent.': '在保留已核准意圖的同時，解決新出現的驗證問題。',
+  'Agent waiting for review': '代理程式正在等待審核',
   'Clear activity': 'Clear activity',
   'No agent actions yet': 'No agent actions yet',
   'Working': 'Working',
