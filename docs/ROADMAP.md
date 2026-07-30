@@ -1,6 +1,6 @@
 # bento implementation roadmap
 
-Updated 2026-07-28.
+Updated 2026-07-30.
 
 ## Phase 1: deployment foundation
 
@@ -173,11 +173,28 @@ was removed atomically after verification.
 
 ### Phase 9: transactional agent workflow
 
-In progress. The proposal contract is defined in `docs/agent-proposals.md`:
-proposals are page-lifetime editor workflow state, preflight at a guarded base
-revision, become stale after any intervening edit, and can only be approved or
-rejected by a person in the editor. Reviewers can request changes without
-mutating the deck, and agents can answer with an explicitly linked replacement.
+Implementation complete. The proposal contract is defined in
+`docs/agent-proposals.md`: proposals are page-lifetime editor workflow state,
+preflight at a guarded base revision, become stale after any intervening edit,
+and can only be approved or rejected by a person in the editor. Reviewers can
+request changes without mutating the deck, and agents can answer with an
+explicitly linked replacement.
+
+Local acceptance on 2026-07-30 verified exact operation summaries, bounded
+before/after evidence, enlarged previews, approval, rejection, stale-state
+handling, feedback-linked replacement proposals, compact proposal history,
+post-approval rendering and validation, separation of new and pre-existing
+findings, and human-requested corrective follow-ups. Cursor-based MCP event
+waiting resumed the agent from feedback, approval, and verification without a
+chat handoff. Opt-in browser notifications were deduplicated per proposal;
+clicking one focused bento, opened the agent panel, and located the matching
+approval. The final approved test introduced no new validation issues.
+
+The packaged `bento-slides` skill now treats the live MCP authoring guide as
+the schema authority and adds an MCP-first inspect, compose, propose, wait,
+verify, and refine workflow. Progressive references cover deck craft,
+transactional review, and safe standalone-file authoring; release packaging
+ships the complete skill folder rather than dropping those references.
 
 - Support the full inspect, plan, propose, review, apply, render, critique,
   refine, validate, and approve loop in the editor.
@@ -187,5 +204,6 @@ mutating the deck, and agents can answer with an explicitly linked replacement.
 - Expose submission and status through MCP without exposing an agent-side
   approval capability.
 
-The implementation order starts with slide rendering and validation. Richer
-creation tools follow only once agents can see and evaluate what they produce.
+Production acceptance remains the release gate before Phase 9 is merged to
+`main`: repeat notification, revision, approval, verification, and agent
+undo/redo against the deployed MCP adapter.

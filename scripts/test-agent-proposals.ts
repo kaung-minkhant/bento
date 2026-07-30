@@ -60,8 +60,21 @@ assert.equal(superseded.replacementProposalId, replacement.id)
 assert.throws(() => registry.requestChanges(replacement.id, 6, '', 103), /feedback/)
 assert.throws(() => registry.create(doc, 6, { expectedRevision: 6, replacesProposalId: firstDraft.id, title: 'Another', operations: [{ type: 'update_deck', patch: { title: 'No' } }] }), /superseded/)
 
+const followSource = registry.markApplied(replacement.id, applyAgentOperations(doc, registry.operationsForApproval(replacement.id, 6)), 104)
+const followRequested = registry.requestFollowUp(followSource.id, 6, 'Fix the newly introduced overflow without changing the headline.', 105)
+assert.equal(followRequested.followUp?.status, 'requested')
+assert.equal(followRequested.followUp?.guidance, 'Fix the newly introduced overflow without changing the headline.')
+const followUp = registry.create(doc, 6, {
+  expectedRevision: 6, followsProposalId: followSource.id, title: 'Fix overflow',
+  operations: [{ type: 'update_element', slideId: doc.slides[0].id, elementId: 'existing', patch: { h: 120 } }],
+})
+assert.equal(followUp.parentProposalId, followSource.id)
+assert.equal(registry.get(followSource.id, 6).followUp?.status, 'proposed')
+assert.equal(registry.get(followSource.id, 6).followUp?.proposalId, followUp.id)
+assert.throws(() => registry.requestFollowUp(followSource.id, 6, 'Again', 106), /already/)
+
 assert.throws(() => registry.create(doc, 4, { expectedRevision: 3, title: 'Old plan', operations: [{ type: 'update_deck', patch: { title: 'No' } }] }), /Revision conflict/)
 assert.throws(() => registry.create(doc, 4, { expectedRevision: 4, title: '', operations: [{ type: 'update_deck', patch: { title: 'No' } }] }), /title/)
-assert.equal(registry.list(6).length, 5)
+assert.equal(registry.list(6).length, 6)
 
 console.log('agent proposals: all assertions passed')

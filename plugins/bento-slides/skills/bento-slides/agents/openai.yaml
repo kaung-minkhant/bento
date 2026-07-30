@@ -1,0 +1,4 @@
+interface:
+  display_name: "bento/slides authoring"
+  short_description: "Create polished decks with safe review workflows"
+  default_prompt: "Use $bento-slides to create or refine this presentation through the safest available bento workflow."

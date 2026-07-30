@@ -65,3 +65,45 @@ to three affected slides before and after the preflighted batch. Created and
 deleted slides show an explicit empty endpoint; destructive operations receive
 a warning. Preview images remain page-local and are not transferred through
 MCP or saved with the document.
+
+After approval, the editor snapshots the applied revision and verifies up to
+ten affected slides in its serialized inspection queue. It renders the actual
+applied result and checks overflow, off-canvas content, possible overlap, and
+measurable contrast. Verification is page-local, read-only, and independent of
+the proposal's `applied` status. Compact history reports checking, passed,
+failed, or issue-count state; expanded history shows per-slide evidence.
+Intervening edits mark results as belonging to an earlier revision. MCP status
+includes structured findings but not the browser-local rendered images.
+
+Verification compares validation findings from the pre-apply snapshot with the
+applied snapshot using finding type and stable element ids. Only newly
+introduced findings contribute to the proposal's issue count; pre-existing
+findings remain visible but do not make the proposal fail. Expanded evidence
+includes readable element text, stable ids, and measured-bound overlays on the
+rendered slide so reviewers can locate each finding.
+
+When verification finds a newly introduced issue at the current revision, a
+person may request a follow-up from the expanded applied proposal. The request
+contains editable guidance and does not change the deck. It appears through
+`list_agent_proposals`; an agent responds with `propose_operations` and
+`followsProposalId`. Successful preflight links a new pending proposal to the
+applied source. The follow-up still requires normal human approval, and only
+one follow-up request may be opened from each applied proposal.
+
+## Event waiting
+
+Proposal responses expose a monotonic page-local `eventCursor`. After
+submitting or inspecting a proposal, an agent can call
+`wait_for_agent_event` with that cursor and an optional proposal id. The
+browser retains the latest 100 events, so feedback that arrives between the
+proposal response and the wait call is returned immediately rather than lost.
+Waits return on change requests, approval, rejection, verification completion,
+or follow-up requests. A bounded timeout returns a compact unchanged result,
+not an error. Waiting is read-only, consumes no model tokens while blocked,
+and is cancelled when the browser bridge disconnects.
+
+Authors can opt into browser approval notifications from the connected-agent
+row. Each pending proposal produces at most one notification during the page
+session. Clicking it focuses the editor, opens the agent panel, and scrolls the
+matching proposal into view. Notification permission remains a
+browser-controlled user choice; bento does not prompt for it automatically.

@@ -2219,6 +2219,9 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
   justify-content: space-between;
   gap: 12px;
 }
+.ed-agent-connection-row > div:last-child { display: flex; align-items: center; gap: 6px; }
+.ed-agent-notifications { color: #2D5FA8; white-space: nowrap; }
+.ed-agent-notifications:disabled { cursor: default; color: #66758A; background: #F4F6F9; }
 .ed-agent-status { color: #66758A; font-size: 12px; }
 .ed-agent-status.ok { color: #19734A; font-weight: 700; }
 .ed-agent-code { display: block; margin: 8px 0 10px; font-size: 28px; letter-spacing: 3px; color: #16273E; }
@@ -2338,6 +2341,7 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-preview-dialog header button:hover { background: #D8E0EA; }
 .ed-agent-preview-dialog header button:focus-visible { outline: 2px solid #2D6CDF; outline-offset: 2px; }
 .ed-agent-preview-dialog-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ed-agent-preview-dialog-pair.single { grid-template-columns: minmax(0, 1fr); }
 .ed-agent-preview-dialog figure { min-width: 0; margin: 0; }
 .ed-agent-preview-dialog figcaption { margin-bottom: 6px; color: #526176; font-size: 12px; font-weight: 700; }
 .ed-agent-preview-dialog img, .ed-agent-preview-dialog .ed-agent-proposal-preview-empty { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #E7ECF3; object-fit: contain; }
@@ -2354,6 +2358,34 @@ dialog.ed-pwdialog .ed-pwerr { color: #C33; }
 .ed-agent-proposal-feedback-form > div { display: flex; justify-content: flex-end; gap: 7px; }
 .ed-agent-proposal-feedback-form button { padding: 6px 12px; border: 1px solid #C8D2DF; border-radius: 999px; background: #FFF; font-weight: 650; cursor: pointer; }
 .ed-agent-proposal-feedback-form button.ed-primary { border-color: #2D6CDF; background: #2D6CDF; color: #FFF; }
+.ed-agent-proposal-verification { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid #D8E0EA; }
+.ed-agent-proposal-verification > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ed-agent-proposal-verification > div strong { color: #34445A; font-size: 12px; }
+.ed-agent-proposal-verification > div span { color: #77869A; font-size: 10px; }
+.ed-agent-proposal-verification > p { margin: 0; color: #66758A; font-size: 11px; }
+.ed-agent-proposal-verification > p.passed { color: #19734A; font-weight: 700; }
+.ed-agent-proposal-verification > p.outdated { padding: 6px 8px; border-radius: 6px; background: #FFF4DA; color: #795600; }
+.ed-agent-proposal-verification article { display: grid; gap: 5px; }
+.ed-agent-proposal-verification article > strong { color: #34445A; font-size: 11px; }
+.ed-agent-verification-image { position: relative; display: block; width: 100%; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 6px !important; background: transparent !important; cursor: zoom-in !important; overflow: hidden; }
+.ed-agent-verification-image img { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; }
+.ed-agent-verification-image > span, .ed-agent-verification-image-static > span { position: absolute; box-sizing: border-box; border: 2px solid #C47B12; background: rgb(255 184 77 / .12); pointer-events: none; }
+.ed-agent-verification-image > span.introduced, .ed-agent-verification-image-static > span.introduced { border-color: #C75045; background: rgb(199 80 69 / .14); }
+.ed-agent-verification-image-static { position: relative; overflow: hidden; border-radius: 8px; }
+.ed-agent-verification-image-static img { display: block; width: 100%; }
+.ed-agent-proposal-verification ul { display: grid; gap: 3px; margin: 0; padding-left: 18px; color: #795600; font-size: 11px; line-height: 1.35; }
+.ed-agent-proposal-verification li.introduced { color: #9B3A2C; }
+.ed-agent-proposal-verification li.existing { color: #66758A; }
+.ed-agent-proposal-verification li strong { display: inline-block; margin-right: 6px; }
+.ed-agent-proposal-verification li span, .ed-agent-proposal-verification li small, .ed-agent-proposal-verification li p { display: block; }
+.ed-agent-proposal-verification li span { color: #34445A; font-weight: 700; overflow-wrap: anywhere; }
+.ed-agent-proposal-verification li small { color: #77869A; overflow-wrap: anywhere; }
+.ed-agent-proposal-verification li p { margin: 2px 0 0; }
+.ed-agent-proposal-verification > small { color: #66758A; font-size: 10px; }
+.ed-agent-request-follow-up { justify-self: end; color: #2D6CDF; font-weight: 700; }
+.ed-agent-proposal-follow-up { display: grid !important; justify-content: stretch !important; gap: 3px !important; padding: 7px 8px; border-radius: 7px; background: #EEF4FF; }
+.ed-agent-proposal-follow-up strong { color: #34445A; font-size: 11px; }
+.ed-agent-proposal-follow-up p { margin: 0; color: #526176; font-size: 11px; line-height: 1.4; white-space: pre-wrap; }
 @media (max-width: 600px) {
   .ed-agent-dialog { width: 100vw; border-radius: 0; }
   .ed-agent-preview-dialog { width: calc(100vw - 24px); padding: 12px; }

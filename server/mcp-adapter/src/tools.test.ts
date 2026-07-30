@@ -48,7 +48,7 @@ test('browser bridge exposes targeted deck actions', async () => {
 
   const tools = await client.listTools()
   const names = tools.tools.map((tool) => tool.name)
-  for (const name of ['get_authoring_guide', 'get_deck_summary', 'get_deck_style', 'inspect_design_system', 'inspect_deck_quality', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'propose_operations', 'list_agent_proposals', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
+  for (const name of ['get_authoring_guide', 'get_deck_summary', 'get_deck_style', 'inspect_design_system', 'inspect_deck_quality', 'list_composition_recipes', 'create_slide_from_recipe', 'get_slide', 'render_slide', 'render_deck_thumbnails', 'validate_slide', 'apply_operations', 'propose_operations', 'list_agent_proposals', 'wait_for_agent_event', 'create_slide', 'add_text', 'update_element', 'delete_element', 'set_speaker_notes']) {
     assert.ok(names.includes(name), `missing ${name}`)
   }
   assert.ok(!names.some((name) => /approve.*proposal|proposal.*approve/.test(name)), 'agents cannot approve proposals')
@@ -131,11 +131,13 @@ test('proposal tools submit batches and read status without agent approval', asy
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
 
   const operations = [{ type: 'delete_slide', slideId: 'slide-1' }]
-  assert.equal((await client.callTool({ name: 'propose_operations', arguments: { docId: allowed, expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', replacesProposalId: 'proposal-draft', operations } })).isError, undefined)
+  assert.equal((await client.callTool({ name: 'propose_operations', arguments: { docId: allowed, expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', followsProposalId: 'proposal-applied', operations } })).isError, undefined)
   assert.equal((await client.callTool({ name: 'list_agent_proposals', arguments: { docId: allowed } })).isError, undefined)
+  assert.equal((await client.callTool({ name: 'wait_for_agent_event', arguments: { docId: allowed, afterCursor: 4, proposalId: 'proposal-1', timeoutSeconds: 2 } })).isError, undefined)
   assert.deepEqual(calls, [
-    { docId: allowed, operation: 'propose_operations', params: { expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', replacesProposalId: 'proposal-draft', operations } },
+    { docId: allowed, operation: 'propose_operations', params: { expectedRevision: 8, title: 'Remove appendix', summary: 'The appendix duplicates the source deck.', replacesProposalId: undefined, followsProposalId: 'proposal-applied', operations } },
     { docId: allowed, operation: 'list_proposals', params: undefined },
+    { docId: allowed, operation: 'wait_for_agent_event', params: { afterCursor: 4, proposalId: 'proposal-1', timeoutSeconds: 2 } },
   ])
   await client.close()
   await server.close()

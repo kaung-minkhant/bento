@@ -56,7 +56,7 @@ export class BrowserBridge {
     return true
   }
 
-  request(docId: string, operation: string, json?: string, params?: Record<string, unknown>): Promise<unknown> {
+  request(docId: string, operation: string, json?: string, params?: Record<string, unknown>, timeoutMs = this.requestTimeoutMs): Promise<unknown> {
     const socket = this.clients.get(docId)
     if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('No browser is connected for this document.'))
     const requestId = `${docId}:${randomUUID()}`
@@ -64,7 +64,7 @@ export class BrowserBridge {
       const timer = setTimeout(() => {
         this.pending.delete(requestId)
         reject(new Error('The browser bridge request timed out.'))
-      }, this.requestTimeoutMs)
+      }, timeoutMs)
       this.pending.set(requestId, { resolve, reject, timer })
       socket.send(JSON.stringify({ type: 'request', requestId, operation, ...(json === undefined ? {} : { json }), ...(params === undefined ? {} : { params }) }))
     })

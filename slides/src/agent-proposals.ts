@@ -18,6 +18,7 @@ export interface AgentProposal {
   feedbackAt?: number
   parentProposalId?: string
   replacementProposalId?: string
+  followUp?: { status: 'requested' | 'proposed'; guidance: string; requestedAt: number; proposalId?: string }
   operationCount: number
   affectedSlideIds: string[]
   destructive: boolean
@@ -38,6 +39,7 @@ export interface AgentProposalInput {
   title: string
   summary?: string
   replacesProposalId?: string
+  followsProposalId?: string
   operations: unknown[]
 }
 
@@ -91,9 +93,14 @@ export class AgentProposalRegistry {
     if (input.expectedRevision !== currentRevision) throw new Error(`Revision conflict: expected ${input.expectedRevision}, current ${currentRevision}. Refresh the deck and retry.`)
     const title = requiredText(input.title, 'title', 160)
     const summary = optionalText(input.summary, 'summary', 1200)
+    if (input.replacesProposalId && input.followsProposalId) throw new Error('A proposal cannot replace and follow another proposal at the same time.')
     const replaces = input.replacesProposalId ? this.find(input.replacesProposalId) : undefined
     if (input.replacesProposalId && replaces?.status !== 'changes_requested') throw new Error(`Proposal ${input.replacesProposalId} is ${replaces?.status} and cannot be replaced.`)
     if (replaces && replaces.baseRevision !== currentRevision) throw new Error(`Proposal ${input.replacesProposalId} is stale and cannot be replaced.`)
+    const follows = input.followsProposalId ? this.find(input.followsProposalId) : undefined
+    if (input.followsProposalId && (follows?.status !== 'applied' || follows.followUp?.status !== 'requested')) {
+      throw new Error(`Proposal ${input.followsProposalId} does not have a pending follow-up request.`)
+    }
     const operations = prepareAgentOperations(input.operations)
     const draft = structuredClone(doc)
     const preview = applyAgentOperations(draft, operations)
@@ -104,13 +111,17 @@ export class AgentProposalRegistry {
       affectedSlideIds: preview.affectedSlideIds, operations,
       destructive: operations.some((operation) => operation.type.startsWith('delete_')),
       changes: operations.map(proposalChange),
-      parentProposalId: replaces?.id,
+      parentProposalId: replaces?.id ?? follows?.id,
     }
     this.proposals.push(proposal)
     if (replaces) {
       replaces.status = 'superseded'
       replaces.decidedAt = Date.now()
       replaces.replacementProposalId = proposal.id
+    }
+    if (follows?.followUp) {
+      follows.followUp.status = 'proposed'
+      follows.followUp.proposalId = proposal.id
     }
     if (this.proposals.length > 50) this.proposals.shift()
     return publicProposal(proposal)
@@ -166,6 +177,15 @@ export class AgentProposalRegistry {
     proposal.status = 'changes_requested'
     proposal.feedback = message
     proposal.feedbackAt = feedbackAt
+    return publicProposal(proposal)
+  }
+
+  requestFollowUp(id: string, currentRevision: number, guidance: unknown, requestedAt = Date.now()): AgentProposal {
+    this.markStale(currentRevision)
+    const proposal = this.find(id)
+    if (proposal.status !== 'applied') throw new Error(`Proposal ${id} is ${proposal.status} and cannot receive a follow-up request.`)
+    if (proposal.followUp) throw new Error(`Proposal ${id} already has a follow-up request.`)
+    proposal.followUp = { status: 'requested', guidance: requiredText(guidance, 'guidance', 1200), requestedAt }
     return publicProposal(proposal)
   }
 

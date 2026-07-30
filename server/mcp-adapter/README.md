@@ -56,6 +56,19 @@ MCP receives structured change metadata rather than duplicated image payloads.
 Human change requests appear in `list_agent_proposals`. Submit a revised batch
 with `replacesProposalId` to preserve the review thread and supersede the prior
 proposal after successful preflight.
+Applied proposals are verified asynchronously in the paired editor. The
+proposal status response includes revision-tagged validation findings and
+render warnings; applied-result images remain browser-local. Findings identify
+whether they were introduced by the proposal or already existed at the base
+revision.
+Human follow-up requests appear on applied proposals with verification issues.
+Submit the corrective batch with `followsProposalId`; it becomes a separate
+linked proposal and cannot bypass approval.
+Agents can avoid asking people to return to chat after reviewing. Proposal and
+summary responses include `eventCursor`; call `wait_for_agent_event` with that
+cursor and optionally a proposal id. Human feedback wakes the pending tool call
+immediately. The maximum wait is four minutes, recent events are buffered, and
+timeouts return a small unchanged payload.
 Presenter-controlled builds use the common `buildStep` element property. Read
 the `elements` and `motion` topics for grouping, reverse navigation, entrance
 effects, reduced motion, and morph behavior before authoring them.

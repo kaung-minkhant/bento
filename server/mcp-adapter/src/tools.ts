@@ -201,13 +201,13 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       inputSchema: {
         docId: z.string().uuid(), expectedRevision: z.number().int().nonnegative(),
         title: z.string().trim().min(1).max(160), summary: z.string().trim().max(1200).optional(),
-        replacesProposalId: z.string().optional(),
+        replacesProposalId: z.string().optional(), followsProposalId: z.string().optional(),
         operations: z.array(z.record(z.unknown())).min(1).max(100),
       },
       annotations: { readOnlyHint: false, openWorldHint: false },
-    }, async ({ docId, expectedRevision, title, summary, replacesProposalId, operations }) => {
+    }, async ({ docId, expectedRevision, title, summary, replacesProposalId, followsProposalId, operations }) => {
       assertAllowed(docId)
-      return result(await bridge.request(docId, 'propose_operations', undefined, { expectedRevision, title, summary, replacesProposalId, operations }))
+      return result(await bridge.request(docId, 'propose_operations', undefined, { expectedRevision, title, summary, replacesProposalId, followsProposalId, operations }))
     })
 
     server.registerTool('list_agent_proposals', {
@@ -217,6 +217,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
     }, async ({ docId }) => {
       assertAllowed(docId)
       return result(await bridge.request(docId, 'list_proposals'))
+    })
+
+    server.registerTool('wait_for_agent_event', {
+      description: 'Wait for human review or verification activity in the paired editor. Uses a cursor so events that occur before the wait starts are not lost. Waiting itself does not invoke the model or change the deck.',
+      inputSchema: {
+        docId: z.string().uuid(), afterCursor: z.number().int().nonnegative(), proposalId: z.string().optional(),
+        timeoutSeconds: z.number().int().min(1).max(240).default(55),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId, afterCursor, proposalId, timeoutSeconds }) => {
+      assertAllowed(docId)
+      return result(await bridge.request(docId, 'wait_for_agent_event', undefined, { afterCursor, proposalId, timeoutSeconds }, timeoutSeconds * 1000 + 5_000))
     })
 
     server.registerTool('create_slide', {
