@@ -36,3 +36,13 @@ test('browser bridge times out a request that receives no response', async () =>
   assert.equal(bridge.register(socket as unknown as WebSocket, 'doc-1', 'bridge-secret', 'bridge-secret', new Set(['doc-1'])), true)
   await assert.rejects(() => bridge.request('doc-1', 'render_slide'), /timed out/)
 })
+
+test('browser bridge accepts a per-request timeout override', async () => {
+  const socket = new FakeSocket()
+  const bridge = new BrowserBridge(5)
+  assert.equal(bridge.register(socket as unknown as WebSocket, 'doc-1', 'bridge-secret', 'bridge-secret', new Set(['doc-1'])), true)
+  const request = bridge.request('doc-1', 'wait_for_agent_event', undefined, { timeoutSeconds: 1 }, 100)
+  const message = JSON.parse(socket.sent[1]) as { requestId: string }
+  setTimeout(() => socket.emit('message', Buffer.from(JSON.stringify({ type: 'response', requestId: message.requestId, ok: true, value: { timedOut: true } }))), 15)
+  assert.deepEqual(await request, { timedOut: true })
+})

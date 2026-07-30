@@ -219,6 +219,18 @@ export function createMcpServer(config: AdapterConfig, client = new DocumentServ
       return result(await bridge.request(docId, 'list_proposals'))
     })
 
+    server.registerTool('wait_for_agent_event', {
+      description: 'Wait for human review or verification activity in the paired editor. Uses a cursor so events that occur before the wait starts are not lost. Waiting itself does not invoke the model or change the deck.',
+      inputSchema: {
+        docId: z.string().uuid(), afterCursor: z.number().int().nonnegative(), proposalId: z.string().optional(),
+        timeoutSeconds: z.number().int().min(1).max(240).default(55),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    }, async ({ docId, afterCursor, proposalId, timeoutSeconds }) => {
+      assertAllowed(docId)
+      return result(await bridge.request(docId, 'wait_for_agent_event', undefined, { afterCursor, proposalId, timeoutSeconds }, timeoutSeconds * 1000 + 5_000))
+    })
+
     server.registerTool('create_slide', {
       description: 'Create one blank slide in the connected deck. Optionally place it after a specific slide ID.',
       inputSchema: { docId: z.string().uuid(), name: z.string().max(200).optional(), afterSlideId: z.string().optional() },
