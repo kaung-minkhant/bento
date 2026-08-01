@@ -77,7 +77,16 @@ option { background: #fff; color: #1e2a3a; }
 .ed-topbar-middle { justify-content: center; min-width: 0; }
 .ed-topbar-right { justify-content: flex-end; margin-left: 0; min-width: 0; }
 
-.ed-logo { display: flex; align-items: center; gap: 7px; font-size: 15px; white-space: nowrap; }
+.ed-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  white-space: nowrap;
+}
 .ed-logo-mark { display: block; border-radius: 5px; }
 
 .ed-title {
@@ -108,16 +117,29 @@ option { background: #fff; color: #1e2a3a; }
 
 .ed-group { display: flex; align-items: center; gap: 6px; }
 .ed-group-right { margin-left: auto; }
+.ed-group-history {
+  gap: 1px;
+  padding: 1px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--chrome, #f2f4f8);
+}
+.ed-group-history .ed-btn {
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.ed-group-history .ed-btn:hover { background: #fff; }
 
 .ed-profile {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  max-width: 180px;
-  min-width: 0;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  flex: 0 0 auto;
   color: var(--ink-2);
   font-size: 12px;
-  white-space: nowrap;
 }
 .ed-profile-avatar {
   width: 26px;
@@ -965,17 +987,6 @@ option { background: #fff; color: #1e2a3a; }
   max-width: min(92vw, 560px);
 }
 .ed-recover .ed-btn { padding: 5px 12px; }
-.ed-autosaved {
-  font-size: 11px;
-  color: #6f8; /* set by theme below */
-  color: var(--muted, #6b7a90);
-  opacity: 0;
-  transition: opacity 0.25s;
-  align-self: center;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.ed-autosaved.show { opacity: 0.85; }
 .ed-version-box { max-width: 460px; }
 .ed-version-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; max-height: 320px; overflow-y: auto; }
 .ed-version-row {
@@ -2008,8 +2019,8 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
   .ed-topbar { gap: 6px; padding: 8px 8px; }
   /* Preserve room for the complete icon toolbar. The account name remains
      available from its tooltip/profile surface at this width. */
+  .ed-logo { width: 30px; height: 30px; }
   .ed-title { width: 140px; min-width: 90px; }
-  .ed-profile-name { display: none; }
   .ed-topbar-left,
   .ed-topbar-right { gap: 4px; }
   .ed-topbar-middle .ed-insert { gap: 4px; }
@@ -2023,8 +2034,7 @@ body.ed-col-resizing { cursor: col-resize; user-select: none; }
 }
 @media (max-width: 760px) {
   .ed-topbar { gap: 4px; padding: 6px 6px; }
-  .ed-logo > b { display: none; } /* mark only — the icon is the brand */
-  .ed-profile-name { display: none; }
+  .ed-logo { width: 28px; height: 28px; }
   .ed-title { min-width: 90px; }
 }
 

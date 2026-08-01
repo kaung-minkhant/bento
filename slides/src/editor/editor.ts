@@ -212,7 +212,8 @@ export class Editor {
       `<rect x="5" y="5" width="7" height="22" rx="2.5" fill="#5E7699"/>` +
       `<rect x="14" y="5" width="13" height="10" rx="2.5" fill="#FF9E8A"/>` +
       `<rect x="14" y="17" width="13" height="10" rx="2.5" fill="#F0EBE0"/>` +
-      `</svg> <b>bento<span style="color:#FF9E8A">/</span>slides</b>`
+      `</svg>`
+    logo.setAttribute('aria-label', 'bento/slides')
     logo.title = t('About bento/slides — version, updates, licenses')
     logo.style.cursor = 'pointer'
     logo.addEventListener('click', () => this.openAbout())
@@ -280,8 +281,6 @@ export class Editor {
       : t('Save — download an updated copy (⌘S). This browser can’t rewrite the open file.'))
     saveB.appendChild(this.dirtyDot) // the amber unsaved-changes dot lives ON Save
     const pdfB = btn(ICONS.pdf, '', () => this.exportPdf(), t('Export PDF (print)'))
-    const helpB = btn('<b class="ed-help-q">?</b>', '', () => this.openHelp(), t('Shortcuts & tips (?)'))
-    helpB.classList.add('ed-btn-help')
     this.avatarsBox = div('ed-avatars')
     this.profileBox = div('ed-profile')
     this.profileBox.setAttribute('aria-live', 'polite')
@@ -289,13 +288,23 @@ export class Editor {
     window.addEventListener('bento:auth-changed', () => this.refreshHostedProfile())
     // Intuitive grouping: LEFT = the document (identity · title · save-state ·
     // undo/redo history) · CENTRE = insert tools · RIGHT = output & sharing
-    // (print · collaborators · Live · Save · more) with help pinned to the corner.
+    // (print · collaborators · Live · Save · agent · language · help).
     const history = div('ed-group ed-group-history')
     history.append(undoB, redoB)
     const saveGroup = div('ed-split')
     saveGroup.append(saveB, this.saveDropdown())
-    const agentB = btn(ICONS.code, t('Agent'), () => this.openAgentPanel(), t('Connect an AI agent to this open deck'))
-    actions.append(pdfB, this.avatarsBox, this.profileBox, agentB, this.shareDropdown(), saveGroup, this.languageDropdown(), helpB)
+    const currentLocale = LOCALE_CHOICES.find((c) => c.code === locale()) ?? LOCALE_CHOICES[0]
+    const currentLocaleIndex = Math.max(0, LOCALE_CHOICES.findIndex((c) => c.code === currentLocale.code))
+    const nextLocale = LOCALE_CHOICES[(currentLocaleIndex + 1) % LOCALE_CHOICES.length]
+    const agentB = btn(ICONS.code, '', () => this.openAgentPanel(), t('Connect an AI agent'))
+    const langB = btn(ICONS.globe, '', () => {
+      setLocale(nextLocale.code)
+      this.build()
+      this.rebuildSidebar()
+    }, t('Language') + ` — ${currentLocale.label}`)
+    const helpB = btn('<b class="ed-help-q">?</b>', '', () => this.openHelp(), t('Shortcuts & tips (?)'))
+    helpB.classList.add('ed-btn-help')
+    actions.append(pdfB, this.avatarsBox, this.profileBox, saveGroup, this.shareDropdown(), agentB, langB, helpB)
     const left = div('ed-topbar-left')
     left.append(logo, this.updatesB, title, history)
     const middle = div('ed-topbar-middle')
@@ -381,10 +390,7 @@ export class Editor {
     const avatar = document.createElement('span')
     avatar.className = 'ed-profile-avatar'
     avatar.textContent = initials || '?'
-    const name = document.createElement('span')
-    name.className = 'ed-profile-name'
-    name.textContent = label
-    this.profileBox.append(avatar, name)
+    this.profileBox.append(avatar)
     this.profileBox.title = profile.email ? `${label}\n${profile.email}` : label
     this.profileBox.style.display = ''
   }
@@ -1623,31 +1629,6 @@ export class Editor {
     await this.save(true)
   }
 
-  /** Globe → locale picker. UI language follows the VIEWER, never the file. */
-  private languageDropdown(): HTMLElement {
-    const wrap = div('ed-dropdown')
-    const trigger = btn(ICONS.globe, '', () => wrap.classList.toggle('open'), t('Language'))
-    const menu = div('ed-menu ed-lang-menu')
-    for (const c of LOCALE_CHOICES) {
-      const b = btn('', c.label, () => {
-        wrap.classList.remove('open')
-        setLocale(c.code)
-        this.build()
-        this.rebuildSidebar()
-      })
-      if (c.code === locale()) b.classList.add('ed-lang-on')
-      menu.appendChild(b)
-    }
-    // right-anchor so the menu never overflows the window edge
-    menu.style.left = 'auto'
-    menu.style.right = '0'
-    wrap.append(trigger, menu)
-    document.addEventListener('pointerdown', (ev) => {
-      if (!wrap.contains(ev.target as Node)) wrap.classList.remove('open')
-    })
-    return wrap
-  }
-
   private shapeDropdown(): HTMLElement {
     const wrap = div('ed-dropdown')
     const trigger = btn(ICONS.shapes, t('Shape'), () => wrap.classList.toggle('open'))
@@ -2331,7 +2312,6 @@ export class Editor {
 
   private autosaveTimer = 0
   private lastVersionAt = 0
-  private lastBackupAt = 0
 
   private wireAutosave() {
     if (this.store.doc.readonly) return // player file — nothing to autosave
@@ -2368,9 +2348,7 @@ export class Editor {
       } catch { /* keep dirty; the IndexedDB snapshot is the backstop */ }
     }
     if (snapshotted) {
-      this.lastBackupAt = Date.now()
-      this.flashSaved(t('Backed up in this browser'))
-      this.refreshDirtyHint()
+      this.toast(t('Backed up in this browser'))
     }
   }
 
@@ -2390,12 +2368,6 @@ export class Editor {
     })
     bar.append(msg, ok)
     document.body.appendChild(bar)
-  }
-
-  private refreshDirtyHint() {
-    if (canWriteInPlace() || !this.lastBackupAt) return
-    const when = new Date(this.lastBackupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    this.dirtyDot.title = t('Unsaved changes — kept in this browser at {when} and offered back if you reopen. ⌘S downloads an updated copy.', { when })
   }
 
   private async checkRecovery() {
@@ -2563,14 +2535,8 @@ export class Editor {
     document.body.appendChild(overlay)
   }
 
-  private savedTimer = 0
   private flashSaved(message = t('Saved')) {
-    let tag = document.querySelector<HTMLElement>('.ed-autosaved')
-    if (!tag) { tag = div('ed-autosaved'); document.querySelector('.ed-topbar .ed-title')?.after(tag) }
-    tag.textContent = message
-    tag.classList.add('show')
-    clearTimeout(this.savedTimer)
-    this.savedTimer = window.setTimeout(() => tag!.classList.remove('show'), 1400)
+    this.toast(message)
   }
 
   async save(forcePicker: boolean) {
@@ -3021,6 +2987,7 @@ function btn(
   b.className = 'ed-btn'
   b.innerHTML = label ? `${icon}<span>${label}</span>` : icon
   if (title) b.title = title
+  b.setAttribute('aria-label', title || label || '')
   b.addEventListener('click', onClick)
   return b
 }

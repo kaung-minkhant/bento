@@ -207,6 +207,7 @@ export const de: Catalog = {
   "Loop secs": "Schleifen-Sek.",
   "Enter secs": "Eingang-Sek.",
   "Medium": "Medium",
+  "More": "Mehr",
   "Morph id:": "Morph-ID:",
   "Name": "Name",
   "New slide": "Neue Folie",

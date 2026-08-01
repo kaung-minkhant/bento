@@ -207,6 +207,7 @@ export const fr: Catalog = {
   "Loop secs": "Secondes de boucle",
   "Enter secs": "Secondes d'entrée",
   "Medium": "Medium",
+  "More": "Plus",
   "Morph id:": "Id de morph :",
   "Name": "Nom",
   "New slide": "Nouvelle diapositive",
