@@ -424,7 +424,9 @@ export function resolveMath(html: string): string {
   return out.replace(/\\\$/g, '$') // the escape has done its job
 }
 
-const ALLOWED_TAGS = new Set(['B', 'I', 'U', 'BR', 'SPAN', 'DIV', 'P', 'STRONG', 'EM', 'S', 'CODE'])
+const ALLOWED_TAGS = new Set(['A', 'B', 'I', 'U', 'BR', 'SPAN', 'DIV', 'P', 'STRONG', 'EM', 'S', 'CODE'])
+
+const SAFE_HREF = /^(?:https?:|mailto:|tel:|#|\/(?!\/))/i
 
 /** Keep pasted/edited rich text down to a safe inline subset. */
 export function sanitizeHtml(html: string): string {
@@ -440,7 +442,24 @@ export function sanitizeHtml(html: string): string {
           elChild.remove()
           continue
         }
-        for (const attr of Array.from(elChild.attributes)) elChild.removeAttribute(attr.name)
+        if (elChild.tagName === 'A') {
+          const href = elChild.getAttribute('href')?.trim() ?? ''
+          if (!SAFE_HREF.test(href)) {
+            while (elChild.firstChild) node.insertBefore(elChild.firstChild, elChild)
+            elChild.remove()
+            continue
+          }
+          for (const attr of Array.from(elChild.attributes)) {
+            if (attr.name !== 'href' && attr.name !== 'target' && attr.name !== 'rel' && attr.name !== 'title') {
+              elChild.removeAttribute(attr.name)
+            }
+          }
+          elChild.setAttribute('href', href)
+          if (!elChild.getAttribute('target')) elChild.setAttribute('target', '_blank')
+          if (!elChild.getAttribute('rel')) elChild.setAttribute('rel', 'noopener noreferrer')
+        } else {
+          for (const attr of Array.from(elChild.attributes)) elChild.removeAttribute(attr.name)
+        }
         walk(elChild)
       } else if (child.nodeType !== Node.TEXT_NODE) {
         child.remove()
