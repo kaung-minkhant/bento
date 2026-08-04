@@ -17,6 +17,7 @@ import { BuildStepState, buildSteps, type BuildEntryMode } from './build-steps'
 
 const MORPH_DURATION = 0.65
 const MORPH_EASE = 'power2.inOut'
+const SAFE_HREF = /^(?:https?:|mailto:|tel:|#|\/(?!\/))/i
 
 export interface PresentSession {
   exit(): void
@@ -799,11 +800,18 @@ export function startPresentation(
   slidesEl.addEventListener('click', (ev) => {
     const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-link]')
     if (target) {
-      const idx = doc.slides.findIndex((s) => s.id === target.dataset.link)
+      const link = target.dataset.link?.trim() ?? ''
+      const idx = doc.slides.findIndex((s) => s.id === link)
       if (idx >= 0) {
         ev.preventDefault()
         ev.stopPropagation()
         navigateTo(idx, 'jump')
+        return
+      }
+      if (SAFE_HREF.test(link)) {
+        ev.preventDefault()
+        ev.stopPropagation()
+        window.open(link, '_blank', 'noopener,noreferrer')
       }
       return
     }
