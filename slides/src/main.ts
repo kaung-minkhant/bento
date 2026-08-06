@@ -417,7 +417,7 @@ if (location.hash === '#present') {
     oidcSignedIn: () => isHostedOidcSignedIn(),
     profile: () => getHostedProfile(),
     signIn: () => signInHosted(),
-    signOut: () => signOutHosted(),
+    signOut: () => { signOutHosted(); location.assign(hostedRoute('/')) },
     setToken: (token: string | null) => setHostedToken(token),
     setPassword: (password: string | null) => setHostedPassword(password),
     ensureVault: () => ensureHostedVaultKey(),
