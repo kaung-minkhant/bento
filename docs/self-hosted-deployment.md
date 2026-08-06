@@ -14,7 +14,8 @@ GitHub bento repository
 
 The deployed components are:
 
-- `bento-slides`: static Vite frontend at `slides.kaungminkhant.space`.
+- `bento-slides`: static Vite frontend at `slides.kaungminkhant.space` and
+  `kaungminkhant.space/slides`.
 - `bento-document-service`: internal API service on port `8789`.
 - `bento-mcp-adapter`: authenticated MCP and browser bridge service at
   `https://slides.kaungminkhant.space/mcp`.
@@ -67,8 +68,11 @@ OIDC_AUDIENCE         # Zitadel API project ID
 
 Set `OIDC_ISSUER_URL` as a non-secret deployment value. For the current
 installation it is `https://authz.kaungminkhant.space`. Register the public
-frontend origin (`https://slides.kaungminkhant.space/`) as a Zitadel redirect
-URI and enable authorization code with PKCE. The browser obtains a short-lived
+frontend routes (`https://slides.kaungminkhant.space/`,
+`https://slides.kaungminkhant.space/library`,
+`https://kaungminkhant.space/slides/`, and
+`https://kaungminkhant.space/slides/library`) as Zitadel redirect URIs and
+enable authorization code with PKCE. The browser obtains a short-lived
 access token; the service validates its signature and `sub` against Zitadel's
 JWKS. `BENTO_API_TOKEN` remains the document-service credential used by the MCP
 adapter's backend client; MCP clients use the separate `MCP_ACCESS_TOKEN`.
@@ -127,10 +131,11 @@ kubectl -n bento-prod rollout status deployment/bento-document-service
 ```
 
 The frontend is public through the Traefik Ingress. The document service and
-MCP adapter remain ClusterIP workloads, with authenticated `/api/v1/*` requests
-routed under `/api` and MCP traffic routed under `/mcp`, `/pairings`, and
-`/bridge` on the same host. MCP clients still need the `MCP_ACCESS_TOKEN`
-bearer token.
+MCP adapter remain ClusterIP workloads. The subdomain routes authenticated
+document requests under `/api` and MCP traffic under `/mcp`, `/pairings`, and
+`/bridge`. The path deployment exposes the same routes under `/slides/*` and
+strips `/slides` before forwarding to the workloads. MCP clients still need
+the `MCP_ACCESS_TOKEN` bearer token.
 
 ## Current readiness boundary
 

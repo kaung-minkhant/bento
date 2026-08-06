@@ -2,6 +2,7 @@
 // envelope; document HTML and library metadata are encrypted in this browser.
 
 import { t } from './i18n'
+import { hostedRoute } from './base-path'
 
 export type HostedMetadata = {
   title: string
@@ -421,7 +422,7 @@ function baseUrl(): string {
   // and the production ingress serves the API under the same host, so a
   // persisted endpoint override can only create stale or cross-environment
   // authentication failures.
-  return `${location.origin}/api/v1`
+  return `${location.origin}${hostedRoute('/api/v1')}`
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {

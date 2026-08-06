@@ -34,6 +34,7 @@ import { applyAgentOperations, prepareAgentOperations } from './agent-operations
 import { COMPOSITION_RECIPES, instantiateCompositionRecipe } from './composition-recipes'
 import { inspectDeckQuality } from './agent-quality'
 import { AgentProposalRegistry } from './agent-proposals'
+import { hostedRoute } from './base-path'
 
 // Tell the kernel who this app is — must precede any kernel module use
 // (window title suffix, save-picker label, update manifest + its `app` check).
@@ -57,7 +58,7 @@ void refreshHostedProfile().catch((error) => console.error(error))
 
 const embedded = readEmbeddedDoc()
 const envelope = embedded ? parseEnvelope(embedded) : null
-const isHostedLibraryEntry = location.protocol !== 'file:' && location.pathname === '/library'
+const isHostedLibraryEntry = location.protocol !== 'file:' && location.pathname === hostedRoute('/library')
 const hostedDocQuery = location.protocol !== 'file:' && new URLSearchParams(location.search).get('doc')
 if (isHostedLibraryEntry && !embedded && !envelope) {
   void hostedSignIn.then(() => bootHostedLibraryPage())
