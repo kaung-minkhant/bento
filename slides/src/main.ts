@@ -149,7 +149,7 @@ function hostedLoadError(error: unknown) {
   card.innerHTML = `<div class="ed-hosted-library-signin-card"><div class="ed-hosted-library-kicker">bento/vault</div>` +
     `<h1>${t('Hosted open failed')}</h1><p>${message}</p>` +
     `<button class="ed-hosted-library-action primary">${t('Back to hosted library')}</button></div>`
-  card.querySelector('button')!.addEventListener('click', () => location.assign('/library'))
+  card.querySelector('button')!.addEventListener('click', () => location.assign(hostedRoute('/library')))
   document.body.appendChild(card)
 }
 
@@ -185,13 +185,13 @@ function bootHostedLibraryPage() {
   openHostedLibrary({
     profileLabel: hostedProfileLabel(),
     list: listHostedLibraryDocuments,
-    open: async (docId) => { location.assign(`/?doc=${encodeURIComponent(docId)}`) },
+    open: async (docId) => { location.assign(`${hostedRoute('/')}?doc=${encodeURIComponent(docId)}`) },
     remove: (docId) => deleteHostedDocument(docId),
-    create: async () => { location.assign('/?new=1') },
+    create: async () => { location.assign(`${hostedRoute('/')}?new=1`) },
     setupVault: () => ensureHostedVaultKey(),
     vaultState: () => getHostedVaultState(),
-    continueLocal: () => { location.assign('/') },
-    signOut: () => { signOutHosted(); location.assign('/library') },
+    continueLocal: () => { location.assign(hostedRoute('/')) },
+    signOut: () => { signOutHosted(); location.assign(hostedRoute('/library')) },
   })
 }
 
@@ -425,7 +425,7 @@ if (location.hash === '#present') {
     startSession: () => startHostedSessionRecord(),
     stopSession: () => stopHostedSession(),
     openLibrary: () => {
-      if (isHostedOidcSignedIn()) location.assign('/library')
+      if (isHostedOidcSignedIn()) location.assign(hostedRoute('/library'))
       else void signInHosted()
     },
     list: () => listHostedDocuments(),
