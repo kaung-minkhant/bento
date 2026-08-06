@@ -191,7 +191,7 @@ function bootHostedLibraryPage() {
     setupVault: () => ensureHostedVaultKey(),
     vaultState: () => getHostedVaultState(),
     continueLocal: () => { location.assign(hostedRoute('/')) },
-    signOut: () => { signOutHosted(); location.assign(hostedRoute('/library')) },
+    signOut: () => { signOutHosted(); location.replace(hostedRoute('/library')) },
   })
 }
 
@@ -417,7 +417,7 @@ if (location.hash === '#present') {
     oidcSignedIn: () => isHostedOidcSignedIn(),
     profile: () => getHostedProfile(),
     signIn: () => signInHosted(),
-    signOut: () => { signOutHosted(); location.assign(hostedRoute('/')) },
+    signOut: () => { signOutHosted(); location.replace(hostedRoute('/')) },
     setToken: (token: string | null) => setHostedToken(token),
     setPassword: (password: string | null) => setHostedPassword(password),
     ensureVault: () => ensureHostedVaultKey(),
